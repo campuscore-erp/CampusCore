@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusCore — Student Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#080d18;--bg2:#0f1623;--bg3:#161f2e;--bg4:#1b2438;--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.11);--text:#dce8f5;--text2:#8fa5bf;--text3:#5a7290;--blue:#3b82f6;--blue2:#60a5fa;--blue-bg:rgba(59,130,246,.09);--green:#22c55e;--green-bg:rgba(34,197,94,.09);--amber:#f59e0b;--amber-bg:rgba(245,158,11,.09);--red:#ef4444;--red-bg:rgba(239,68,68,.09);--purple:#a855f7;--purple-bg:rgba(168,85,247,.09);--teal:#14b8a6;--teal-bg:rgba(20,184,166,.09);--r:10px;--r-sm:7px;--r-lg:14px;--font:'Sora',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--sw:255px}
+html{height:100%}body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none}
+input,select,textarea{font-family:var(--font);outline:none}
+a{text-decoration:none;color:inherit}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sw);background:linear-gradient(175deg,#0f2447 0%,#1a3a6b 60%,#14305e 100%);border-right:none;display:flex;flex-direction:column;z-index:100;overflow-y:auto}
+.sb-brand{padding:1.25rem 1.2rem .75rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border)}
+.brand-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#0f766e,#14b8a6);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.brand-name{font-weight:700;font-size:.95rem}.brand-role{font-size:.7rem;color:var(--teal);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.sb-user{padding:.85rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem}
+.user-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--blue));display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;flex-shrink:0}
+.user-name{font-size:.82rem;font-weight:600}.user-code{font-size:.7rem;color:var(--text3);font-family:var(--mono)}
+.sb-nav{flex:1;padding:.75rem}
+.nav-sec{margin-bottom:1.25rem}.nav-sec-title{font-size:.62rem;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;padding:.25rem .5rem .6rem}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.6rem .75rem;border-radius:var(--r-sm);font-size:.83rem;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;margin-bottom:.15rem}
+.nav-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.nav-item.active{background:rgba(249,115,22,.18);color:#fdba74;font-weight:600;border-left:3px solid #f97316}
+.nav-item .ic{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+.sb-footer{padding:.85rem 1.2rem;border-top:1px solid var(--border)}
+.btn-logout{width:100%;padding:.55rem;border-radius:var(--r-sm);background:var(--red-bg);color:var(--red);font-size:.78rem;font-weight:600;border:1px solid rgba(239,68,68,.2);transition:all .15s}
+.btn-logout:hover{background:var(--red);color:#fff}
+.main{margin-left:var(--sw);min-height:100vh;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(8,13,24,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:.85rem 1.75rem;display:flex;align-items:center;justify-content:space-between}
+.topbar h2{font-size:1.1rem;font-weight:700}.topbar p{font-size:.75rem;color:var(--text3);margin-top:.1rem}
+.t-badge{padding:.35rem .8rem;border-radius:100px;background:var(--teal-bg);color:var(--teal);font-size:.72rem;font-weight:700;border:1px solid rgba(20,184,166,.2)}
+.content{flex:1;padding:1.75rem}
+.view{display:none}.view.active{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.5rem}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.card-title{font-size:.92rem;font-weight:700}.card-sub{font-size:.75rem;color:var(--text3);margin-top:.15rem}
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.5rem}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem;transition:transform .15s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-icon{font-size:1.4rem;margin-bottom:.35rem}.stat-label{font-size:.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em}.stat-value{font-size:1.8rem;font-weight:800;line-height:1}
+.table-wrap{overflow-x:auto;border-radius:var(--r)}
+table{width:100%;border-collapse:collapse}
+th{font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:.65rem 1rem;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border)}
+td{font-size:.82rem;color:var(--text);padding:.7rem 1rem;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.1rem;border-radius:var(--r-sm);font-size:.8rem;font-weight:600;transition:all .15s;border:1px solid transparent;cursor:pointer}
+.btn-primary{background:var(--teal);color:#fff;border-color:var(--teal)}.btn-primary:hover{background:#0f9e8e}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text2);border-color:var(--border)}.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-success{background:var(--green-bg);color:var(--green);border-color:rgba(34,197,94,.25)}.btn-success:hover{background:var(--green);color:#fff}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.25)}.btn-danger:hover{background:var(--red);color:#fff}
+.btn-sm{padding:.35rem .7rem;font-size:.74rem}
+.badge{display:inline-flex;align-items:center;padding:.2rem .6rem;border-radius:100px;font-size:.68rem;font-weight:700}
+.badge-green{background:var(--green-bg);color:var(--green)}.badge-red{background:var(--red-bg);color:var(--red)}.badge-blue{background:var(--blue-bg);color:var(--blue2)}.badge-amber{background:var(--amber-bg);color:var(--amber)}.badge-purple{background:var(--purple-bg);color:var(--purple)}.badge-teal{background:var(--teal-bg);color:var(--teal)}
+.loading{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem;color:var(--text3);font-size:.85rem}
+.spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:3rem 1rem;color:var(--text3)}
+.empty-icon{font-size:2.5rem;margin-bottom:.75rem}.empty-text{font-size:.9rem;font-weight:600;color:var(--text2)}.empty-sub{font-size:.8rem;margin-top:.35rem}
+.progress-bar-wrap{background:var(--bg3);border-radius:100px;height:8px;overflow:hidden}
+.progress-bar{height:100%;border-radius:100px;transition:width .5s ease}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);width:min(580px,95vw);max-height:90vh;overflow-y:auto}
+.modal-hdr{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:10}
+.modal-hdr h3{font-size:1rem;font-weight:700}
+.btn-close{background:none;color:var(--text3);font-size:1.25rem;padding:.25rem;border-radius:var(--r-sm);cursor:pointer;border:none}
+.btn-close:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.modal-body{padding:1.5rem}
+.modal-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.75rem}
+.alert{padding:.75rem 1rem;border-radius:var(--r-sm);font-size:.82rem;margin-bottom:1rem}
+.alert-info{background:var(--blue-bg);color:var(--blue2);border:1px solid rgba(59,130,246,.2)}
+.alert-success{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.alert-error{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.alert-warning{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
+.tt-grid{display:grid;grid-template-columns:80px repeat(5,1fr);gap:2px}
+.tt-hdr{background:var(--bg3);padding:.55rem .6rem;font-size:.72rem;font-weight:700;color:var(--text2);text-align:center;border-radius:var(--r-sm)}
+.tt-time{background:var(--bg3);padding:.45rem;font-size:.66rem;color:var(--text3);text-align:center;border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);gap:.15rem}
+.tt-cell{background:var(--bg4);border-radius:var(--r-sm);min-height:72px;border:1px solid var(--border)}
+.tt-has{background:var(--teal-bg);border-color:rgba(20,184,166,.3);padding:.6rem;cursor:default}
+.tt-lab{background:var(--purple-bg);border-color:rgba(168,85,247,.3)}
+.tt-subj{font-weight:700;color:var(--teal);font-size:.76rem;line-height:1.3}.tt-lab .tt-subj{color:var(--purple)}
+.tt-teacher{color:var(--text3);margin-top:.2rem;font-size:.68rem}
+.tt-room{color:var(--text3);font-size:.66rem;font-family:var(--mono);margin-top:.1rem}
+.marks-row{display:grid;grid-template-columns:2fr repeat(8,1fr) 1fr;gap:.5rem;align-items:center;padding:.7rem 1rem;border-bottom:1px solid var(--border);font-size:.82rem}
+.marks-row:hover{background:rgba(255,255,255,.02)}
+.marks-hdr{background:var(--bg3);font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;border-bottom:2px solid var(--border)}
+.mk-val{text-align:center;font-family:var(--mono);font-weight:600}
+.mk-na{color:var(--text3);text-align:center}
+#qrVideo{width:100%;border-radius:var(--r);background:#000;max-height:300px;object-fit:cover}
+#qrCanvas{display:none}
+.fee-row{display:flex;justify-content:space-between;padding:.65rem 0;border-bottom:1px solid var(--border);font-size:.83rem}
+.fee-row:last-child{border:none}
+/* Payment method cards */
+.pay-method-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem}
+.pay-method-card{border:2px solid var(--border);border-radius:var(--r);padding:.9rem;cursor:pointer;transition:all .15s;background:var(--bg3);text-align:center}
+.pay-method-card:hover{border-color:var(--teal);background:var(--teal-bg)}
+.pay-method-card.selected{border-color:var(--teal);background:var(--teal-bg)}
+.pay-method-icon{font-size:1.5rem;margin-bottom:.35rem}
+.pay-method-label{font-size:.78rem;font-weight:700}
+.pay-method-sub{font-size:.66rem;color:var(--text3)}
+.form-group{margin-bottom:1rem}
+.form-label{font-size:.76rem;font-weight:700;color:var(--text2);margin-bottom:.4rem;display:block}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);font-size:.84rem;padding:.6rem .85rem;transition:border-color .15s}
+.form-input:focus{border-color:var(--teal)}
+.form-input::placeholder{color:var(--text3)}
+select.form-input option{background:var(--bg3)}
+@media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr}.tt-grid{grid-template-columns:65px repeat(5,1fr)}}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sb-brand">
+    <svg width="38" height="38" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><defs><linearGradient id="sgl1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#2563eb"/></linearGradient><linearGradient id="sgl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient></defs><path d="M24 2 L41 9 L41 27 Q41 39 24 46 Q7 39 7 27 L7 9 Z" fill="url(#sgl1)"/><path d="M24 2 L41 9 L41 15 L24 8 L7 15 L7 9 Z" fill="url(#sgl2)"/><rect x="13" y="20" width="9" height="13" rx="2" fill="white" opacity="0.92"/><rect x="26" y="20" width="9" height="13" rx="2" fill="white" opacity="0.65"/><polygon points="24,11 33,16 24,21 15,16" fill="url(#sgl2)"/><line x1="33" y1="16" x2="33" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/><circle cx="33" cy="23" r="2" fill="#f97316"/></svg>
+    <div><div class="brand-name">CampusCore</div><div class="brand-role">Student Portal</div></div>
+  </div>
+  <div class="sb-user">
+    <div class="user-av" id="av">S</div>
+    <div><div class="user-name" id="sbName">Loading…</div><div class="user-code" id="sbCode"></div></div>
+  </div>
+  <nav class="sb-nav">
+    <div class="nav-sec">
+      <div class="nav-sec-title">Main</div>
+      <div class="nav-item active" id="nav-dashboard" onclick="go('dashboard')"><span class="ic">📊</span> Dashboard</div>
+      <div class="nav-item" id="nav-profile" onclick="go('profile')"><span class="ic">👤</span> My Profile</div>
+      <div class="nav-item" id="nav-notifications" onclick="go('notifications')"><span class="ic">🔔</span> Notifications <span id="notifBadge" style="display:none;background:var(--red);color:#fff;border-radius:999px;font-size:.65rem;padding:.1rem .45rem;margin-left:.35rem;font-weight:700"></span></div>
+      <div class="nav-item" id="nav-timetable" onclick="go('timetable')"><span class="ic">📅</span> Timetable</div>
+      <div class="nav-item" id="nav-subjects" onclick="go('subjects')"><span class="ic">📚</span> My Subjects</div>
+      <div class="nav-item" id="nav-teachers" onclick="go('teachers')"><span class="ic">👨‍🏫</span> My Teachers</div>
+    </div>
+    <div class="nav-sec">
+      <div class="nav-sec-title">Academics</div>
+      <div class="nav-item" id="nav-attendance" onclick="go('attendance')"><span class="ic">📋</span> Attendance</div>
+      <div class="nav-item" id="nav-scan" onclick="go('scan')"><span class="ic">📷</span> Scan QR</div>
+      <div class="nav-item" id="nav-marks" onclick="go('marks')"><span class="ic">📝</span> My Marks</div>
+      <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="ic">📄</span> Exams</div>
+      <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="ic">📁</span> Study Materials</div>
+      <div class="nav-item" id="nav-online" onclick="go('online')"><span class="ic">💻</span> Online Classes</div>
+      <div class="nav-item" id="nav-fees" onclick="go('fees')"><span class="ic">💳</span> Fee Details</div>
+    </div>
+  </nav>
+  <div class="sb-footer"><button class="btn-logout" onclick="logout()">⏻ Sign Out</button></div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div><h2 id="pageTitle">Dashboard</h2><p id="pageSub">Your academic overview</p></div>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <div style="position:relative;cursor:pointer" onclick="go('notifications')" title="Notifications">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--bg3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:1.05rem;transition:background .15s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">🔔</div>
+        <span id="topbarNotifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border-radius:999px;font-size:.6rem;font-weight:800;padding:.1rem .35rem;min-width:16px;text-align:center;border:2px solid var(--bg)"></span>
+      </div>
+      <span class="t-badge" id="dateBadge">Today</span>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">📚</div><div class="stat-label">Subjects</div><div class="stat-value" id="ds-subj">—</div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Attendance</div><div class="stat-value" id="ds-att" style="font-size:1.5rem">—%</div></div>
+        <div class="stat-card"><div class="stat-icon">🎓</div><div class="stat-label">Semester</div><div class="stat-value" id="ds-sem" style="font-size:1.5rem">—</div></div>
+        <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-label">Pending Exams</div><div class="stat-value" id="ds-exm">—</div></div>
+        <div class="stat-card" onclick="go('notifications')" style="cursor:pointer"><div class="stat-icon">🔔</div><div class="stat-label">Notifications</div><div class="stat-value" id="ds-notif">—</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:1.25rem">
+        <div class="card">
+          <div class="card-hdr"><div><div class="card-title">Today's Classes</div><div class="card-sub" id="todayLabel"></div></div></div>
+          <div id="todayList"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">Attendance Summary</div></div>
+          <div id="attSummary"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="view" id="view-profile">
+      <div class="card" style="max-width:600px">
+        <div class="card-hdr"><div class="card-title">My Profile</div></div>
+        <div id="profileData"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- TIMETABLE -->
+    <div class="view" id="view-timetable">
+      <div class="card">
+        <div class="card-hdr"><div><div class="card-title">My Timetable</div><div class="card-sub">Weekly schedule with teachers and room numbers</div></div></div>
+        <div id="ttWrap"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- SUBJECTS -->
+    <div class="view" id="view-subjects">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">My Subjects</div></div>
+        <div id="subjList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- MY TEACHERS -->
+    <div class="view" id="view-teachers">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">My Teachers</div></div>
+        <div id="teacherList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE -->
+    <div class="view" id="view-attendance">
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="card-hdr"><div class="card-title">Attendance — Subject-wise</div></div>
+        <div id="attSubjectWise"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Attendance Log</div></div>
+        <div id="attLog"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- SCAN QR — Camera only, no manual token -->
+    <div class="view" id="view-scan">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+        <div class="card">
+          <div class="card-hdr"><div><div class="card-title">📷 Scan QR Code</div><div class="card-sub">Point your camera at the teacher's QR code</div></div></div>
+          <div style="margin-bottom:1rem;position:relative">
+            <video id="qrVideo" autoplay playsinline></video>
+            <canvas id="qrCanvas"></canvas>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <button class="btn btn-primary" onclick="startCam()" style="flex:1">📷 Start Camera</button>
+            <button class="btn btn-ghost btn-sm" onclick="stopCam()">■ Stop</button>
+          </div>
+          <div id="scanStatus" style="margin-top:.75rem"></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">How to Mark Attendance</div></div>
+          <div style="display:flex;flex-direction:column;gap:1rem">
+            <div style="display:flex;gap:.85rem;align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">1</div>
+              <div><div style="font-weight:700;font-size:.85rem">Teacher shows QR Code</div><div style="font-size:.78rem;color:var(--text3);margin-top:.25rem">Your teacher will display a QR code on their screen during class.</div></div>
+            </div>
+            <div style="display:flex;gap:.85rem;align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">2</div>
+              <div><div style="font-weight:700;font-size:.85rem">Click "Start Camera"</div><div style="font-size:.78rem;color:var(--text3);margin-top:.25rem">Allow browser camera access when prompted.</div></div>
+            </div>
+            <div style="display:flex;gap:.85rem;align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--teal-bg);color:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">3</div>
+              <div><div style="font-weight:700;font-size:.85rem">Point at the QR Code</div><div style="font-size:.78rem;color:var(--text3);margin-top:.25rem">Hold your phone steady until the QR code is detected automatically.</div></div>
+            </div>
+            <div style="display:flex;gap:.85rem;align-items:flex-start">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">✓</div>
+              <div><div style="font-weight:700;font-size:.85rem;color:var(--green)">Attendance Marked!</div><div style="font-size:.78rem;color:var(--text3);margin-top:.25rem">You'll see a green confirmation message when your attendance is recorded.</div></div>
+            </div>
+            <div class="alert alert-warning" style="margin-bottom:0;margin-top:.5rem">
+              ⏰ QR codes expire quickly — scan within the time shown by your teacher.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKS -->
+    <div class="view" id="view-marks">
+      <div class="card">
+        <div class="card-hdr"><div><div class="card-title">My Marks</div><div class="card-sub">CA1–CA5 (10 each) · Midterm (50) · Endterm (100)</div></div></div>
+        <div id="marksList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- EXAMS -->
+    <div class="view" id="view-exams">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">My Exams</div></div>
+        <div id="examList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- MATERIALS -->
+    <div class="view" id="view-materials">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Study Materials</div></div>
+        <div id="matList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ONLINE CLASSES -->
+    <div class="view" id="view-online">
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">Online Classes</div></div>
+        <div id="ocList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- FEES -->
+    <div class="view" id="view-fees">
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:1.25rem">
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title">Fee Details</div>
+            <button class="btn btn-primary btn-sm" onclick="openPayModal()">💳 Pay Now</button>
+          </div>
+          <div id="feeDetails"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-hdr"><div class="card-title">Payment History</div></div>
+          <div id="payHistory"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS -->
+    <div class="view" id="view-notifications">
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title">🔔 Notifications</div>
+          <button class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button>
+        </div>
+        <div id="notifList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- EXAM MODAL -->
+<div class="modal-overlay" id="examMdl">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div><h3 id="examMdlTitle">Exam</h3><div style="font-size:.75rem;color:var(--text3)" id="examMdlSub"></div></div>
+      <button class="btn-close" onclick="closeMdl('examMdl')">✕</button>
+    </div>
+    <div class="modal-body" id="examMdlBody"></div>
+    <div class="modal-footer" id="examMdlFoot"></div>
+  </div>
+</div>
+
+<!-- FEE PAYMENT MODAL -->
+<div class="modal-overlay" id="payMdl">
+  <div class="modal" style="width:min(520px,95vw)">
+    <div class="modal-hdr">
+      <div><h3>💳 Pay Fee</h3><div style="font-size:.75rem;color:var(--text3)">Choose your preferred payment method</div></div>
+      <button class="btn-close" onclick="closeMdl('payMdl')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Step 1: Choose method -->
+      <div id="payStep1">
+        <div style="font-size:.8rem;color:var(--text3);margin-bottom:.85rem;font-weight:600">SELECT PAYMENT METHOD</div>
+        <div class="pay-method-grid">
+          <div class="pay-method-card" onclick="selectPayMethod('UPI')" id="pm-UPI">
+            <div class="pay-method-icon">📲</div>
+            <div class="pay-method-label">UPI</div>
+            <div class="pay-method-sub">Google Pay, PhonePe, Paytm</div>
+          </div>
+          <div class="pay-method-card" onclick="selectPayMethod('NetBanking')" id="pm-NetBanking">
+            <div class="pay-method-icon">🏦</div>
+            <div class="pay-method-label">Net Banking</div>
+            <div class="pay-method-sub">All major Indian banks</div>
+          </div>
+          <div class="pay-method-card" onclick="selectPayMethod('DebitCard')" id="pm-DebitCard">
+            <div class="pay-method-icon">💳</div>
+            <div class="pay-method-label">Debit Card</div>
+            <div class="pay-method-sub">Visa, Mastercard, RuPay</div>
+          </div>
+          <div class="pay-method-card" onclick="selectPayMethod('CreditCard')" id="pm-CreditCard">
+            <div class="pay-method-icon">💎</div>
+            <div class="pay-method-label">Credit Card</div>
+            <div class="pay-method-sub">Visa, Mastercard, Amex</div>
+          </div>
+        </div>
+
+        <!-- UPI Fields -->
+        <div id="fields-UPI" class="pay-fields" style="display:none">
+          <div class="form-group">
+            <label class="form-label">UPI ID *</label>
+            <input id="upiId" class="form-input" type="text" placeholder="yourname@upi or 9876543210@paytm">
+          </div>
+        </div>
+
+        <!-- Net Banking Fields -->
+        <div id="fields-NetBanking" class="pay-fields" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Select Bank *</label>
+            <select id="bankName" class="form-input">
+              <option value="">— Choose your bank —</option>
+              <option>State Bank of India</option>
+              <option>HDFC Bank</option>
+              <option>ICICI Bank</option>
+              <option>Axis Bank</option>
+              <option>Kotak Mahindra Bank</option>
+              <option>Punjab National Bank</option>
+              <option>Bank of Baroda</option>
+              <option>Canara Bank</option>
+              <option>Union Bank of India</option>
+              <option>IndusInd Bank</option>
+              <option>Yes Bank</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Debit / Credit Card Fields -->
+        <div id="fields-DebitCard" class="pay-fields" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Card Number *</label>
+            <input id="cardNumber-debit" class="form-input" type="text" placeholder="1234 5678 9012 3456" maxlength="19" oninput="fmtCard(this)">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+            <div class="form-group">
+              <label class="form-label">Expiry *</label>
+              <input id="cardExpiry-debit" class="form-input" type="text" placeholder="MM/YY" maxlength="5" oninput="fmtExpiry(this)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">CVV *</label>
+              <input id="cardCvv-debit" class="form-input" type="password" placeholder="•••" maxlength="4">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Name on Card *</label>
+            <input id="cardName-debit" class="form-input" type="text" placeholder="As printed on card">
+          </div>
+        </div>
+
+        <div id="fields-CreditCard" class="pay-fields" style="display:none">
+          <div class="form-group">
+            <label class="form-label">Card Number *</label>
+            <input id="cardNumber-credit" class="form-input" type="text" placeholder="1234 5678 9012 3456" maxlength="19" oninput="fmtCard(this)">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+            <div class="form-group">
+              <label class="form-label">Expiry *</label>
+              <input id="cardExpiry-credit" class="form-input" type="text" placeholder="MM/YY" maxlength="5" oninput="fmtExpiry(this)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">CVV *</label>
+              <input id="cardCvv-credit" class="form-input" type="password" placeholder="•••" maxlength="4">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Name on Card *</label>
+            <input id="cardName-credit" class="form-input" type="text" placeholder="As printed on card">
+          </div>
+        </div>
+
+        <!-- Amount -->
+        <div class="form-group" style="margin-top:.5rem">
+          <label class="form-label">Amount to Pay (₹) *</label>
+          <input id="payAmount" class="form-input" type="number" placeholder="Enter amount" min="1" step="0.01">
+          <div id="pendingAmtHint" style="font-size:.73rem;color:var(--text3);margin-top:.3rem"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input id="payDesc" class="form-input" type="text" placeholder="e.g. Tuition Fee Sem 3" value="Tuition Fee">
+        </div>
+        <div id="payModalErr" style="display:none" class="alert alert-error"></div>
+      </div>
+
+      <!-- Step 2: Success screen -->
+      <div id="payStep2" style="display:none;text-align:center;padding:1rem 0">
+        <div style="font-size:3rem;margin-bottom:1rem">✅</div>
+        <div style="font-size:1.1rem;font-weight:800;color:var(--green);margin-bottom:.5rem">Payment Successful!</div>
+        <div id="paySuccessMsg" style="font-size:.85rem;color:var(--text2);margin-bottom:1.5rem"></div>
+        <div id="payReceipt" style="background:var(--bg3);border-radius:var(--r);padding:1rem;text-align:left;font-size:.82rem"></div>
+      </div>
+    </div>
+    <div class="modal-footer" id="payMdlFoot">
+      <button class="btn btn-ghost" onclick="closeMdl('payMdl')">Cancel</button>
+      <button class="btn btn-primary" id="paySubmitBtn" onclick="submitPayment()">💳 Pay Now</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;max-width:340px"></div>
+
+<script>
+const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');const p=window.location.port;if(p==='5000'||!p)return '';return 'http://localhost:5000';})();
+let token='',camStream=null,scanInt=null,selectedPayMethod='',feePendingAmt=0;
+
+function getToken(){token=localStorage.getItem('accessToken')||localStorage.getItem('token')||sessionStorage.getItem('accessToken')||'';if(!token){window.location.href='auth.html';return false}return true}
+function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+token}}
+async function api(ep,opts={}){const r=await fetch(API+ep,{headers:hdrs(),...opts});const d=await r.json().catch(()=>({}));if(r.status===401){localStorage.clear();sessionStorage.clear();window.location.href='auth.html'}return d}
+function logout(){api('/api/auth/logout',{method:'POST'}).finally(()=>{localStorage.clear();sessionStorage.clear();window.location.href='auth.html'})}
+function toast(msg,type='info'){const c=document.getElementById('toasts');const el=document.createElement('div');const cols={success:'background:#166534;color:#bbf7d0',error:'background:#991b1b;color:#fecaca',info:'background:#163450;color:#93c5fd',warning:'background:#78350f;color:#fde68a'};el.style.cssText=`padding:.75rem 1.1rem;border-radius:10px;font-size:.82rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.4);${cols[type]||cols.info}`;el.textContent=msg;c.appendChild(el);setTimeout(()=>el.remove(),3500)}
+function closeMdl(id){document.getElementById(id).classList.remove('open')}
+
+const TITLES={dashboard:['Dashboard','Your academic overview'],profile:['My Profile','Personal information'],timetable:['Timetable','Weekly schedule with teachers'],subjects:['My Subjects','Enrolled subjects'],teachers:['My Teachers','Your faculty'],attendance:['Attendance','Your attendance records'],scan:['Scan QR','Mark attendance via QR code — camera only'],marks:['My Marks','Academic performance'],exams:['Exams','Online assessments'],materials:['Study Materials','Resources from teachers'],online:['Online Classes','Virtual sessions'],fees:['Fee Details','Fee structure and payments'],notifications:['Notifications','Alerts from your teachers']};
+
+function go(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  const el=document.getElementById('view-'+v),nav=document.getElementById('nav-'+v);
+  if(el)el.classList.add('active');if(nav)nav.classList.add('active');
+  const[t,s]=TITLES[v]||[v,''];document.getElementById('pageTitle').textContent=t;document.getElementById('pageSub').textContent=s;
+  if(v!=='scan')stopCam();
+  loadView(v);
+}
+
+function loadView(v){
+  if(v==='dashboard')loadDash();
+  else if(v==='profile')loadProfile();
+  else if(v==='timetable')loadTT();
+  else if(v==='subjects')loadSubjs();
+  else if(v==='teachers')loadTeachers();
+  else if(v==='attendance')loadAtt();
+  else if(v==='marks')loadMarks();
+  else if(v==='exams')loadExams();
+  else if(v==='materials')loadMats();
+  else if(v==='online')loadOC();
+  else if(v==='fees')loadFees();
+  else if(v==='notifications')loadNotifications();
+}
+
+function pct(p){const c=p>=75?'var(--green)':p>=60?'var(--amber)':'var(--red)';return`<div style="display:flex;align-items:center;gap:.65rem"><div class="progress-bar-wrap" style="flex:1"><div class="progress-bar" style="width:${Math.min(p,100)}%;background:${c}"></div></div><span style="font-size:.78rem;font-weight:700;color:${c};min-width:45px">${p.toFixed(1)}%</span></div>`}
+
+async function init(){
+  if(!getToken())return;
+  document.getElementById('dateBadge').textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+  document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',month:'long',day:'numeric'});
+  const pr=await api('/api/student/profile');
+  if(pr.success&&pr.profile){const p=pr.profile;const n=p.FullName||'Student';document.getElementById('sbName').textContent=n;document.getElementById('sbCode').textContent=p.UserCode||p.RollNumber||'';document.getElementById('av').textContent=n.charAt(0).toUpperCase()}
+  loadDash();
+}
+
+async function loadDash(){
+  const d=await api('/api/student/dashboard');
+  if(!d.success)return;
+  const s=d.stats||{};
+  document.getElementById('ds-subj').textContent=s.enrolledSubjects||0;
+  document.getElementById('ds-att').textContent=(s.attendancePercentage||0).toFixed(1)+'%';
+  document.getElementById('ds-exm').textContent=s.pendingExams||0;
+  const unread=s.unreadNotifications||0;
+  document.getElementById('ds-notif').textContent=unread>0?unread+' unread':'0';
+  updateNotifBadge(unread);
+  const semEl=document.getElementById('ds-sem');if(semEl)semEl.textContent=s.currentSemester||'—';
+  const sched=s.todaysSchedule||[];const el=document.getElementById('todayList');
+  if(!sched.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">No classes today</div></div>`}
+  else el.innerHTML=sched.map(c=>`<div style="display:flex;gap:.85rem;padding:.75rem;background:var(--bg3);border-radius:var(--r-sm);margin-bottom:.5rem">
+    <div style="background:var(--teal-bg);color:var(--teal);padding:.4rem .7rem;border-radius:var(--r-sm);font-size:.72rem;font-weight:700;font-family:var(--mono);white-space:nowrap">${c.StartTime||''}–${c.EndTime||''}</div>
+    <div style="flex:1"><div style="font-size:.83rem;font-weight:700">${c.SubjectName||''}</div><div style="font-size:.72rem;color:var(--text3)">${c.TeacherName||''} · Room ${c.RoomNumber||'TBD'}</div></div>
+    ${c.IsLab?'<span class="badge badge-purple">LAB</span>':''}
+  </div>`).join('');
+  const sw=s.subjectAttendance||[];const ea=document.getElementById('attSummary');
+  if(!sw.length){ea.innerHTML='<div class="empty"><div class="empty-sub">No attendance data yet</div></div>'}
+  else ea.innerHTML=sw.slice(0,5).map(a=>`<div style="margin-bottom:.85rem"><div style="display:flex;justify-content:space-between;margin-bottom:.35rem;font-size:.8rem"><span style="font-weight:600">${a.SubjectName||a.SubjectCode||''}</span><span style="color:var(--text3)">${a.PresentCount||0}/${a.TotalClasses||0}</span></div>${pct(parseFloat(a.Percentage||0))}</div>`).join('');
+}
+
+async function loadProfile(){
+  const d=await api('/api/student/profile');const el=document.getElementById('profileData');
+  if(!d.success||!d.profile){el.innerHTML='<div class="alert alert-error">Profile not found</div>';return}
+  const p=d.profile;
+  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem 1.5rem;font-size:.83rem">
+    ${[['Full Name',p.FullName],['Roll Number',p.UserCode||p.RollNumber],['Email',p.Email],['Phone',p.Phone||'—'],['Department',p.DepartmentName],['Semester','Sem '+(p.Semester||p.CurrentSemester)],['Academic Year',p.AcademicYear||'2024-25'],['Gender',p.Gender||'—'],['Date of Birth',p.DateOfBirth||'—'],['Address',p.Address||'—']].map(([l,v])=>`<div><div style="font-size:.72rem;color:var(--text3);margin-bottom:.2rem">${l}</div><div style="font-weight:600">${v||'—'}</div></div>`).join('')}
+  </div>`;
+}
+
+async function loadTT(){
+  const d=await api('/api/student/timetable');const wrap=document.getElementById('ttWrap');
+  if(!d.success||!d.timetable?.length){wrap.innerHTML=`<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable found. Enrollment may be pending.</div></div>`;return}
+  const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+  // Get all unique period numbers, sorted
+  const ps=[...new Set(d.timetable.map(r=>Number(r.PeriodNumber)))].sort((a,b)=>a-b);
+  // Build lookup map
+  const mp={};d.timetable.forEach(r=>{const key=`${r.DayOfWeek}_${Number(r.PeriodNumber)}`;if(!mp[key])mp[key]=r;});
+  // Get start time for period label
+  const ptimes={};d.timetable.forEach(r=>{if(!ptimes[r.PeriodNumber]&&r.StartTime)ptimes[r.PeriodNumber]=r.StartTime;});
+  let h=`<div class="tt-grid">
+    <div class="tt-hdr">Period</div>
+    ${days.map(day=>`<div class="tt-hdr" style="color:${day===new Date().toLocaleDateString('en-US',{weekday:'long'})?'var(--teal)':'var(--text2)'}">${day.slice(0,3)}</div>`).join('')}`;
+  ps.forEach(p=>{
+    const timeStr=ptimes[p]?String(ptimes[p]).slice(0,5):'';
+    h+=`<div class="tt-time"><span style="font-weight:700">P${p}</span>${timeStr?`<span>${timeStr}</span>`:''}</div>`;
+    days.forEach(day=>{
+      const c=mp[`${day}_${p}`];
+      if(c){
+        const lab=c.IsLab||(c.SubjectCode&&c.SubjectCode.endsWith('L'));
+        h+=`<div class="tt-cell tt-has ${lab?'tt-lab':''}">
+          <div class="tt-subj">${c.SubjectName||''}</div>
+          <div class="tt-teacher">👤 ${c.TeacherName||'—'}</div>
+          <div class="tt-room">🏠 ${c.RoomNumber||'TBD'}</div>
+        </div>`;
+      }else h+=`<div class="tt-cell"></div>`;
+    });
+  });
+  h+='</div>';
+  // Legend
+  h+=`<div style="display:flex;gap:1rem;margin-top:.85rem;font-size:.74rem">
+    <span style="display:flex;align-items:center;gap:.4rem"><span style="width:12px;height:12px;background:var(--teal-bg);border:1px solid rgba(20,184,166,.3);border-radius:3px;display:inline-block"></span> Theory</span>
+    <span style="display:flex;align-items:center;gap:.4rem"><span style="width:12px;height:12px;background:var(--purple-bg);border:1px solid rgba(168,85,247,.3);border-radius:3px;display:inline-block"></span> Lab</span>
+  </div>`;
+  wrap.innerHTML=h;
+}
+
+async function loadSubjs(){
+  const d=await api('/api/student/subjects');const el=document.getElementById('subjList');
+  if(!d.success||!d.subjects?.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">No subjects found</div><div class="empty-sub">Your enrollment may still be in progress</div></div>`;return}
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Credits</th><th>Type</th><th>Teacher</th><th>Email</th></tr></thead><tbody>${d.subjects.map(s=>`<tr>
+    <td><span style="font-family:var(--mono);color:var(--amber)">${s.SubjectCode||''}</span></td>
+    <td style="font-weight:600">${s.SubjectName||''}</td>
+    <td>${s.Credits||''}</td>
+    <td><span class="badge ${s.IsLab?'badge-purple':'badge-teal'}">${s.IsLab?'Lab':'Theory'}</span></td>
+    <td>${s.TeacherName||'—'}</td>
+    <td style="color:var(--text3);font-size:.78rem">${s.TeacherEmail||'—'}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function loadTeachers(){
+  const d=await api('/api/student/my-teachers');const el=document.getElementById('teacherList');
+  if(!d.success||!d.teachers?.length){el.innerHTML=`<div class="empty"><div class="empty-icon">👨‍🏫</div><div class="empty-text">No teachers found</div><div class="empty-sub">Your enrollment may still be in progress</div></div>`;return}
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem">${d.teachers.map(t=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem">
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem">
+      <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--teal));display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;flex-shrink:0">${(t.TeacherName||'T').charAt(0)}</div>
+      <div><div style="font-weight:700;font-size:.88rem">${t.TeacherName||''}</div><div style="font-size:.7rem;color:var(--text3)">${t.Designation||'Faculty'}</div></div>
+    </div>
+    <div style="font-size:.75rem;color:var(--text3);margin-bottom:.4rem">📚 ${t.SubjectsTaught||'—'}</div>
+    <div style="font-size:.75rem;color:var(--text3);margin-bottom:.4rem">🏢 ${t.TeacherDepartment||'—'}</div>
+    <div style="font-size:.75rem;color:var(--text3)">✉️ ${t.TeacherEmail||'—'}</div>
+  </div>`).join('')}</div>`;
+}
+
+async function loadAtt(){
+  const d=await api('/api/student/attendance');
+  const sw=d.subjectWise||[];const ea=document.getElementById('attSubjectWise');
+  if(!sw.length)ea.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No attendance records yet</div></div>`;
+  else ea.innerHTML=sw.map(a=>`<div style="margin-bottom:1rem">
+    <div style="display:flex;justify-content:space-between;margin-bottom:.4rem;font-size:.83rem">
+      <span style="font-weight:700">${a.SubjectName||a.SubjectCode||''}</span>
+      <span style="color:var(--text3)">${a.PresentCount||0} / ${a.TotalClasses||0} classes</span>
+    </div>
+    ${pct(parseFloat(a.Percentage||0))}
+    <div style="font-size:.72rem;color:var(--text3);margin-top:.25rem">${a.SubjectCode||''}</div>
+  </div>`).join('');
+  const recs=d.attendance||[];const el=document.getElementById('attLog');
+  if(!recs.length)el.innerHTML=`<div class="empty"><div class="empty-sub">No records</div></div>`;
+  else el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead><tbody>${recs.slice(0,60).map(a=>`<tr>
+    <td style="font-family:var(--mono);font-size:.78rem">${a.AttendanceDate||''}</td>
+    <td>${a.SubjectName||''} <span style="color:var(--text3)">(${a.SubjectCode||''})</span></td>
+    <td><span class="badge ${a.Status==='Present'?'badge-green':a.Status==='Late'?'badge-amber':'badge-red'}">${a.Status||''}</span></td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── QR SCAN ──────────────────────────────────────────────────────────────────
+async function startCam(){
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const v=document.getElementById('qrVideo');v.srcObject=camStream;v.play();
+    const c=document.getElementById('qrCanvas');const ctx=c.getContext('2d');
+    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-info">📷 Camera active — point steadily at the QR code</div>`;
+    scanInt=setInterval(()=>{
+      if(v.readyState===v.HAVE_ENOUGH_DATA){
+        c.height=v.videoHeight;c.width=v.videoWidth;
+        ctx.drawImage(v,0,0,c.width,c.height);
+        const img=ctx.getImageData(0,0,c.width,c.height);
+        const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+        if(code){stopCam();handleQR(code.data)}
+      }
+    },250);
+  }catch(e){
+    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-error">📵 Camera error: ${e.message}<br><small>Please allow camera access in your browser settings.</small></div>`;
+  }
+}
+function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}if(scanInt){clearInterval(scanInt);scanInt=null}}
+async function handleQR(data){
+  document.getElementById('scanStatus').innerHTML=`<div class="alert alert-info">🔍 Processing QR code…</div>`;
+  const d=await api('/api/student/attendance/scan-qr',{method:'POST',body:JSON.stringify({qrToken:data})});
+  if(d.success){
+    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-success">✅ ${d.message}</div>`;
+    toast(d.message,'success');
+  }else{
+    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-error">❌ ${d.error||'Could not mark attendance'}</div>
+    <button class="btn btn-primary btn-sm" onclick="startCam()" style="margin-top:.5rem">Try Again</button>`;
+    toast(d.error||'Could not mark attendance','error');
+  }
+}
+
+// ── MARKS ────────────────────────────────────────────────────────────────────
+async function loadMarks(){
+  const d=await api('/api/student/marks');const el=document.getElementById('marksList');
+  if(!d.success||!d.marks?.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">No marks uploaded yet</div></div>`;return}
+  const grade=(pct)=>pct>=90?'O':pct>=80?'A+':pct>=70?'A':pct>=60?'B+':pct>=50?'B':pct>=40?'C':'F';
+  const gcol=(pct)=>pct>=60?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
+  el.innerHTML=`<div class="marks-row marks-hdr"><span>Subject</span><span style="text-align:center">CA1<br>/10</span><span style="text-align:center">CA2<br>/10</span><span style="text-align:center">CA3<br>/10</span><span style="text-align:center">CA4<br>/10</span><span style="text-align:center">CA5<br>/10</span><span style="text-align:center">Midterm<br>/50</span><span style="text-align:center">Endterm<br>/100</span><span style="text-align:center">Total<br>/200</span><span style="text-align:center">Grade</span></div>
+  ${d.marks.map(m=>{
+    const caSum=[m.CA1,m.CA2,m.CA3,m.CA4,m.CA5].reduce((a,v)=>a+(v||0),0);const tot=caSum+(m.Midterm||0)+(m.Endterm||0);
+    const pct=Math.round(tot/2);const col=tot>=150?'var(--green)':tot>=100?'var(--amber)':'var(--red)';
+    const mk=(v,max)=>v!=null?`<span class="mk-val" style="color:${v/max>=0.7?'var(--green)':v/max>=0.5?'var(--amber)':'var(--red)'}">${v}</span>`:`<span class="mk-na">—</span>`;
+    return`<div class="marks-row">
+      <div><div style="font-weight:700;font-size:.83rem">${m.SubjectName||''}</div><div style="font-size:.7rem;color:var(--text3)">${m.SubjectCode||''} · ${m.Credits||0} cr</div></div>
+      ${[m.CA1,m.CA2,m.CA3,m.CA4,m.CA5].map(v=>mk(v,10)).join('')}${mk(m.Midterm,50)}${mk(m.Endterm,100)}
+      <span style="font-family:var(--mono);font-weight:800;color:${col};text-align:center">${tot.toFixed(0)}<br><span style="font-size:.65rem;color:var(--text3)">${pct}%</span></span>
+      <span style="font-weight:800;color:${gcol(pct)};text-align:center">${grade(pct)}</span>
+    </div>`}).join('')}
+  <div style="margin-top:.75rem;font-size:.78rem;color:var(--text3)">Grade: O≥90% · A+≥80% · A≥70% · B+≥60% · B≥50% · C≥40% · F&lt;40%</div>`;
+}
+
+// ── Exam window helpers ──────────────────────────────────────────────────────
+function fmtExamDate(dateStr, timeStr) {
+  if (!dateStr) return '—';
+  const d = String(dateStr).split('T')[0];
+  const hasTime = timeStr && timeStr !== '00:00' && timeStr !== '00:00:00';
+  const t = hasTime ? timeStr.slice(0, 5) : null;
+  try {
+    const dt = new Date(d + 'T' + (t || '00:00') + ':00');
+    const datePart = dt.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+    return t ? `${datePart} · ${t}` : datePart;
+  } catch { return d; }
+}
+
+function examWindowState(e) {
+  if (e.IsSubmitted) return 'submitted';
+  const dateStr = String(e.ExamDate || '').split('T')[0];
+  if (!dateStr || dateStr === 'null') return 'active';
+  const startTime = (e.StartTime && e.StartTime !== '00:00' && e.StartTime !== '00:00:00')
+                    ? e.StartTime.slice(0, 5) : '00:00';
+  const duration = parseInt(e.Duration || 60);
+  const now = new Date();
+  let examStart;
+  try { examStart = new Date(dateStr + 'T' + startTime + ':00'); } catch { return 'active'; }
+  const examEnd = new Date(examStart.getTime() + duration * 60000);
+  const noSpecificTime = (startTime === '00:00');
+  if (noSpecificTime) {
+    const dayStart = new Date(dateStr + 'T00:00:00');
+    const dayEnd   = new Date(dateStr + 'T23:59:59');
+    if (now < dayStart) return 'upcoming';
+    if (now > dayEnd)   return 'expired';
+    return 'active';
+  }
+  if (now < examStart) return 'upcoming';
+  if (now > examEnd)   return 'expired';
+  return 'active';
+}
+
+function _updateExamExpiredBadge(count) {
+  const tb = document.getElementById('topbarNotifBadge');
+  if (tb) { tb.textContent = count > 0 ? count : ''; tb.style.display = count > 0 ? '' : 'none'; }
+}
+
+async function loadExams() {
+  const d = await api('/api/student/exams');
+  const el = document.getElementById('examList');
+  if (!d.success || !d.exams?.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No exams scheduled yet</div></div>`;
+    return;
+  }
+  const expiredCount = d.exams.filter(e => !e.IsSubmitted && examWindowState(e) === 'expired').length;
+  _updateExamExpiredBadge(expiredCount);
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>Subject</th><th>Name</th><th>Type</th><th>Scheduled</th>
+      <th>Marks</th><th>Duration</th><th>Status</th><th>Action</th>
+    </tr></thead>
+    <tbody>${d.exams.map(e => {
+      const state = examWindowState(e);
+      const hasMarks = e.MarksObtained != null;
+      const scorePct = hasMarks && e.TotalMarks ? Math.round((e.MarksObtained / e.TotalMarks) * 100) : null;
+      const dateDisplay = fmtExamDate(e.ExamDate, e.StartTime);
+      let statusBadge, actionCell;
+      if (state === 'submitted') {
+        statusBadge = `<span class="badge badge-green">✓ Done${hasMarks ? ` · ${e.MarksObtained}/${e.TotalMarks} (${scorePct}%)` : ''}</span>`;
+        actionCell  = `<span style="font-size:.75rem;color:var(--text3)">Submitted</span>`;
+      } else if (state === 'expired') {
+        statusBadge = `<span class="badge badge-red">⏰ Expired</span>`;
+        actionCell  = `<span style="font-size:.74rem;color:var(--red)">Missed</span>`;
+      } else if (state === 'upcoming') {
+        statusBadge = `<span class="badge badge-blue">🕐 Upcoming</span>`;
+        actionCell  = `<span style="font-size:.74rem;color:var(--blue2)">Starts ${dateDisplay}</span>`;
+      } else {
+        statusBadge = `<span class="badge badge-amber">⚡ Pending</span>`;
+        actionCell  = `<button class="btn btn-primary btn-sm" onclick="startExam(${e.ExamID})">Start Exam</button>`;
+      }
+      return `<tr>
+        <td style="font-weight:600">${e.SubjectName || ''}</td>
+        <td style="font-weight:600">${e.ExamName || '—'}</td>
+        <td><span class="badge badge-amber">${e.ExamType || ''}</span></td>
+        <td style="font-size:.8rem">${dateDisplay}</td>
+        <td style="font-family:var(--mono)">${e.TotalMarks || '—'}</td>
+        <td style="font-size:.8rem">${e.Duration || '—'} min</td>
+        <td>${statusBadge}</td>
+        <td>${actionCell}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+async function startExam(eid){
+  const d=await api(`/api/student/exams/${eid}`);
+  if(!d.success){toast(d.error||'Cannot load exam','error');return}
+  const exam=d.exam,qs=d.questions||[],subId=d.submissionId;
+  // Re-check window state using exam data
+  const wstate=examWindowState(exam);
+  if(wstate==='expired'){toast('This exam has expired and can no longer be taken.','error');return}
+  if(wstate==='upcoming'){toast('This exam has not started yet. Please wait until the scheduled time.','warning');return}
+  document.getElementById('examMdlTitle').textContent=exam.ExamName||exam.ExamType||'Exam';
+  const timeInfo=exam.StartTime&&exam.StartTime!=='00:00'?` · Starts ${exam.StartTime.slice(0,5)}`:'';
+  document.getElementById('examMdlSub').textContent=`${exam.SubjectName||''} · ${fmtExamDate(exam.ExamDate,exam.StartTime)} · ${exam.Duration||60} mins · ${exam.TotalMarks||100} marks`;
+  const instrHtml=exam.Instructions?`<div class="alert alert-info" style="margin-bottom:1.25rem">📋 <strong>Instructions:</strong> ${exam.Instructions}</div>`:'';
+  document.getElementById('examMdlBody').innerHTML=instrHtml+qs.map((q,i)=>`<div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+    <div style="font-weight:600;margin-bottom:.75rem;font-size:.88rem">${i+1}. ${q.QuestionText||''} <span style="color:var(--text3)">(${q.Marks||1} mark${q.Marks!==1?'s':''})</span></div>
+    ${q.QuestionType==='MCQ'?['A','B','C','D'].map(opt=>q['Option'+opt]?`<label style="display:flex;align-items:center;gap:.65rem;padding:.5rem .75rem;border-radius:var(--r-sm);cursor:pointer;margin-bottom:.35rem;background:var(--bg3);transition:background .15s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'"><input type="radio" name="q${q.QuestionID}" value="${opt}" style="accent-color:var(--teal)"> ${opt}. ${q['Option'+opt]}</label>`:'').join(''):`<textarea style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);padding:.6rem;min-height:80px;resize:vertical" placeholder="Your answer…" data-qid="${q.QuestionID}"></textarea>`}
+  </div>`).join('');
+  document.getElementById('examMdlFoot').innerHTML=`<button class="btn btn-ghost" onclick="closeMdl('examMdl')">Close</button><button class="btn btn-primary" onclick="submitExam(${eid},${subId},[${qs.map(q=>q.QuestionID).join(',')}])">Submit Exam</button>`;
+  document.getElementById('examMdl').classList.add('open');
+}
+
+async function submitExam(eid,subId,qids){
+  if(!confirm('Submit exam? You cannot change answers after submission.'))return;
+  const answers=qids.map(qid=>{
+    const radio=document.querySelector(`input[name="q${qid}"]:checked`);
+    const ta=document.querySelector(`textarea[data-qid="${qid}"]`);
+    return{questionId:qid,answer:radio?radio.value:ta?ta.value:''};
+  });
+  const d=await api(`/api/student/exams/${eid}/submit`,{method:'POST',body:JSON.stringify({answers})});
+  if(d.success){
+    const marks=d.marksObtained||0;
+    toast(`✅ Exam submitted! You scored ${marks} marks`,'success');
+    closeMdl('examMdl');
+    loadExams();
+  }else toast(d.error||'Submit failed','error');
+}
+
+// ── MATERIALS ────────────────────────────────────────────────────────────────
+async function loadMats(){
+  const d=await api('/api/student/materials');const el=document.getElementById('matList');
+  if(!d.success||!d.materials?.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No materials uploaded yet</div></div>`;return}
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem">${d.materials.map(m=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.5rem">
+      <span class="badge badge-teal">${(m.FileType||'').toUpperCase()}</span>
+      <span style="font-size:.72rem;color:var(--text3)">${(m.UploadedAt||'').slice(0,10)}</span>
+    </div>
+    <div style="font-weight:700;margin-bottom:.3rem;font-size:.88rem">${m.Title||''}</div>
+    <div style="font-size:.75rem;color:var(--text3);margin-bottom:.75rem">${m.SubjectName||''} · ${m.TeacherName||''}</div>
+    ${m.FilePath?`<a href="${m.FilePath.startsWith('http')?m.FilePath:API+m.FilePath}" target="_blank" class="btn btn-primary btn-sm" style="width:100%;justify-content:center;display:flex">Open ↗</a>`:'<div style="font-size:.75rem;color:var(--text3)">No link available</div>'}
+  </div>`).join('')}`;
+}
+
+// ── ONLINE CLASSES ────────────────────────────────────────────────────────────
+async function loadOC(){
+  const d=await api('/api/student/online-classes');const el=document.getElementById('ocList');
+  if(!d.success||!d.onlineClasses?.length){el.innerHTML=`<div class="empty"><div class="empty-icon">💻</div><div class="empty-text">No online classes scheduled yet</div></div>`;return}
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Topic</th><th>Subject</th><th>Teacher</th><th>Date</th><th>Time</th><th>Link</th></tr></thead><tbody>${d.onlineClasses.map(c=>`<tr>
+    <td style="font-weight:600">${c.Title||c.Topic||''}</td>
+    <td>${c.SubjectName||''}</td>
+    <td>${c.TeacherName||'—'}</td>
+    <td style="font-family:var(--mono);font-size:.78rem">${c.ScheduledDate||''}</td>
+    <td style="font-size:.78rem">${c.StartTime||'—'}</td>
+    <td>${c.MeetingLink?`<a href="${c.MeetingLink}" target="_blank" style="color:var(--teal);font-size:.78rem">Join ↗</a>`:'—'}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── NOTIFICATION BADGE HELPER (syncs sidebar badge + topbar bell) ──────────────
+function updateNotifBadge(count){
+  const n=Math.max(0,parseInt(count)||0);
+  // Sidebar badge
+  const badge=document.getElementById('notifBadge');
+  if(badge){badge.textContent=n;badge.style.display=n>0?'':'none';}
+  // Topbar bell badge
+  const tb=document.getElementById('topbarNotifBadge');
+  if(tb){tb.textContent=n;tb.style.display=n>0?'':'none';}
+  // Dashboard stat
+  const ds=document.getElementById('ds-notif');
+  if(ds)ds.textContent=n>0?n+' unread':'0';
+}
+
+// ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+async function loadNotifications(){
+  const d=await api('/api/student/notifications');
+  const el=document.getElementById('notifList');
+  if(!d.success||!d.notifications?.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🔔</div><div class="empty-text">No notifications yet</div></div>`;
+    updateNotifBadge(0);
+    return;
+  }
+  const unread=d.unreadCount||d.notifications.filter(n=>!n.IsRead).length||0;
+  updateNotifBadge(unread);
+  const typeIcon={Material:'📁',Exam:'📄',OnlineClass:'💻',Attendance:'📋',General:'📢'};
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:.5rem">
+    ${d.notifications.map(n=>`
+      <div style="display:flex;gap:.85rem;padding:.9rem 1rem;background:${n.IsRead?'var(--bg3)':'var(--teal-bg)'};border-radius:var(--r);border-left:3px solid ${n.IsRead?'var(--border)':'var(--teal)'};cursor:pointer" onclick="markNotifRead(${n.NotificationID},this)">
+        <div style="font-size:1.3rem;flex-shrink:0">${typeIcon[n.Type]||'🔔'}</div>
+        <div style="flex:1">
+          <div style="font-weight:${n.IsRead?'600':'800'};font-size:.85rem;margin-bottom:.2rem">${n.Title||''}</div>
+          <div style="font-size:.78rem;color:var(--text3);line-height:1.4">${n.Message||''}</div>
+          <div style="font-size:.7rem;color:var(--text3);margin-top:.35rem">${(n.CreatedAt||'').slice(0,16).replace('T',' ')}</div>
+        </div>
+        ${n.IsRead?'':'<div style="width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:.35rem"></div>'}
+      </div>`).join('')}
+  </div>`;
+}
+
+async function markNotifRead(nid,el){
+  await api(`/api/student/notifications/${nid}/mark-read`,{method:'PUT'});
+  if(el){
+    el.style.borderLeftColor='var(--border)';
+    el.style.background='var(--bg3)';
+    const dot=el.querySelector('div[style*="background:var(--teal)"]');if(dot&&dot.style.width==='8px')dot.remove();
+    const t=el.querySelector('div[style*="font-weight:800"]');if(t)t.style.fontWeight='600';
+  }
+  const badge=document.getElementById('notifBadge');
+  const cur=Math.max(0,parseInt(badge?.textContent||'0')-1);
+  updateNotifBadge(cur);
+}
+
+async function markAllRead(){
+  await api('/api/student/notifications/read-all',{method:'PUT'});
+  updateNotifBadge(0);
+  loadNotifications();
+}
+
+// ── FEES ──────────────────────────────────────────────────────────────────────
+async function loadFees(){
+  const d=await api('/api/student/fees');
+  feePendingAmt=parseFloat(d.pendingAmount||0);
+  const el=document.getElementById('feeDetails');
+  const fs=d.feeStructure;
+  if(fs){
+    el.innerHTML=`
+      <div style="margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.5rem">
+          <span style="font-size:.8rem;color:var(--text3)">Academic Year</span>
+          <span style="font-weight:700">${fs.AcademicYear||'—'}</span>
+        </div>
+      </div>
+      ${[['Tuition Fee',fs.TuitionFee],['Exam Fee',fs.ExamFee],['Lab Fee',fs.LabFee],['Library Fee',fs.LibraryFee],['Development Fee',fs.DevelopmentFee],['Other Charges',fs.OtherCharges]].filter(([,v])=>parseFloat(v||0)>0).map(([l,v])=>`<div class="fee-row"><span>${l}</span><span>₹${parseFloat(v||0).toLocaleString('en-IN')}</span></div>`).join('')}
+      <div class="fee-row" style="font-weight:800;padding:.65rem 0"><span>Total Fee</span><span style="color:var(--blue2)">₹${parseFloat(fs.TotalFee||0).toLocaleString('en-IN')}</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1rem">
+        <div style="background:var(--green-bg);padding:.85rem;border-radius:var(--r);text-align:center">
+          <div style="font-size:.72rem;color:var(--text3);margin-bottom:.25rem">Paid</div>
+          <div style="font-weight:800;color:var(--green)">₹${parseFloat(d.totalPaid||0).toLocaleString('en-IN')}</div>
+        </div>
+        <div style="background:var(--red-bg);padding:.85rem;border-radius:var(--r);text-align:center">
+          <div style="font-size:.72rem;color:var(--text3);margin-bottom:.25rem">Balance Due</div>
+          <div style="font-weight:800;color:var(--red)">₹${parseFloat(d.pendingAmount||0).toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+      ${feePendingAmt>0?`<button class="btn btn-primary" onclick="openPayModal()" style="width:100%;margin-top:1rem;justify-content:center">💳 Pay ₹${feePendingAmt.toLocaleString('en-IN')} Now</button>`:'<div class="alert alert-success" style="margin-top:1rem">✅ All fees paid!</div>'}`;
+  }else el.innerHTML=`<div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Fee structure not set up yet</div></div>`;
+  const pms=d.payments||[];const el2=document.getElementById('payHistory');
+  if(!pms.length)el2.innerHTML=`<div class="empty"><div class="empty-sub">No payments recorded yet</div></div>`;
+  else el2.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Mode</th><th>Txn ID</th></tr></thead><tbody>${pms.map(p=>`<tr>
+    <td style="font-family:var(--mono);font-size:.78rem">${p.PaymentDate||''}</td>
+    <td style="font-weight:700;color:var(--green)">₹${parseFloat(p.AmountPaid||0).toLocaleString('en-IN')}</td>
+    <td><span class="badge badge-blue">${p.PaymentMode||'—'}</span></td>
+    <td style="font-family:var(--mono);font-size:.72rem;color:var(--text3)">${p.TransactionID||'—'}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── PAYMENT MODAL ─────────────────────────────────────────────────────────────
+function openPayModal(){
+  // Reset state
+  selectedPayMethod='';
+  document.querySelectorAll('.pay-method-card').forEach(c=>c.classList.remove('selected'));
+  document.querySelectorAll('.pay-fields').forEach(f=>f.style.display='none');
+  document.getElementById('payAmount').value=feePendingAmt>0?feePendingAmt.toFixed(2):'';
+  document.getElementById('payDesc').value='Tuition Fee';
+  document.getElementById('payModalErr').style.display='none';
+  document.getElementById('payStep1').style.display='block';
+  document.getElementById('payStep2').style.display='none';
+  document.getElementById('paySubmitBtn').style.display='';
+  document.getElementById('pendingAmtHint').textContent=feePendingAmt>0?`Balance due: ₹${feePendingAmt.toLocaleString('en-IN')}`:'';
+  // Reset card fields
+  ['cardNumber-debit','cardNumber-credit'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('payMdl').classList.add('open');
+}
+
+function selectPayMethod(method){
+  selectedPayMethod=method;
+  document.querySelectorAll('.pay-method-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('pm-'+method).classList.add('selected');
+  document.querySelectorAll('.pay-fields').forEach(f=>f.style.display='none');
+  const fields=document.getElementById('fields-'+method);
+  if(fields)fields.style.display='block';
+}
+
+function fmtCard(el){
+  let v=el.value.replace(/\D/g,'').slice(0,16);
+  el.value=v.match(/.{1,4}/g)?.join(' ')||v;
+}
+function fmtExpiry(el){
+  let v=el.value.replace(/\D/g,'').slice(0,4);
+  if(v.length>=2)v=v.slice(0,2)+'/'+v.slice(2);
+  el.value=v;
+}
+
+async function submitPayment(){
+  const payModalErr=document.getElementById('payModalErr');
+  payModalErr.style.display='none';
+  if(!selectedPayMethod){payModalErr.textContent='Please select a payment method.';payModalErr.style.display='block';return}
+  const amount=parseFloat(document.getElementById('payAmount').value||0);
+  if(!amount||amount<=0){payModalErr.textContent='Please enter a valid amount.';payModalErr.style.display='block';return}
+  // Validate method-specific fields
+  let extraData={};
+  if(selectedPayMethod==='UPI'){
+    const upiId=document.getElementById('upiId').value.trim();
+    if(!upiId||!upiId.includes('@')){payModalErr.textContent='Please enter a valid UPI ID (e.g. name@upi).';payModalErr.style.display='block';return}
+    extraData.upiId=upiId;
+  }else if(selectedPayMethod==='NetBanking'){
+    const bank=document.getElementById('bankName').value;
+    if(!bank){payModalErr.textContent='Please select your bank.';payModalErr.style.display='block';return}
+    extraData.bankName=bank;
+  }else if(selectedPayMethod==='DebitCard'||selectedPayMethod==='CreditCard'){
+    const suffix=selectedPayMethod==='DebitCard'?'debit':'credit';
+    const num=document.getElementById('cardNumber-'+suffix).value.replace(/\s/g,'');
+    const exp=document.getElementById('cardExpiry-'+suffix).value.trim();
+    const cvv=document.getElementById('cardCvv-'+suffix).value.trim();
+    const name=document.getElementById('cardName-'+suffix).value.trim();
+    if(num.length<12){payModalErr.textContent='Please enter a valid card number.';payModalErr.style.display='block';return}
+    if(!exp.match(/^\d{2}\/\d{2}$/)){payModalErr.textContent='Please enter expiry as MM/YY.';payModalErr.style.display='block';return}
+    if(cvv.length<3){payModalErr.textContent='Please enter a valid CVV.';payModalErr.style.display='block';return}
+    if(!name){payModalErr.textContent='Please enter the name on card.';payModalErr.style.display='block';return}
+    extraData.cardNumber=num.slice(-4);  // only send last 4 digits
+    extraData.cardName=name;
+  }
+  // Send payment
+  const btn=document.getElementById('paySubmitBtn');
+  btn.disabled=true;btn.textContent='Processing…';
+  const d=await api('/api/student/fees/pay',{method:'POST',body:JSON.stringify({
+    amount,paymentMode:selectedPayMethod,description:document.getElementById('payDesc').value||'Fee Payment',...extraData})});
+  btn.disabled=false;btn.textContent='💳 Pay Now';
+  if(d.success){
+    document.getElementById('payStep1').style.display='none';
+    document.getElementById('payStep2').style.display='block';
+    document.getElementById('paySubmitBtn').style.display='none';
+    document.getElementById('paySuccessMsg').textContent=d.message||'Payment recorded successfully!';
+    document.getElementById('payReceipt').innerHTML=`
+      <div style="display:flex;justify-content:space-between;margin-bottom:.5rem"><span style="color:var(--text3)">Amount</span><span style="font-weight:700;color:var(--green)">₹${amount.toLocaleString('en-IN')}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:.5rem"><span style="color:var(--text3)">Mode</span><span>${selectedPayMethod}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:.5rem"><span style="color:var(--text3)">Date</span><span>${d.paymentDate||new Date().toLocaleDateString()}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Transaction ID</span><span style="font-family:var(--mono);font-size:.75rem;color:var(--teal)">${d.transactionId||'—'}</span></div>`;
+    toast(d.message||'Payment successful!','success');
+    loadFees();  // refresh fee data
+  }else{
+    payModalErr.textContent=d.error||'Payment failed. Please try again.';
+    payModalErr.style.display='block';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

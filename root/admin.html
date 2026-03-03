@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusCore — Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a3a6b;--navy2:#1e4080;--navy3:#0f2447;--navy-bg:rgba(26,58,107,.08);
+  --orange:#f97316;--orange2:#ea580c;--orange-bg:rgba(249,115,22,.1);
+  --teal:#0d9488;--teal-l:#14b8a6;--teal-bg:rgba(13,148,136,.1);
+  --amber:#b45309;--amber-l:#f59e0b;--amber-bg:#fffbeb;
+  --blue:#1d4ed8;--blue-l:#3b82f6;--blue-bg:#eff6ff;
+  --rose:#be123c;--rose-l:#f43f5e;--rose-bg:#fff1f2;
+  --green:#15803d;--green-l:#22c55e;--green-bg:#f0fdf4;
+  --indigo:#4f46e5;--sky:#0ea5e9;
+  --slate:#0f172a;--slate2:#1e293b;--slate3:#334155;
+  --gray:#64748b;--gray-l:#94a3b8;
+  --border:#e2e8f0;--bg:#f1f5f9;--card:#fff;
+  --sidebar-w:256px;--font:'Sora',sans-serif;--mono:'JetBrains Mono',monospace;--r:10px;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--slate);display:flex;min-height:100vh;font-size:14px}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);background:linear-gradient(175deg,#0f2447 0%,#1a3a6b 60%,#14305e 100%);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:.7rem}
+.logo-svg{width:38px;height:38px;flex-shrink:0;filter:drop-shadow(0 2px 8px rgba(249,115,22,.4))}
+.logo-text{font-size:.95rem;font-weight:800;color:#fff;letter-spacing:-.02em}
+.logo-sub{font-size:.6rem;color:rgba(255,255,255,.3);letter-spacing:.1em;text-transform:uppercase;margin-top:.1rem}
+.nav{flex:1;padding:.5rem 0;overflow-y:auto}
+.nav-section{padding:.75rem 1.1rem .25rem;font-size:.6rem;font-weight:700;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:.12em}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.62rem 1.1rem;color:rgba(255,255,255,.5);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .15s;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
+.nav-item.active{background:rgba(249,115,22,.18);color:#fdba74;border-left-color:var(--orange)}
+.nav-item .ni{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+.sidebar-footer{padding:.9rem 1.1rem;border-top:1px solid rgba(255,255,255,.08)}
+.user-row{display:flex;align-items:center;gap:.65rem}
+.u-avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--orange2),var(--orange));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:.78rem;flex-shrink:0}
+.u-name{font-size:.8rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.u-role{font-size:.65rem;color:rgba(255,255,255,.3)}
+.btn-logout{background:none;border:none;color:rgba(255,255,255,.28);cursor:pointer;font-size:1rem;margin-left:auto;transition:color .2s;padding:.2rem}
+.btn-logout:hover{color:var(--rose-l)}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.page-title{font-size:1.05rem;font-weight:800;color:var(--slate);letter-spacing:-.02em}
+.page-sub{font-size:.75rem;color:var(--gray);margin-top:.1rem}
+.topbar-right{display:flex;align-items:center;gap:.75rem;font-size:.8rem;color:var(--gray)}
+.content{padding:1.25rem 1.5rem;flex:1}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:1.25rem}
+.stat-card{background:var(--card);border-radius:var(--r);padding:1.1rem 1.2rem;border:1px solid var(--border);position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
+.stat-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08);transform:translateY(-1px)}
+.sc-bg{position:absolute;right:-6px;top:-6px;font-size:3.5rem;opacity:.07;pointer-events:none}
+.sc-label{font-size:.68rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem}
+.sc-value{font-size:1.9rem;font-weight:800;color:var(--slate);line-height:1}
+.sc-sub{font-size:.72rem;margin-top:.35rem;color:var(--gray)}
+.sc-bar{height:3px;background:var(--border);border-radius:2px;margin-top:.7rem;overflow:hidden}
+.sc-fill{height:100%;border-radius:2px}
+
+/* CARDS */
+.section-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-bottom:.9rem}
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+.card-head{padding:.85rem 1.1rem .7rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.card-title{font-size:.88rem;font-weight:700;color:var(--slate)}
+.card-body{padding:.9rem 1.1rem}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;gap:.75rem;flex-wrap:wrap}
+.search-wrap{position:relative;flex:1;max-width:280px}
+.search-wrap input{width:100%;padding:.5rem .85rem .5rem 2rem;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:.83rem;outline:none;transition:all .2s;background:#fafafa}
+.search-wrap input:focus{border-color:var(--navy);background:#fff;box-shadow:0 0 0 3px rgba(26,58,107,.1)}
+.search-ico{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--gray-l);font-size:.8rem}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{padding:.55rem .75rem;text-align:left;font-size:.67rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.07em;background:#f8fafc;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:.62rem .75rem;border-bottom:1px solid #f1f5f9;color:var(--slate3);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafcff}
+.td-name{font-weight:600;color:var(--slate)}
+.td-code{font-family:var(--mono);font-size:.78rem;color:var(--slate3);background:#f1f5f9;padding:.1rem .4rem;border-radius:4px}
+
+/* BADGES */
+.badge{padding:.18rem .6rem;border-radius:20px;font-size:.67rem;font-weight:700;display:inline-block;white-space:nowrap}
+.b-green{background:#dcfce7;color:#15803d}.b-red{background:#fee2e2;color:#b91c1c}
+.b-blue{background:#dbeafe;color:#1d4ed8}.b-amber{background:#fef3c7;color:#92400e}
+.b-teal{background:#ccfbf1;color:var(--teal)}.b-gray{background:#f1f5f9;color:var(--gray)}
+.b-orange{background:#ffedd5;color:#c2410c}
+
+/* BUTTONS */
+.btn{padding:.5rem 1rem;border-radius:8px;font-family:var(--font);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .18s;border:none;display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;box-shadow:0 2px 8px rgba(26,58,107,.25)}
+.btn-primary:hover{box-shadow:0 4px 14px rgba(26,58,107,.35);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--gray);border:1.5px solid var(--border)}
+.btn-ghost:hover{background:#f8fafc}
+.btn-danger{background:var(--rose-bg);color:var(--rose);border:1px solid rgba(244,63,94,.2)}
+.btn-danger:hover{background:var(--rose);color:#fff}
+.btn-warning{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,.25)}
+.btn-warning:hover{background:var(--amber-l);color:#fff}
+.btn-info{background:var(--blue-bg);color:var(--blue-l);border:1px solid rgba(59,130,246,.2)}
+.btn-info:hover{background:var(--blue-l);color:#fff}
+.btn-success{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.btn-success:hover{background:var(--green-l);color:#fff}
+.btn-sm{padding:.32rem .7rem;font-size:.75rem}
+.btn-xs{padding:.22rem .55rem;font-size:.7rem;border-radius:6px}
+.action-group{display:flex;gap:.3rem;flex-wrap:nowrap}
+
+.page{display:none}.page.active{display:block}
+
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+.modal-backdrop.open{display:flex}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.22)}
+.modal-lg{max-width:680px}
+.modal-head{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:1}
+.modal-title{font-size:.97rem;font-weight:700;color:var(--slate)}
+.modal-close{background:none;border:none;font-size:1.3rem;color:var(--gray);cursor:pointer;line-height:1;padding:.2rem}
+.modal-body{padding:1.25rem 1.4rem}
+.modal-foot{padding:.9rem 1.4rem;border-top:1px solid var(--border);display:flex;gap:.65rem;justify-content:flex-end;position:sticky;bottom:0;background:var(--card)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.85rem}
+.form-field{margin-bottom:.85rem}
+.form-field label{display:block;font-size:.75rem;font-weight:600;color:var(--slate3);margin-bottom:.35rem}
+.form-field input,.form-field select,.form-field textarea{width:100%;padding:.6rem .85rem;border:1.5px solid var(--border);border-radius:8px;font-family:var(--font);font-size:.85rem;color:var(--slate);outline:none;transition:border-color .18s,box-shadow .18s;background:#fafafa}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--navy);background:#fff;box-shadow:0 0 0 3px rgba(26,58,107,.1)}
+.form-section{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--gray);margin:.9rem 0 .65rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+
+.info-box{background:var(--green-bg);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:.85rem 1rem;margin-top:.75rem;font-size:.82rem;color:var(--green)}
+.info-box b{display:block;font-size:.9rem;margin-bottom:.25rem}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;flex-direction:column;gap:.45rem;pointer-events:none}
+.toast{background:var(--slate2);color:#fff;padding:.7rem 1.1rem;border-radius:10px;font-size:.82rem;font-weight:500;opacity:0;transform:translateY(10px) scale(.97);transition:all .28s;display:flex;align-items:center;gap:.5rem;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.22);pointer-events:all}
+.toast.show{opacity:1;transform:none}
+.toast.success{border-left:4px solid var(--green-l)}
+.toast.error{border-left:4px solid var(--rose-l)}
+.toast.info{border-left:4px solid var(--blue-l)}
+
+/* LOADER */
+.loader-overlay{position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:998;display:none;align-items:center;justify-content:center}
+.loader-overlay.show{display:flex}
+.spinner{width:38px;height:38px;border:3px solid var(--border);border-top-color:var(--navy);border-radius:50%;animation:spin .65s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:2.5rem;color:var(--gray)}
+.empty-state .ei{font-size:2.5rem;margin-bottom:.5rem}
+
+@media(max-width:960px){.stat-grid{grid-template-columns:1fr 1fr}.section-grid{grid-template-columns:1fr}}
+@media(max-width:640px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.stat-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="loader-overlay" id="loader"><div class="spinner"></div></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg class="logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+      <defs>
+        <linearGradient id="agl1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient>
+        <linearGradient id="agl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
+      </defs>
+      <path d="M24 2 L41 9 L41 27 Q41 39 24 46 Q7 39 7 27 L7 9 Z" fill="url(#agl1)"/>
+      <path d="M24 2 L41 9 L41 15 L24 8 L7 15 L7 9 Z" fill="url(#agl2)"/>
+      <rect x="13" y="20" width="9" height="13" rx="2" fill="white" opacity="0.92"/>
+      <rect x="26" y="20" width="9" height="13" rx="2" fill="white" opacity="0.65"/>
+      <polygon points="24,11 33,16 24,21 15,16" fill="url(#agl2)"/>
+      <line x1="33" y1="16" x2="33" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="33" cy="23" r="2" fill="#f97316"/>
+    </svg>
+    <div><div class="logo-text">CampusCore</div><div class="logo-sub">Admin Portal</div></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="ni">📊</span>Dashboard</div>
+    <div class="nav-section">User Management</div>
+    <div class="nav-item" onclick="showPage('students',this)"><span class="ni">🎒</span>Students</div>
+    <div class="nav-item" onclick="showPage('teachers',this)"><span class="ni">👨‍🏫</span>Teachers</div>
+    <div class="nav-section">Academics</div>
+    <div class="nav-item" onclick="showPage('departments',this)"><span class="ni">🏛️</span>Departments</div>
+    <div class="nav-item" onclick="showPage('subjects',this)"><span class="ni">📚</span>Subjects</div>
+    <div class="nav-item" onclick="showPage('timetable',this)"><span class="ni">📅</span>Timetable</div>
+    <div class="nav-section">Finance</div>
+    <div class="nav-item" onclick="showPage('fees',this)"><span class="ni">💰</span>Fee Structure</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-row">
+      <div class="u-avatar" id="sideAvatar">A</div>
+      <div style="flex:1;min-width:0"><div class="u-name" id="sideName">Admin</div><div class="u-role">Administrator</div></div>
+      <button class="btn-logout" onclick="logout()" title="Logout">⬅️</button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div><div class="page-title" id="pageTitle">Dashboard</div><div class="page-sub" id="pageSub">University overview &amp; statistics</div></div>
+    <div class="topbar-right"><span>👋 Welcome, <b id="topName">Admin</b></span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="sc-bg">🎒</div><div class="sc-label">Active Students</div><div class="sc-value" id="s-students">—</div><div class="sc-sub" id="s-students-sub">Loading…</div><div class="sc-bar"><div class="sc-fill" style="width:70%;background:var(--teal-l)"></div></div></div>
+        <div class="stat-card"><div class="sc-bg">👨‍🏫</div><div class="sc-label">Active Teachers</div><div class="sc-value" id="s-teachers">—</div><div class="sc-sub" id="s-teachers-sub">Loading…</div><div class="sc-bar"><div class="sc-fill" style="width:55%;background:var(--indigo)"></div></div></div>
+        <div class="stat-card"><div class="sc-bg">📚</div><div class="sc-label">Total Subjects</div><div class="sc-value" id="s-subjects">—</div><div class="sc-sub">Across all departments</div><div class="sc-bar"><div class="sc-fill" style="width:80%;background:var(--amber-l)"></div></div></div>
+        <div class="stat-card"><div class="sc-bg">🏛️</div><div class="sc-label">Departments</div><div class="sc-value" id="s-depts">—</div><div class="sc-sub">Active programmes</div><div class="sc-bar"><div class="sc-fill" style="width:60%;background:var(--sky)"></div></div></div>
+      </div>
+      <div class="section-grid">
+        <div class="card">
+          <div class="card-head"><span class="card-title">Recent Students</span><button class="btn btn-ghost btn-sm" onclick="triggerPage('students')">View all →</button></div>
+          <div class="card-body"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Code</th><th>Dept</th><th>Sem</th><th>Status</th></tr></thead><tbody id="recentStudentsTbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody></table></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">Recent Teachers</span><button class="btn btn-ghost btn-sm" onclick="triggerPage('teachers')">View all →</button></div>
+          <div class="card-body"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Code</th><th>Dept</th><th>Status</th></tr></thead><tbody id="recentTeachersTbody"><tr><td colspan="4" class="empty-state">Loading…</td></tr></tbody></table></div></div>
+        </div>
+      </div>
+      <div class="section-grid" style="grid-template-columns:1fr 1fr">
+        <div class="card">
+          <div class="card-head"><span class="card-title">📊 Students by Department</span></div>
+          <div class="card-body" id="deptStatsList"><div class="empty-state" style="padding:1rem">Loading…</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">⚡ Quick Actions</span></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:.6rem">
+            <button class="btn btn-primary" onclick="triggerPage('students')">🎒 Manage Students</button>
+            <button class="btn btn-primary" onclick="triggerPage('teachers')">👨‍🏫 Manage Teachers</button>
+            <button class="btn btn-ghost" onclick="triggerPage('departments')">🏛️ Manage Departments</button>
+            <button class="btn btn-ghost" onclick="triggerPage('subjects')">📚 Manage Subjects</button>
+            <button class="btn btn-ghost" onclick="triggerPage('timetable')">📅 Manage Timetable</button>
+            <button class="btn btn-ghost" onclick="triggerPage('fees')">💰 Manage Fees</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="page" id="page-students">
+      <div class="toolbar">
+        <div class="search-wrap"><span class="search-ico">🔍</span><input type="text" placeholder="Search students…" id="studentSearch" oninput="searchStudents()"></div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <label style="font-size:.78rem;color:var(--gray);display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="showInactive" onchange="loadStudents()"> Show inactive</label>
+          <button class="btn btn-primary" onclick="openModal('addStudentModal')">+ Add Student</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Phone</th><th>Department</th><th>Semester</th><th>Status</th><th style="min-width:200px">Actions</th></tr></thead><tbody id="studentsTbody"><tr><td colspan="8" class="empty-state"><div class="ei">📭</div>Loading…</td></tr></tbody></table></div></div>
+    </div>
+
+    <!-- TEACHERS -->
+    <div class="page" id="page-teachers">
+      <div class="toolbar">
+        <div class="search-wrap"><span class="search-ico">🔍</span><input type="text" placeholder="Search teachers…" id="teacherSearch" oninput="searchTeachers()"></div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <label style="font-size:.78rem;color:var(--gray);display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="showInactiveTeachers" onchange="loadTeachers()"> Show inactive</label>
+          <button class="btn btn-primary" onclick="openModal('addTeacherModal')">+ Add Teacher</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Phone</th><th>Department</th><th>Gender</th><th>Status</th><th style="min-width:200px">Actions</th></tr></thead><tbody id="teachersTbody"><tr><td colspan="8" class="empty-state"><div class="ei">📭</div>Loading…</td></tr></tbody></table></div></div>
+    </div>
+
+    <!-- DEPARTMENTS -->
+    <div class="page" id="page-departments">
+      <div class="toolbar">
+        <div class="search-wrap"><span class="search-ico">🔍</span><input type="text" placeholder="Search departments…" oninput="filterTable('deptsTable',this.value)"></div>
+        <button class="btn btn-primary" onclick="openModal('addDeptModal')">+ Add Department</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table id="deptsTable"><thead><tr><th>Department Name</th><th>Code</th><th>Semesters</th><th>Students</th><th>Teachers</th><th>Actions</th></tr></thead><tbody id="deptsTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- SUBJECTS -->
+    <div class="page" id="page-subjects">
+      <div class="toolbar">
+        <div class="search-wrap"><span class="search-ico">🔍</span><input type="text" placeholder="Search subjects…" oninput="filterTable('subjectsTable',this.value)"></div>
+        <button class="btn btn-primary" onclick="openModal('addSubjectModal')">+ Add Subject</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table id="subjectsTable"><thead><tr><th>Subject Name</th><th>Code</th><th>Credits</th><th>Semester</th><th>Department</th><th>Type</th><th>Actions</th></tr></thead><tbody id="subjectsTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- TIMETABLE -->
+    <div class="page" id="page-timetable">
+      <div class="toolbar">
+        <div style="display:flex;gap:.5rem">
+          <select id="tt-filter-dept" onchange="loadTimetable()" style="padding:.45rem .75rem;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;outline:none;font-family:var(--font)">
+            <option value="">All Departments</option>
+          </select>
+          <select id="tt-filter-sem" onchange="loadTimetable()" style="padding:.45rem .75rem;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;outline:none;font-family:var(--font)">
+            <option value="">All Semesters</option>
+            <option>1</option><option>2</option><option>3</option><option>4</option>
+            <option>5</option><option>6</option><option>7</option><option>8</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('addTimetableModal')">+ Add Entry</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Dept</th><th>Sem</th><th>Subject</th><th>Teacher</th><th>Day</th><th>Period</th><th>Time</th><th>Room</th><th>Type</th><th>Actions</th></tr></thead><tbody id="timetableTbody"></tbody></table></div></div>
+    </div>
+
+    <!-- FEES -->
+    <div class="page" id="page-fees">
+      <div class="toolbar">
+        <span style="font-size:.85rem;color:var(--gray)">Fee structures across departments</span>
+        <button class="btn btn-primary" onclick="openModal('addFeeModal')">+ Add Fee Structure</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Department</th><th>Semester</th><th>Year</th><th>Tuition</th><th>Exam</th><th>Lab</th><th>Library</th><th>Total</th></tr></thead><tbody id="feesTbody"></tbody></table></div></div>
+    </div>
+
+  </div>
+</main>
+
+<!-- MODALS (unchanged from original) -->
+<div class="modal-backdrop" id="addStudentModal">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">➕ Add New Student</span><button class="modal-close" onclick="closeModal('addStudentModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-section">Basic Information</div>
+      <div class="form-row">
+        <div class="form-field"><label>Full Name *</label><input id="st-name" type="text" placeholder="Student full name"></div>
+        <div class="form-field"><label>Roll / User Code *</label><input id="st-code" type="text" placeholder="e.g. D1S1N06"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Email *</label><input id="st-email" type="email" placeholder="student@email.com"></div>
+        <div class="form-field"><label>Phone</label><input id="st-phone" type="text" placeholder="10-digit number"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Date of Birth * <small style="color:var(--gray)">(used as default password DD-MM-YYYY)</small></label><input id="st-dob" type="date"></div>
+        <div class="form-field"><label>Gender</label><select id="st-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      </div>
+      <div class="form-section">Academic Information</div>
+      <div class="form-row">
+        <div class="form-field"><label>Department *</label><select id="st-dept"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Current Semester</label><select id="st-sem"><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option><option value="4">Semester 4</option><option value="5">Semester 5</option><option value="6">Semester 6</option><option value="7">Semester 7</option><option value="8">Semester 8</option></select></div>
+      </div>
+      <div class="form-field"><label>Address</label><input id="st-address" type="text" placeholder="Full address"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addStudentModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addStudent()">+ Add Student</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="editStudentModal">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">✏️ Edit Student</span><button class="modal-close" onclick="closeModal('editStudentModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-st-id">
+      <div class="form-section">Basic Information</div>
+      <div class="form-row">
+        <div class="form-field"><label>Full Name *</label><input id="edit-st-name" type="text"></div>
+        <div class="form-field"><label>Email</label><input id="edit-st-email" type="email"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Phone</label><input id="edit-st-phone" type="text"></div>
+        <div class="form-field"><label>Gender</label><select id="edit-st-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      </div>
+      <div class="form-section">Academic Information</div>
+      <div class="form-row">
+        <div class="form-field"><label>Department</label><select id="edit-st-dept"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Semester</label><select id="edit-st-sem"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></div>
+      </div>
+      <div class="form-field"><label>Address</label><input id="edit-st-address" type="text"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('editStudentModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStudent()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="resetPwModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><span class="modal-title">🔑 Reset Password</span><button class="modal-close" onclick="closeModal('resetPwModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="reset-user-id">
+      <p style="font-size:.83rem;color:var(--gray);margin-bottom:.9rem">Resetting password for: <b id="reset-user-name" style="color:var(--slate)"></b></p>
+      <div class="form-field">
+        <label>New Password <small style="color:var(--gray)">(leave blank to reset to Date of Birth DD-MM-YYYY)</small></label>
+        <input id="reset-new-pw" type="text" placeholder="Custom password or leave blank for DOB">
+      </div>
+      <div id="resetResult" style="display:none"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('resetPwModal')">Close</button>
+      <button class="btn btn-warning" onclick="doResetPassword()">🔑 Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addTeacherModal">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">➕ Add New Teacher</span><button class="modal-close" onclick="closeModal('addTeacherModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-section">Basic Information</div>
+      <div class="form-row">
+        <div class="form-field"><label>Full Name *</label><input id="tc-name" type="text" placeholder="Dr. Full Name"></div>
+        <div class="form-field"><label>Teacher Code *</label><input id="tc-code" type="text" placeholder="e.g. TID009"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Email *</label><input id="tc-email" type="email" placeholder="teacher@university.edu"></div>
+        <div class="form-field"><label>Phone</label><input id="tc-phone" type="text"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Date of Birth * <small style="color:var(--gray)">(default password)</small></label><input id="tc-dob" type="date"></div>
+        <div class="form-field"><label>Gender</label><select id="tc-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      </div>
+      <div class="form-section">Academic Information</div>
+      <div class="form-row">
+        <div class="form-field"><label>Department *</label><select id="tc-dept"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Address</label><input id="tc-address" type="text"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addTeacherModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addTeacher()">+ Add Teacher</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="editTeacherModal">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">✏️ Edit Teacher</span><button class="modal-close" onclick="closeModal('editTeacherModal')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-tc-id">
+      <div class="form-row">
+        <div class="form-field"><label>Full Name *</label><input id="edit-tc-name" type="text"></div>
+        <div class="form-field"><label>Email</label><input id="edit-tc-email" type="email"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Phone</label><input id="edit-tc-phone" type="text"></div>
+        <div class="form-field"><label>Gender</label><select id="edit-tc-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Department</label><select id="edit-tc-dept"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Address</label><input id="edit-tc-address" type="text"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('editTeacherModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTeacher()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addDeptModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head"><span class="modal-title">➕ Add Department</span><button class="modal-close" onclick="closeModal('addDeptModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field"><label>Department Name *</label><input id="dp-name" type="text"></div>
+        <div class="form-field"><label>Code *</label><input id="dp-code" type="text" placeholder="e.g. CSE"></div>
+      </div>
+      <div class="form-field"><label>Total Semesters</label><input id="dp-sem" type="number" value="8" min="2" max="12"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addDeptModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addDept()">Add Department</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addSubjectModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head"><span class="modal-title">➕ Add Subject</span><button class="modal-close" onclick="closeModal('addSubjectModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field"><label>Subject Name *</label><input id="sb-name" type="text"></div>
+        <div class="form-field"><label>Subject Code *</label><input id="sb-code" type="text"></div>
+      </div>
+      <div class="form-row-3">
+        <div class="form-field"><label>Credits</label><input id="sb-credits" type="number" value="4" min="1" max="6"></div>
+        <div class="form-field"><label>Semester *</label><select id="sb-sem"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></div>
+        <div class="form-field"><label>Type</label><select id="sb-lab"><option value="0">Theory</option><option value="1">Lab</option></select></div>
+      </div>
+      <div class="form-field"><label>Department *</label><select id="sb-dept"><option value="">Select…</option></select></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addSubjectModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addSubject()">Add Subject</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addTimetableModal">
+  <div class="modal modal-lg">
+    <div class="modal-head"><span class="modal-title">➕ Add Timetable Entry</span><button class="modal-close" onclick="closeModal('addTimetableModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field"><label>Department *</label><select id="tt-dept"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Semester *</label><select id="tt-sem"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Subject *</label><select id="tt-subj"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Teacher *</label><select id="tt-teacher"><option value="">Select…</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Day *</label><select id="tt-day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option></select></div>
+        <div class="form-field"><label>Period #</label><input id="tt-period" type="number" min="1" max="8" value="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Start Time</label><input id="tt-start" type="time" value="09:00"></div>
+        <div class="form-field"><label>End Time</label><input id="tt-end" type="time" value="09:50"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Room *</label><input id="tt-room" type="text" placeholder="e.g. R-201"></div>
+        <div class="form-field"><label>Type</label><select id="tt-islab"><option value="0">Theory</option><option value="1">Lab</option></select></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addTimetableModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addTimetable()">Add Entry</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addFeeModal">
+  <div class="modal">
+    <div class="modal-head"><span class="modal-title">➕ Add Fee Structure</span><button class="modal-close" onclick="closeModal('addFeeModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-field"><label>Department *</label><select id="fee-dept"><option value="">Select…</option></select></div>
+        <div class="form-field"><label>Semester *</label><select id="fee-sem"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Academic Year</label><input id="fee-year" type="text" value="2024-25"></div>
+        <div class="form-field"><label>Tuition Fee (₹)</label><input id="fee-tuition" type="number" value="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Exam Fee (₹)</label><input id="fee-exam" type="number" value="0"></div>
+        <div class="form-field"><label>Lab Fee (₹)</label><input id="fee-lab" type="number" value="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-field"><label>Library Fee (₹)</label><input id="fee-lib" type="number" value="0"></div>
+        <div class="form-field"><label>Other Charges (₹)</label><input id="fee-other" type="number" value="0"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('addFeeModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addFee()">Add Fee Structure</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+// API base — always points to Flask on port 5000, regardless of which port serves the HTML
+const API = (function() {
+  const stored = localStorage.getItem('api_base');
+  if (stored) return stored.replace(/\/$/, '');
+  // Auto-detect: if page served by Flask (5000), use same host. Otherwise hardcode 5000.
+  const port = window.location.port;
+  const host = window.location.hostname;
+  if (port === '5000') return 'http://' + host + ':5000';
+  return 'http://localhost:5000';
+})();
+let TOKEN = '', USER = {};
+let depts = [], teacherList = [], subjectList = [];
+let allStudents = [], allTeachers = [];
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  TOKEN = localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
+  USER  = JSON.parse(localStorage.getItem('user') || '{}');
+  if (!TOKEN)                    { location.href = 'auth.html'; return; }
+  if (USER.userType !== 'Admin') { alert('Admin access required'); location.href = 'auth.html'; return; }
+  const name = USER.fullName || 'Admin';
+  document.getElementById('sideName').textContent    = name;
+  document.getElementById('topName').textContent     = name;
+  document.getElementById('sideAvatar').textContent  = name[0].toUpperCase();
+  // Load all data in parallel — dashboard needs students+teachers for recent tables
+  loadDashboard();
+  loadDepts();
+  loadStudentsData();
+  loadTeachersData();
+  loadSubjectsData();
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(url, opts = {}) {
+  opts.headers = {
+    ...(opts.headers || {}),
+    'Authorization': 'Bearer ' + TOKEN,
+    'Content-Type':  'application/json'
+  };
+  try {
+    const r = await fetch(API + url, opts);
+    if (r.status === 401) { logout(); return null; }
+    return await r.json();
+  } catch (err) {
+    toast('Network error — is the server running?', 'error');
+    return null;
+  }
+}
+
+function showLoader(v) { document.getElementById('loader').className = 'loader-overlay' + (v ? ' show' : ''); }
+
+function toast(msg, type = 'success') {
+  const w = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  const ic = { success: '✅', error: '❌', info: 'ℹ️' };
+  t.innerHTML = `${ic[type]||'ℹ️'} ${msg}`;
+  w.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const PAGE_META = {
+  dashboard:   ['Dashboard',      'University overview & statistics'],
+  students:    ['Students',       'Manage student accounts — edit, activate/deactivate, reset password'],
+  teachers:    ['Teachers',       'Manage teacher accounts — edit, activate/deactivate, reset password'],
+  departments: ['Departments',    'Manage departments & programmes'],
+  subjects:    ['Subjects',       'Manage course subjects'],
+  timetable:   ['Timetable',      'Manage class schedule'],
+  fees:        ['Fee Structure',  'Manage fee structures'],
+};
+
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+  const [t, s] = PAGE_META[id] || [id, ''];
+  document.getElementById('pageTitle').textContent = t;
+  document.getElementById('pageSub').textContent   = s;
+  const loaders = {
+    students:    () => loadStudents(),
+    teachers:    () => loadTeachers(),
+    departments: () => loadDepts(),
+    subjects:    () => loadSubjects(),
+    timetable:   () => loadTimetable(),
+    fees:        () => loadFees(),
+  };
+  if (loaders[id]) loaders[id]();
+}
+
+function triggerPage(id) {
+  const navItem = [...document.querySelectorAll('.nav-item')].find(n => n.textContent.trim().toLowerCase().startsWith(id.slice(0,6)));
+  showPage(id, navItem);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadDashboard() {
+  showLoader(true);
+  const d = await api('/api/admin/dashboard');
+  showLoader(false);
+  if (!d) { toast('Failed to load dashboard data. Check server connection.', 'error'); return; }
+  if (!d.success) { toast(d.error || 'Dashboard error', 'error'); return; }
+  const s = d.stats || {};
+
+  // Stat cards
+  const totalStu = s.totalStudents ?? 0;
+  const totalTea = s.totalTeachers ?? 0;
+  const totalSub = s.totalSubjects ?? 0;
+  const totalDep = s.totalDepartments ?? 0;
+  const inactiveStu = s.inactiveStudents ?? 0;
+  const inactiveTea = s.inactiveTeachers ?? 0;
+
+  document.getElementById('s-students').textContent = totalStu;
+  document.getElementById('s-students-sub').textContent = inactiveStu ? `${inactiveStu} inactive` : 'All active';
+  document.getElementById('s-teachers').textContent = totalTea;
+  document.getElementById('s-teachers-sub').textContent = inactiveTea ? `${inactiveTea} inactive` : 'All active';
+  document.getElementById('s-subjects').textContent = totalSub;
+  document.getElementById('s-depts').textContent   = totalDep;
+
+  // Dynamic stat bars based on real ratios
+  const maxStu = Math.max(totalStu + inactiveStu, 1);
+  const maxTea = Math.max(totalTea + inactiveTea, 1);
+  document.querySelector('#page-dashboard .sc-fill').style.width = Math.round(totalStu / maxStu * 100) + '%';
+
+  // Recent students table
+  const rs = s.recentStudents || [];
+  document.getElementById('recentStudentsTbody').innerHTML = rs.length
+    ? rs.map(x => `<tr>
+        <td class="td-name">${esc(x.FullName)}</td>
+        <td><span class="td-code">${esc(x.UserCode)}</span></td>
+        <td>${esc(x.DepartmentName||'—')}</td>
+        <td><span class="badge b-blue">Sem ${x.Semester||'?'}</span></td>
+        <td><span class="badge ${x.IsActive?'b-green':'b-red'}">${x.IsActive?'Active':'Inactive'}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="empty-state"><div class="ei">📭</div>No students yet</td></tr>';
+
+  // Recent teachers table
+  const rt = s.recentTeachers || [];
+  document.getElementById('recentTeachersTbody').innerHTML = rt.length
+    ? rt.map(x => `<tr>
+        <td class="td-name">${esc(x.FullName)}</td>
+        <td><span class="td-code">${esc(x.UserCode)}</span></td>
+        <td>${esc(x.DepartmentName||'—')}</td>
+        <td><span class="badge ${x.IsActive?'b-teal':'b-red'}">${x.IsActive?'Active':'Inactive'}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="empty-state"><div class="ei">📭</div>No teachers yet</td></tr>';
+
+  // Department breakdown (if element exists)
+  const deptStatsEl = document.getElementById('deptStatsList');
+  if (deptStatsEl) {
+    const ds = s.departmentStats || [];
+    deptStatsEl.innerHTML = ds.length
+      ? ds.map(d => `<div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:.82rem;font-weight:600">${esc(d.DepartmentName)}</span>
+          <span class="badge b-blue">${d.StudentCount} students</span>
+        </div>`).join('')
+      : '<div class="empty-state" style="padding:1rem">No department data</div>';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STUDENTS
+// ══════════════════════════════════════════════════════════════════════════════
+// Pre-load students silently on init (for when student page is first visited)
+async function loadStudentsData() {
+  const d = await api('/api/admin/students');
+  if (!d || !d.success) return;
+  allStudents = d.students || [];
+}
+
+async function loadStudents() {
+  showLoader(true);
+  const d = await api('/api/admin/students');
+  showLoader(false);
+  if (!d) { toast('Failed to load students', 'error'); return; }
+  if (!d.success) { toast(d.error || 'Error loading students', 'error'); return; }
+  allStudents = d.students || [];
+  renderStudents(allStudents);
+}
+
+function searchStudents() {
+  const q = document.getElementById('studentSearch').value.toLowerCase();
+  const showInactive = document.getElementById('showInactive').checked;
+  let rows = allStudents;
+  if (!showInactive) rows = rows.filter(s => s.IsActive);
+  if (q) rows = rows.filter(s =>
+    (s.FullName||'').toLowerCase().includes(q) ||
+    (s.UserCode||'').toLowerCase().includes(q) ||
+    (s.Email||'').toLowerCase().includes(q) ||
+    (s.DepartmentName||'').toLowerCase().includes(q)
+  );
+  renderStudents(rows);
+}
+
+function renderStudents(rows) {
+  const showInactive = document.getElementById('showInactive').checked;
+  // FIX: single clean filter — show all rows if showInactive, otherwise only active
+  const display = showInactive ? rows : rows.filter(s => s.IsActive);
+  document.getElementById('studentsTbody').innerHTML = display.length
+    ? display.map(s => `<tr>
+        <td class="td-name">${esc(s.FullName)}</td>
+        <td><span class="td-code">${esc(s.UserCode)}</span></td>
+        <td>${esc(s.Email||'—')}</td>
+        <td>${esc(s.Phone||'—')}</td>
+        <td>${esc(s.DepartmentName||'—')}</td>
+        <td><span class="badge b-blue">Sem ${s.Semester||'?'}</span></td>
+        <td><span class="badge ${s.IsActive?'b-green':'b-red'}">${s.IsActive?'Active':'Inactive'}</span></td>
+        <td>
+          <div class="action-group">
+            <button class="btn btn-info btn-xs" onclick='openEditStudent(${JSON.stringify(s)})' title="Edit">✏️ Edit</button>
+            <button class="btn btn-warning btn-xs" onclick='openResetPw(${s.UserID},"${(s.FullName||'').replace(/"/g,'&quot;')}")' title="Reset Password">🔑</button>
+            <button class="btn ${s.IsActive?'btn-danger':'btn-success'} btn-xs" onclick="toggleStudent(${s.UserID},${s.IsActive?1:0})" title="${s.IsActive?'Deactivate':'Activate'}">
+              ${s.IsActive?'🚫 Deactivate':'✅ Activate'}
+            </button>
+          </div>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty-state"><div class="ei">📭</div>No students found</td></tr>';
+}
+
+function openEditStudent(s) {
+  document.getElementById('edit-st-id').value       = s.UserID;
+  document.getElementById('edit-st-name').value     = s.FullName || '';
+  document.getElementById('edit-st-email').value    = s.Email || '';
+  document.getElementById('edit-st-phone').value    = s.Phone || '';
+  document.getElementById('edit-st-address').value  = s.Address || '';
+  setSelectVal('edit-st-gender', s.Gender || '');
+  setSelectVal('edit-st-sem',    String(s.Semester || '1'));
+  populateDeptSelect('edit-st-dept', s.DepartmentID);
+  openModal('editStudentModal');
+}
+
+async function saveStudent() {
+  const id = document.getElementById('edit-st-id').value;
+  const body = {
+    fullName:     document.getElementById('edit-st-name').value.trim(),
+    email:        document.getElementById('edit-st-email').value.trim(),
+    phone:        document.getElementById('edit-st-phone').value.trim(),
+    gender:       document.getElementById('edit-st-gender').value,
+    departmentId: document.getElementById('edit-st-dept').value || null,
+    semester:     document.getElementById('edit-st-sem').value,
+    address:      document.getElementById('edit-st-address').value.trim(),
+  };
+  if (!body.fullName) { toast('Full name is required','error'); return; }
+  const d = await api(`/api/admin/students/${id}`, { method:'PUT', body: JSON.stringify(body) });
+  if (d?.success) { toast('Student updated successfully'); closeModal('editStudentModal'); loadStudents(); loadDashboard(); }
+  else toast(d?.error || 'Failed to update', 'error');
+}
+
+async function addStudent() {
+  const body = {
+    userCode:     document.getElementById('st-code').value.trim().toUpperCase(),
+    fullName:     document.getElementById('st-name').value.trim(),
+    email:        document.getElementById('st-email').value.trim(),
+    phone:        document.getElementById('st-phone').value.trim(),
+    gender:       document.getElementById('st-gender').value,
+    dateOfBirth:  document.getElementById('st-dob').value,
+    departmentId: document.getElementById('st-dept').value || null,
+    semester:     document.getElementById('st-sem').value,
+    address:      document.getElementById('st-address').value.trim(),
+  };
+  if (!body.userCode || !body.fullName || !body.dateOfBirth) { toast('Name, Code, and Date of Birth are required','error'); return; }
+  const d = await api('/api/admin/students', { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) { toast(d.message || 'Student added'); closeModal('addStudentModal'); clearStudentForm(); loadStudents(); loadDashboard(); }
+  else toast(d?.error || 'Failed to add student', 'error');
+}
+
+function clearStudentForm() {
+  ['st-code','st-name','st-email','st-phone','st-address'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('st-dob').value='';
+  document.getElementById('st-gender').value='';
+  document.getElementById('st-dept').value='';
+}
+
+async function toggleStudent(id, currentlyActive) {
+  const action = currentlyActive ? 'deactivate' : 'activate';
+  if (!confirm(`Are you sure you want to ${action} this student?\n\n${currentlyActive ? 'They will NOT be able to log in.' : 'They will be able to log in again.'}`)) return;
+  const d = await api(`/api/admin/students/${id}/toggle-active`, { method:'POST' });
+  if (d?.success) {
+    toast(d.message || `Student ${action}d`);
+    loadStudents();
+    loadDashboard();
+  } else toast(d?.error || `Failed to ${action}`, 'error');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TEACHERS
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadTeachersData() {
+  const d = await api('/api/admin/teachers');
+  if (!d || !d.success) return;
+  teacherList = d.teachers || [];
+  allTeachers = teacherList;
+  populateTeacherDropdown();
+}
+
+async function loadTeachers() {
+  showLoader(true);
+  const d = await api('/api/admin/teachers');
+  showLoader(false);
+  if (!d) { toast('Failed to load teachers', 'error'); return; }
+  if (!d.success) { toast(d.error || 'Error loading teachers', 'error'); return; }
+  teacherList = d.teachers || [];
+  allTeachers = teacherList;
+  renderTeachers(allTeachers);
+  populateTeacherDropdown();
+}
+
+function searchTeachers() {
+  const q = document.getElementById('teacherSearch').value.toLowerCase();
+  const showInactive = document.getElementById('showInactiveTeachers').checked;
+  let rows = showInactive ? allTeachers : allTeachers.filter(t => t.IsActive);
+  if (q) rows = rows.filter(t =>
+    (t.FullName||'').toLowerCase().includes(q) ||
+    (t.UserCode||'').toLowerCase().includes(q) ||
+    (t.Email||'').toLowerCase().includes(q)
+  );
+  renderTeachers(rows);
+}
+
+function renderTeachers(rows) {
+  // FIX: single clean filter
+  const showInactive = document.getElementById('showInactiveTeachers')?.checked;
+  const display = showInactive ? rows : rows.filter(t => t.IsActive);
+  document.getElementById('teachersTbody').innerHTML = display.length
+    ? display.map(t => `<tr>
+        <td class="td-name">${esc(t.FullName)}</td>
+        <td><span class="td-code">${esc(t.UserCode)}</span></td>
+        <td>${esc(t.Email||'—')}</td>
+        <td>${esc(t.Phone||'—')}</td>
+        <td>${esc(t.DepartmentName||'—')}</td>
+        <td>${esc(t.Gender||'—')}</td>
+        <td><span class="badge ${t.IsActive?'b-teal':'b-red'}">${t.IsActive?'Active':'Inactive'}</span></td>
+        <td>
+          <div class="action-group">
+            <button class="btn btn-info btn-xs" onclick='openEditTeacher(${JSON.stringify(t)})' title="Edit">✏️ Edit</button>
+            <button class="btn btn-warning btn-xs" onclick='openResetPw(${t.UserID},"${(t.FullName||'').replace(/"/g,'&quot;')}")' title="Reset Password">🔑</button>
+            <button class="btn ${t.IsActive?'btn-danger':'btn-success'} btn-xs" onclick="toggleTeacher(${t.UserID},${t.IsActive?1:0})" title="${t.IsActive?'Deactivate':'Activate'}">
+              ${t.IsActive?'🚫 Deactivate':'✅ Activate'}
+            </button>
+          </div>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty-state"><div class="ei">📭</div>No teachers found</td></tr>';
+}
+
+function openEditTeacher(t) {
+  document.getElementById('edit-tc-id').value      = t.UserID;
+  document.getElementById('edit-tc-name').value    = t.FullName || '';
+  document.getElementById('edit-tc-email').value   = t.Email || '';
+  document.getElementById('edit-tc-phone').value   = t.Phone || '';
+  document.getElementById('edit-tc-address').value = t.Address || '';
+  setSelectVal('edit-tc-gender', t.Gender || '');
+  populateDeptSelect('edit-tc-dept', t.DepartmentID);
+  openModal('editTeacherModal');
+}
+
+async function saveTeacher() {
+  const id = document.getElementById('edit-tc-id').value;
+  const body = {
+    fullName:     document.getElementById('edit-tc-name').value.trim(),
+    email:        document.getElementById('edit-tc-email').value.trim(),
+    phone:        document.getElementById('edit-tc-phone').value.trim(),
+    gender:       document.getElementById('edit-tc-gender').value,
+    departmentId: document.getElementById('edit-tc-dept').value || null,
+    address:      document.getElementById('edit-tc-address').value.trim(),
+  };
+  if (!body.fullName) { toast('Full name is required','error'); return; }
+  const d = await api(`/api/admin/teachers/${id}`, { method:'PUT', body: JSON.stringify(body) });
+  if (d?.success) { toast('Teacher updated successfully'); closeModal('editTeacherModal'); loadTeachers(); loadDashboard(); }
+  else toast(d?.error || 'Failed to update', 'error');
+}
+
+async function addTeacher() {
+  const body = {
+    userCode:     document.getElementById('tc-code').value.trim().toUpperCase(),
+    fullName:     document.getElementById('tc-name').value.trim(),
+    email:        document.getElementById('tc-email').value.trim(),
+    phone:        document.getElementById('tc-phone').value.trim(),
+    gender:       document.getElementById('tc-gender').value,
+    dateOfBirth:  document.getElementById('tc-dob').value,
+    departmentId: document.getElementById('tc-dept').value || null,
+    address:      document.getElementById('tc-address').value.trim(),
+  };
+  if (!body.userCode || !body.fullName || !body.dateOfBirth) { toast('Name, Code, and Date of Birth are required','error'); return; }
+  const d = await api('/api/admin/teachers', { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) { toast(d.message || 'Teacher added'); closeModal('addTeacherModal'); loadTeachers(); loadDashboard(); }
+  else toast(d?.error || 'Failed to add teacher', 'error');
+}
+
+async function toggleTeacher(id, currentlyActive) {
+  const action = currentlyActive ? 'deactivate' : 'activate';
+  if (!confirm(`Are you sure you want to ${action} this teacher?\n\n${currentlyActive ? 'They will NOT be able to log in.' : 'They will be able to log in again.'}`)) return;
+  const d = await api(`/api/admin/teachers/${id}/toggle-active`, { method:'POST' });
+  if (d?.success) { toast(d.message || `Teacher ${action}d`); loadTeachers(); loadDashboard(); }
+  else toast(d?.error || `Failed to ${action}`, 'error');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RESET PASSWORD
+// ══════════════════════════════════════════════════════════════════════════════
+function openResetPw(userId, userName) {
+  document.getElementById('reset-user-id').value    = userId;
+  document.getElementById('reset-user-name').textContent = userName;
+  document.getElementById('reset-new-pw').value     = '';
+  document.getElementById('resetResult').style.display = 'none';
+  document.getElementById('resetResult').innerHTML  = '';
+  openModal('resetPwModal');
+}
+
+async function doResetPassword() {
+  const id  = document.getElementById('reset-user-id').value;
+  const pw  = document.getElementById('reset-new-pw').value.trim();
+  const body = pw ? { newPassword: pw } : {};
+  const d = await api(`/api/admin/reset-password/${id}`, { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) {
+    const box = document.getElementById('resetResult');
+    box.style.display = 'block';
+    box.innerHTML = `<div class="info-box"><b>✅ Password Reset Successfully</b>${d.message}<br><br>
+      <span style="background:#d1fae5;padding:.25rem .6rem;border-radius:6px;font-family:monospace;font-size:.88rem;font-weight:700">${d.newPassword||''}</span>
+      <br><small style="color:var(--green);margin-top:.35rem;display:block">Share this with the user. They will be prompted to change it on next login.</small></div>`;
+    toast('Password reset successfully');
+  } else {
+    toast(d?.error || 'Failed to reset password', 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DEPARTMENTS
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadDepts() {
+  const d = await api('/api/admin/departments');
+  if (!d) return;
+  depts = d.departments || [];
+
+  document.getElementById('deptsTbody').innerHTML = depts.length
+    ? depts.map(dep => `<tr>
+        <td class="td-name">${dep.DepartmentName||''}</td>
+        <td><span class="td-code">${dep.DepartmentCode||''}</span></td>
+        <td>${dep.TotalSemesters||8}</td>
+        <td><span class="badge b-blue">${dep.StudentCount||0} students</span></td>
+        <td><span class="badge b-teal">${dep.TeacherCount||0} teachers</span></td>
+        <td><button class="btn btn-danger btn-xs" onclick="deleteDept(${dep.DepartmentID})">🗑️ Delete</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="empty-state">No departments</td></tr>';
+
+  // Populate all dept selects
+  ['st-dept','tc-dept','sb-dept','tt-dept','tt-filter-dept','edit-st-dept','edit-tc-dept','fee-dept'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const isFilter = id === 'tt-filter-dept';
+    sel.innerHTML = `<option value="">${isFilter ? 'All Departments' : 'Select…'}</option>` +
+      depts.map(dep => `<option value="${dep.DepartmentID}">${dep.DepartmentName}</option>`).join('');
+  });
+}
+
+function populateDeptSelect(selectId, selectedId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select…</option>' +
+    depts.map(dep => `<option value="${dep.DepartmentID}" ${dep.DepartmentID == selectedId ? 'selected' : ''}>${dep.DepartmentName}</option>`).join('');
+}
+
+async function addDept() {
+  const body = { departmentCode: document.getElementById('dp-code').value.trim(), departmentName: document.getElementById('dp-name').value.trim(), totalSemesters: parseInt(document.getElementById('dp-sem').value) || 8 };
+  if (!body.departmentCode || !body.departmentName) { toast('Name and Code required','error'); return; }
+  const d = await api('/api/admin/departments', { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) { toast('Department added'); closeModal('addDeptModal'); loadDepts(); }
+  else toast(d?.error || 'Failed','error');
+}
+
+async function deleteDept(id) {
+  if (!confirm('Delete this department? This cannot be undone.')) return;
+  const d = await api(`/api/admin/departments/${id}`, { method:'DELETE' });
+  if (d?.success) { toast('Department deleted'); loadDepts(); }
+  else toast(d?.error || 'Failed','error');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SUBJECTS
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadSubjectsData() {
+  const d = await api('/api/admin/subjects');
+  if (!d) return;
+  subjectList = d.subjects || [];
+  populateSubjectDropdown();
+}
+
+async function loadSubjects() {
+  const d = await api('/api/admin/subjects');
+  if (!d) return;
+  subjectList = d.subjects || [];
+  document.getElementById('subjectsTbody').innerHTML = subjectList.length
+    ? subjectList.map(s => `<tr>
+        <td class="td-name">${s.SubjectName||''}</td>
+        <td><span class="td-code">${s.SubjectCode||''}</span></td>
+        <td>${s.Credits||4}</td>
+        <td><span class="badge b-blue">Sem ${s.Semester||''}</span></td>
+        <td>${s.DepartmentName||'—'}</td>
+        <td><span class="badge ${s.IsLab?'b-amber':'b-teal'}">${s.IsLab?'Lab':'Theory'}</span></td>
+        <td><button class="btn btn-danger btn-xs" onclick="deleteSubject(${s.SubjectID})">🗑️</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" class="empty-state"><div class="ei">📭</div>No subjects</td></tr>';
+  populateSubjectDropdown();
+}
+
+function populateSubjectDropdown() {
+  const sel = document.getElementById('tt-subj');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select Subject…</option>' +
+    subjectList.map(s => `<option value="${s.SubjectID}">${s.SubjectName} (${s.SubjectCode})</option>`).join('');
+}
+
+async function addSubject() {
+  const body = { subjectName: document.getElementById('sb-name').value.trim(), subjectCode: document.getElementById('sb-code').value.trim(), credits: parseInt(document.getElementById('sb-credits').value)||4, semester: parseInt(document.getElementById('sb-sem').value)||1, departmentId: document.getElementById('sb-dept').value, isLab: parseInt(document.getElementById('sb-lab').value)||0 };
+  if (!body.subjectName || !body.subjectCode || !body.departmentId) { toast('Name, Code, Department required','error'); return; }
+  const d = await api('/api/admin/subjects', { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) { toast('Subject added'); closeModal('addSubjectModal'); loadSubjects(); }
+  else toast(d?.error || 'Failed','error');
+}
+
+async function deleteSubject(id) {
+  if (!confirm('Delete this subject?')) return;
+  const d = await api(`/api/admin/subjects/${id}`, { method:'DELETE' });
+  if (d?.success) { toast('Subject deleted'); loadSubjects(); }
+  else toast(d?.error||'Failed','error');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TIMETABLE
+// ══════════════════════════════════════════════════════════════════════════════
+function populateTeacherDropdown() {
+  const sel = document.getElementById('tt-teacher');
+  if (!sel) return;
+  const active = teacherList.filter(t => t.IsActive);
+  sel.innerHTML = '<option value="">Select Teacher…</option>' +
+    active.map(t => `<option value="${t.UserID}">${t.FullName} (${t.UserCode})</option>`).join('');
+}
+
+async function loadTimetable() {
+  const deptId  = document.getElementById('tt-filter-dept')?.value || '';
+  const sem     = document.getElementById('tt-filter-sem')?.value  || '';
+  let url = '/api/admin/timetable?';
+  if (deptId) url += `departmentId=${deptId}&`;
+  if (sem)    url += `semester=${sem}`;
+  const d = await api(url);
+  if (!d) return;
+  const rows = d.timetable || [];
+  document.getElementById('timetableTbody').innerHTML = rows.length
+    ? rows.map(t => `<tr>
+        <td>${t.DepartmentName||'—'}</td>
+        <td><span class="badge b-blue">Sem ${t.Semester||''}</span></td>
+        <td>${t.SubjectName||''} <small style="color:var(--gray)">(${t.SubjectCode||''})</small></td>
+        <td>${t.TeacherName||''}</td>
+        <td>${t.DayOfWeek||''}</td>
+        <td>${t.PeriodNumber||''}</td>
+        <td>${t.StartTime||''}–${t.EndTime||''}</td>
+        <td>${t.RoomNumber||''}</td>
+        <td><span class="badge ${t.IsLab?'b-amber':'b-teal'}">${t.IsLab?'Lab':'Theory'}</span></td>
+        <td><button class="btn btn-danger btn-xs" onclick="deleteTimetable(${t.TimetableID})">🗑️</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="10" class="empty-state"><div class="ei">📅</div>No timetable entries</td></tr>';
+}
+
+async function addTimetable() {
+  const body = { departmentId: document.getElementById('tt-dept').value, semester: parseInt(document.getElementById('tt-sem').value), subjectId: document.getElementById('tt-subj').value, teacherId: document.getElementById('tt-teacher').value, dayOfWeek: document.getElementById('tt-day').value, periodNumber: parseInt(document.getElementById('tt-period').value), startTime: document.getElementById('tt-start').value, endTime: document.getElementById('tt-end').value, roomNumber: document.getElementById('tt-room').value, isLab: parseInt(document.getElementById('tt-islab').value) };
+  if (!body.departmentId || !body.subjectId || !body.teacherId) { toast('Department, Subject, Teacher required','error'); return; }
+  const d = await api('/api/admin/timetable', { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) { toast('Entry added'); closeModal('addTimetableModal'); loadTimetable(); }
+  else toast(d?.error||'Failed','error');
+}
+
+async function deleteTimetable(id) {
+  if (!confirm('Delete this timetable entry?')) return;
+  const d = await api(`/api/admin/timetable/${id}`, { method:'DELETE' });
+  if (d?.success) { toast('Entry deleted'); loadTimetable(); }
+  else toast(d?.error||'Failed','error');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEES
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadFees() {
+  const d = await api('/api/admin/fee-structure');
+  if (!d) return;
+  const rows = d.feeStructure || [];
+  document.getElementById('feesTbody').innerHTML = rows.length
+    ? rows.map(f => `<tr>
+        <td>${f.DepartmentName||'—'}</td>
+        <td><span class="badge b-blue">Sem ${f.Semester||''}</span></td>
+        <td>${f.AcademicYear||''}</td>
+        <td>₹${(f.TuitionFee||0).toLocaleString()}</td>
+        <td>₹${(f.ExamFee||0).toLocaleString()}</td>
+        <td>₹${(f.LabFee||0).toLocaleString()}</td>
+        <td>₹${(f.LibraryFee||0).toLocaleString()}</td>
+        <td><b>₹${(f.TotalFee||0).toLocaleString()}</b></td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty-state"><div class="ei">💰</div>No fee structures</td></tr>';
+}
+
+async function addFee() {
+  const body = { departmentId: document.getElementById('fee-dept').value, semester: document.getElementById('fee-sem').value, academicYear: document.getElementById('fee-year').value, tuitionFee: parseFloat(document.getElementById('fee-tuition').value)||0, examFee: parseFloat(document.getElementById('fee-exam').value)||0, labFee: parseFloat(document.getElementById('fee-lab').value)||0, libraryFee: parseFloat(document.getElementById('fee-lib').value)||0, otherCharges: parseFloat(document.getElementById('fee-other').value)||0, developmentFee: 0 };
+  if (!body.departmentId) { toast('Select a department','error'); return; }
+  const d = await api('/api/admin/fee-structure', { method:'POST', body: JSON.stringify(body) });
+  if (d?.success) { toast('Fee structure added'); closeModal('addFeeModal'); loadFees(); }
+  else toast(d?.error||'Failed','error');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function setSelectVal(id, val) {
+  const sel = document.getElementById(id);
+  if (sel) sel.value = val;
+}
+
+// FIX: reset all rows first so clearing search shows them again
+function filterTable(tblId, q) {
+  document.querySelectorAll(`#${tblId} tbody tr`).forEach(r => {
+    r.style.display = (q && !r.textContent.toLowerCase().includes(q.toLowerCase())) ? 'none' : '';
+  });
+}
+
+// Safe HTML escaping to prevent XSS from data values
+function esc(str) {
+  if (str == null) return '—';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('userType');
+  localStorage.removeItem('loginRole');
+  location.href = 'auth.html';
+}
+
+// Close modal on backdrop click
+document.querySelectorAll('.modal-backdrop').forEach(m =>
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); })
+);
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
