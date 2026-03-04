@@ -435,6 +435,41 @@ body[data-role="Student"] { --accent: var(--student); --accent-g: var(--student-
 /* responsive */
 @media (max-width: 820px) { .panel { display: none; } }
 @media (max-width: 480px) { .card { padding: 1.75rem 1.25rem 1.5rem; } }
+
+/* ── In-card role selector tabs ───────────────────────── */
+.role-tabs {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: .3rem;
+}
+.role-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2rem;
+  padding: .55rem .25rem;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .02em;
+  transition: background .18s, color .18s, box-shadow .18s;
+  line-height: 1;
+}
+.role-tab .tab-ico { font-size: 1.1rem; }
+.role-tab:hover { background: rgba(0,0,0,.04); color: var(--ink2); }
+.role-tab.active-admin   { background: var(--white); color: var(--admin);   box-shadow: 0 1px 6px rgba(0,0,0,.10); }
+.role-tab.active-teacher { background: var(--white); color: var(--teacher); box-shadow: 0 1px 6px rgba(0,0,0,.10); }
+.role-tab.active-student { background: var(--white); color: var(--student); box-shadow: 0 1px 6px rgba(0,0,0,.10); }
+
 </style>
 </head>
 <body data-role="Admin">
@@ -519,6 +554,19 @@ body[data-role="Student"] { --accent: var(--student); --accent-g: var(--student-
     <button id="tab-Teacher" style="display:none"></button>
     <button id="tab-Student" style="display:none"></button>
 
+    <!-- role selector tabs -->
+    <div class="role-tabs">
+      <button type="button" class="role-tab active-admin" id="rtab-Admin" onclick="selectRole('Admin')">
+        <span class="tab-ico">🔐</span>Admin
+      </button>
+      <button type="button" class="role-tab" id="rtab-Teacher" onclick="selectRole('Teacher')">
+        <span class="tab-ico">👨‍🏫</span>Teacher
+      </button>
+      <button type="button" class="role-tab" id="rtab-Student" onclick="selectRole('Student')">
+        <span class="tab-ico">🎒</span>Student
+      </button>
+    </div>
+
     <!-- header -->
     <div class="card-head">
       <div class="role-badge rb-admin" id="roleBadge">🔐 &nbsp;Administrator</div>
@@ -568,10 +616,7 @@ body[data-role="Student"] { --accent: var(--student); --accent-g: var(--student-
 const API = (function() {
   const stored = localStorage.getItem('api_base');
   if (stored) return stored.replace(/\/$/, '');
-  const port = window.location.port;
-  const host = window.location.hostname;
-  if (port === '5000') return 'http://' + host + ':5000';
-  return 'http://localhost:5000';
+  return window.location.origin;
 })();
 
 let selectedRole = 'Admin';
@@ -606,7 +651,19 @@ const ROLES = {
   }
 };
 
+function updateCardTabs(role) {
+  ['Admin','Teacher','Student'].forEach(r => {
+    const t = document.getElementById('rtab-' + r);
+    if (!t) return;
+    t.className = 'role-tab';
+    if (r === role) {
+      t.classList.add('active-' + role.toLowerCase());
+    }
+  });
+}
+
 function selectRole(role) {
+  updateCardTabs(role);
   selectedRole = role;
   const cfg = ROLES[role];
 
@@ -743,10 +800,7 @@ async function handleLogin(e) {
 
   } catch (err) {
     console.error('[login]', err);
-    const isWrongPort = window.location.port && window.location.port !== '5000';
-    const hint = isWrongPort
-      ? 'You are viewing from port <strong>' + window.location.port + '</strong>. Make sure Flask is running on <strong>port 5000</strong>.'
-      : 'Cannot connect to server. Make sure <strong>python app.py</strong> is running on <strong>port 5000</strong>.';
+    const hint = 'Cannot connect to server. Check your internet connection or try refreshing the page.';
     showAlert('error', hint);
   } finally {
     btn.disabled = false;
