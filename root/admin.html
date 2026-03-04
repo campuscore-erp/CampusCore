@@ -557,10 +557,7 @@ const API = (function() {
   const stored = localStorage.getItem('api_base');
   if (stored) return stored.replace(/\/$/, '');
   // Auto-detect: if page served by Flask (5000), use same host. Otherwise hardcode 5000.
-  const port = window.location.port;
-  const host = window.location.hostname;
-  if (port === '5000') return 'http://' + host + ':5000';
-  return 'http://localhost:5000';
+  return window.location.origin;
 })();
 let TOKEN = '', USER = {};
 let depts = [], teacherList = [], subjectList = [];

@@ -27,8 +27,11 @@ print('=' * 60)
 from database import db  # noqa
 
 app = Flask(__name__)
-app.config['SECRET_KEY']               = os.getenv('SECRET_KEY', 'change-me-in-production')
-app.config['JWT_SECRET_KEY']           = os.getenv('JWT_SECRET_KEY', 'change-jwt-in-production')
+# Railway sets SECRET_KEY in CampusCore service variables — read it properly
+_secret = os.getenv('SECRET_KEY') or os.getenv('FLASK_SECRET_KEY') or 'campuscore-secret-2024-xyz'
+_jwt_secret = os.getenv('JWT_SECRET_KEY') or _secret + '-jwt'
+app.config['SECRET_KEY']               = _secret
+app.config['JWT_SECRET_KEY']           = _jwt_secret
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
 app.config['MAX_CONTENT_LENGTH']       = 50 * 1024 * 1024
 
@@ -193,7 +196,8 @@ def list_routes():
 if __name__ == '__main__':
     host  = os.getenv('HOST', '0.0.0.0')
     port  = int(os.getenv('PORT', 5000))
-    debug = os.getenv('FLASK_DEBUG', 'True').lower() in ('true', '1')
+    # On Railway, always disable debug mode for production stability
+    debug = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1')
     print(f'\n  ✅ CampusCore is running!')
     print(f'  Open in browser: http://127.0.0.1:{port}/auth.html')
     print(f'  (Do NOT use VS Code Live Server — open via Flask URL above)')

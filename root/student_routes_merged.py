@@ -77,7 +77,7 @@ def _resolve(user_id: int):
     # Try separate Students table (SQLite / old schema)
     try:
         s = db.execute_query(
-            "SELECT StudentID, DepartmentID, CurrentSemester FROM Students WHERE RollNumber = ?",
+            "SELECT UserID AS StudentID, DepartmentID, Semester AS CurrentSemester FROM Users WHERE UserCode = ? AND UserType = 'Student'",
             (u_code,), fetch_one=True
         )
         if s:
@@ -91,7 +91,7 @@ def _resolve(user_id: int):
     if student_id == user_id and user.get('Email'):
         try:
             s2 = db.execute_query(
-                "SELECT StudentID, DepartmentID, CurrentSemester FROM Students WHERE Email = ?",
+                "SELECT UserID AS StudentID, DepartmentID, Semester AS CurrentSemester FROM Users WHERE Email = ? AND UserType = 'Student'",
                 (user.get('Email'),), fetch_one=True
             )
             if s2:
@@ -114,7 +114,9 @@ def _enrolled_subj_ids(student_id, dept_id, semester):
     if dept_id and semester:
         try:
             rows = db.execute_query(
-                "SELECT DISTINCT SubjectID FROM Timetable WHERE DepartmentID=? AND Semester=?",
+                """SELECT DISTINCT t.SubjectID FROM Timetable t
+                   JOIN Classes c ON t.ClassID = c.ClassID
+                   WHERE c.DepartmentID=? AND c.Semester=?""",
                 (dept_id, semester))
             ids = [r['SubjectID'] for r in (rows or [])]
             if ids:
@@ -136,8 +138,8 @@ def _enrolled_subj_ids(student_id, dept_id, semester):
     try:
         rows = db.execute_query("""
             SELECT DISTINCT t.SubjectID FROM StudentEnrollments se
-            JOIN Timetable t ON se.TimetableID = t.TimetableID
-            WHERE se.StudentID = ? AND se.IsActive = 1
+            JOIN Timetable t ON se.ClassID = t.ClassID
+            WHERE se.StudentID = ?
         """, (student_id,))
         ids = [r['SubjectID'] for r in (rows or [])]
         if ids:
@@ -149,7 +151,7 @@ def _enrolled_subj_ids(student_id, dept_id, semester):
     try:
         rows = db.execute_query("""
             SELECT DISTINCT t.SubjectID FROM StudentEnrollments se
-            JOIN Timetable t ON se.TimetableID = t.TimetableID
+            JOIN Timetable t ON se.ClassID = t.ClassID
             WHERE se.StudentID = ?
         """, (student_id,))
         ids = [r['SubjectID'] for r in (rows or [])]
@@ -197,24 +199,26 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
         # Strategy 1: Cohort + Users (most common schema — teachers in Users table)
         try:
             params = [dept_id, semester]
-            where  = "t.DepartmentID = ? AND t.Semester = ?"
+            where  = "c.DepartmentID = ? AND c.Semester = ?"
             if day:
                 where += " AND t.DayOfWeek = ?"
                 params.append(day)
             rows = db.execute_query(
-                f"""SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber,
-                        t.StartTime, t.EndTime, t.RoomNumber,
-                        COALESCE(t.IsLab, 0) AS IsLab,
+                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
+                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         tc.UserID AS TeacherID, tc.FullName AS TeacherName,
                         tc.UserCode AS TeacherCode,
-                        d.DepartmentName, d.DepartmentCode
+                        d.DepartmentName, d.DepartmentCode,
+                        c.Semester, c.Section, c.ClassName
                     FROM Timetable t
+                    JOIN Classes     c  ON t.ClassID    = c.ClassID
                     JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
                     JOIN Users       tc ON t.TeacherID  = tc.UserID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
                     WHERE {where}
-                    ORDER BY t.PeriodNumber""",
+                    ORDER BY t.DayOfWeek, t.StartTime""",
                 tuple(params))
             if rows:
                 return mk(rows)
@@ -224,24 +228,26 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
         # Strategy 2: Cohort + Teachers table
         try:
             params = [dept_id, semester]
-            where  = "t.DepartmentID = ? AND t.Semester = ?"
+            where  = "c.DepartmentID = ? AND c.Semester = ?"
             if day:
                 where += " AND t.DayOfWeek = ?"
                 params.append(day)
             rows = db.execute_query(
-                f"""SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber,
-                        t.StartTime, t.EndTime, t.RoomNumber,
-                        COALESCE(t.IsLab, 0) AS IsLab,
+                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
+                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
-                        tc.TeacherID, tc.FullName AS TeacherName,
-                        tc.TeacherCode,
-                        d.DepartmentName, d.DepartmentCode
+                        tc.UserID AS TeacherID, tc.FullName AS TeacherName,
+                        tc.UserCode AS TeacherCode,
+                        d.DepartmentName, d.DepartmentCode,
+                        c.Semester, c.Section, c.ClassName
                     FROM Timetable t
+                    JOIN Classes     c  ON t.ClassID    = c.ClassID
                     JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
-                    JOIN Teachers    tc ON t.TeacherID  = tc.TeacherID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    JOIN Users       tc ON t.TeacherID  = tc.UserID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
                     WHERE {where}
-                    ORDER BY t.PeriodNumber""",
+                    ORDER BY t.DayOfWeek, t.StartTime""",
                 tuple(params))
             if rows:
                 return mk(rows)
@@ -251,23 +257,25 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
         # Strategy 3: Minimal — no teacher join, fill names separately
         try:
             params = [dept_id, semester]
-            where  = "t.DepartmentID = ? AND t.Semester = ?"
+            where  = "c.DepartmentID = ? AND c.Semester = ?"
             if day:
                 where += " AND t.DayOfWeek = ?"
                 params.append(day)
             rows = db.execute_query(
-                f"""SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber,
-                        t.StartTime, t.EndTime, t.RoomNumber,
-                        COALESCE(t.IsLab, 0) AS IsLab,
+                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
+                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         t.TeacherID,
                         NULL AS TeacherName, NULL AS TeacherCode,
-                        d.DepartmentName, d.DepartmentCode
+                        d.DepartmentName, d.DepartmentCode,
+                        c.Semester, c.Section, c.ClassName
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    JOIN Classes     c  ON t.ClassID    = c.ClassID
+                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
                     WHERE {where}
-                    ORDER BY t.PeriodNumber""",
+                    ORDER BY t.DayOfWeek, t.StartTime""",
                 tuple(params))
             if rows:
                 return fill_teachers(mk(rows))
@@ -311,7 +319,7 @@ def get_dashboard():
         try:
             if dept_id and semester:
                 r = db.execute_query(
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
+                    """SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=? AND c.Semester=?""",
                     (dept_id, semester), fetch_one=True)
                 enrolled_subjects = int(r['cnt'] or 0) if r else 0
         except Exception as e:
@@ -537,11 +545,12 @@ def get_subjects():
                     COALESCE(s.IsLab,0) AS IsLab,
                     {tc_cols}, d.DepartmentName, d.DepartmentCode
                 FROM StudentEnrollments se
-                JOIN Timetable   t  ON se.TimetableID = t.TimetableID
+                JOIN Timetable   t  ON se.ClassID = t.ClassID
                 JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                 {tc_join}
-                JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                WHERE se.StudentID = ? AND se.IsActive = 1
+                JOIN Classes     c  ON t.ClassID      = c.ClassID
+                JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                WHERE se.StudentID = ?
                 GROUP BY {grp}
                 ORDER BY s.IsLab ASC, s.SubjectName
             """, (student_id,)))
@@ -565,8 +574,9 @@ def get_subjects():
                     FROM Timetable   t
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                     {tc_join}
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE t.DepartmentID = ? AND t.Semester = ?
+                    JOIN Classes     c  ON t.ClassID     = c.ClassID
+                JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE c.DepartmentID = ? AND c.Semester = ?
                     GROUP BY {grp}
                     ORDER BY s.IsLab ASC, s.SubjectName
                 """, (dept_id, semester)))
@@ -643,11 +653,11 @@ def get_my_teachers():
                         SELECT {tc_sel}, {dept_sel},
                                {agg} AS SubjectsTaught
                         FROM   StudentEnrollments se
-                        JOIN   Timetable t  ON se.TimetableID = t.TimetableID
+                        JOIN   Timetable t  ON se.ClassID = t.ClassID
                         {tc_join}
                         JOIN   Subjects  s  ON t.SubjectID   = s.SubjectID
                         {dept_join}
-                        WHERE  se.StudentID = ? AND se.IsActive = 1
+                        WHERE  se.StudentID = ?
                         GROUP  BY {tc_grp}{dept_grp}
                     """, (student_id,)))
 
@@ -659,7 +669,7 @@ def get_my_teachers():
                         SELECT {tc_sel}, {dept_sel},
                                {agg} AS SubjectsTaught
                         FROM   StudentEnrollments se
-                        JOIN   Timetable t  ON se.TimetableID = t.TimetableID
+                        JOIN   Timetable t  ON se.ClassID = t.ClassID
                         {tc_join}
                         JOIN   Subjects  s  ON t.SubjectID   = s.SubjectID
                         {dept_join}
@@ -679,7 +689,8 @@ def get_my_teachers():
                             {tc_join}
                             JOIN   Subjects  s  ON t.SubjectID    = s.SubjectID
                             {dept_join}
-                            WHERE  t.DepartmentID = ? AND t.Semester = ?
+                            JOIN   Classes c ON t.ClassID = c.ClassID
+                            WHERE  c.DepartmentID = ? AND c.Semester = ?
                             GROUP  BY {tc_grp}{dept_grp}
                         """, (dept_id, semester)))
 
@@ -855,15 +866,15 @@ def scan_qr_attendance():
         if qr_code_id:
             try:
                 qr = db.execute_query(
-                    "SELECT QRCodeID, SubjectID, TimetableID, ExpiresAt, IsActive FROM QRCodes WHERE QRCodeID=? AND QRToken=?",
+                    "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRCodeID=? AND QRToken=?",
                     (qr_code_id, token), fetch_one=True)
             except Exception:
                 pass
 
         if not qr:
             for limit_sql in [
-                "SELECT QRCodeID, SubjectID, TimetableID, ExpiresAt, IsActive FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
-                "SELECT TOP 1 QRCodeID, SubjectID, TimetableID, ExpiresAt, IsActive FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC",
+                "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
+                "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
             ]:
                 try:
                     qr = db.execute_query(limit_sql, (token,), fetch_one=True)
@@ -894,8 +905,8 @@ def scan_qr_attendance():
             pass
 
         db.execute_non_query(
-            "INSERT INTO Attendance (StudentID, SubjectID, TimetableID, QRCodeID, AttendanceDate, Status) VALUES (?,?,?,?,?,'Present')",
-            (student_id, qr['SubjectID'], qr.get('TimetableID'), qr['QRCodeID'], today)
+            "INSERT INTO Attendance (StudentID, SubjectID, ClassID, QRCodeID, AttendanceDate, Status) VALUES (?,?,?,?,?,'Present')",
+            (student_id, qr['SubjectID'], qr.get('ClassID'), qr['QRCodeID'], today)
         )
 
         subj_name = 'the class'

@@ -535,7 +535,7 @@ select.form-input option{background:var(--bg3)}
 <div id="toasts" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;max-width:340px"></div>
 
 <script>
-const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');const p=window.location.port;if(p==='5000'||!p)return '';return 'http://localhost:5000';})();
+const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');return window.location.origin;})();
 let token='',camStream=null,scanInt=null,selectedPayMethod='',feePendingAmt=0;
 
 function getToken(){token=localStorage.getItem('accessToken')||localStorage.getItem('token')||sessionStorage.getItem('accessToken')||'';if(!token){window.location.href='auth.html';return false}return true}

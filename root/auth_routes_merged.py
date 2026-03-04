@@ -201,16 +201,17 @@ def login():
     # ── Password verification ──────────────────────────────────────────────
     stored_hash = user.get('PasswordHash') or ''
     first_login = int(user.get('IsFirstLogin') or 0)
+    raw_dob     = user.get('DateOfBirth') or ''
+    dob_display = _dob_ddmmyyyy(raw_dob)   # e.g. "08-04-2004"
 
+    # Step 1: Try the stored hash directly (works for changed passwords AND DOB-hashed passwords)
     password_ok = verify_password(password, stored_hash)
 
-    if not password_ok and first_login:
-        raw_dob     = user.get('DateOfBirth') or ''
-        dob_display = _dob_ddmmyyyy(raw_dob)
-        if dob_display:
-            entered_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
-            if entered_hash == _dob_hash(dob_display):
-                password_ok = True
+    # Step 2: If IsFirstLogin=1, also check if user typed DOB as DD-MM-YYYY
+    if not password_ok and first_login and dob_display:
+        entered_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        if entered_hash == _dob_hash(dob_display):
+            password_ok = True
 
     if not password_ok:
         _record_failed_attempt(bf_key)
@@ -218,6 +219,9 @@ def login():
         warn = ''
         if 0 < remaining_after <= 3:
             warn = f' Warning: {remaining_after} attempt(s) remaining before lockout.'
+        if first_login and dob_display:
+            return jsonify({'success': False,
+                            'error': f'Incorrect password. First-time login: use your Date of Birth as DD-MM-YYYY (e.g. {dob_display}).{warn}'}), 401
         return jsonify({'success': False, 'error': f'Incorrect password.{warn}'}), 401
 
     # ── Success — reset brute-force counter ────────────────────────────────
@@ -293,21 +297,22 @@ def change_password():
 
         stored_hash = user['PasswordHash']
         first_login = int(user.get('IsFirstLogin') or 0)
+        raw_dob     = user.get('DateOfBirth') or ''
+        dob_display = _dob_ddmmyyyy(raw_dob)
 
+        # Try stored hash first (handles both DOB-hashed and already-changed passwords)
         password_ok = verify_password(old_password, stored_hash)
 
-        if not password_ok and first_login:
-            raw_dob     = user.get('DateOfBirth') or ''
-            dob_display = _dob_ddmmyyyy(raw_dob)
-            if dob_display:
-                entered_hash = hashlib.sha256(old_password.encode('utf-8')).hexdigest()
-                if entered_hash == _dob_hash(dob_display):
-                    password_ok = True
+        # Also accept DOB typed as DD-MM-YYYY on first login
+        if not password_ok and first_login and dob_display:
+            entered_hash = hashlib.sha256(old_password.encode('utf-8')).hexdigest()
+            if entered_hash == _dob_hash(dob_display):
+                password_ok = True
 
         if not password_ok:
+            hint = f' Your first-time password is your Date of Birth as DD-MM-YYYY (e.g. {dob_display}).' if first_login and dob_display else ''
             return jsonify({'success': False,
-                            'error': 'Current password is incorrect. '
-                                     'Use your Date of Birth (DD-MM-YYYY) as your current password.'}), 401
+                            'error': f'Current password is incorrect.{hint}'}), 401
 
         new_hash = hashlib.sha256(new_password.encode('utf-8')).hexdigest()
         if new_hash == stored_hash:

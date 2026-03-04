@@ -205,7 +205,8 @@ def dashboard():
         """SELECT COUNT(DISTINCT u.UserID) FROM Users u
            WHERE u.UserType='Student' AND u.IsActive=1
              AND EXISTS (SELECT 1 FROM Timetable t
-                         WHERE t.TeacherID=? AND t.DepartmentID=u.DepartmentID AND t.Semester=u.Semester)""", (uid,))
+                         JOIN Classes c ON t.ClassID=c.ClassID
+                         WHERE t.TeacherID=? AND c.DepartmentID=u.DepartmentID AND c.Semester=u.Semester)""", (uid,))
     active_exams = _safe_scalar('SELECT COUNT(*) FROM Exams WHERE TeacherID=?', (uid,))
 
     today_name = datetime.now().strftime('%A')
@@ -213,14 +214,16 @@ def dashboard():
     try:
         ilab = ', s.IsLab' if _islab_col() else ', 0 AS IsLab'
         rows = db.execute_query(
-            f"""SELECT t.TimetableID, t.PeriodNumber, t.StartTime, t.EndTime,
-                      t.RoomNumber, t.DayOfWeek, t.Semester,
-                      s.SubjectName, s.SubjectCode {ilab}, d.DepartmentName
+            f"""SELECT t.TimetableID, 0 AS PeriodNumber, t.StartTime, t.EndTime,
+                      COALESCE(t.RoomNumber,t.Room,'') AS RoomNumber, t.DayOfWeek, c.Semester,
+                      s.SubjectName, s.SubjectCode {ilab}, d.DepartmentName,
+                      c.ClassName, c.Section
                FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
                INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
-               LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
+               LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
                WHERE t.TeacherID=? AND t.DayOfWeek=?
-               ORDER BY t.PeriodNumber""", (uid, today_name)) or []
+               ORDER BY t.StartTime""", (uid, today_name)) or []
         todays_schedule = _serialize(rows)
         for r in todays_schedule:
             r['ClassName'] = f"{r.get('DepartmentName','')} Sem {r.get('Semester','')}"
@@ -255,11 +258,12 @@ def subjects():
     if not rows:
         rows = db.execute_query(
             f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                   s.Credits {ilab}, t.Semester, t.DepartmentID, d.DepartmentName
+                   s.Credits {ilab}, c.Semester, c.DepartmentID, d.DepartmentName, c.ClassName, c.Section
                FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
                INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
-               LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
-               WHERE t.TeacherID=? ORDER BY t.Semester, s.SubjectName""", (uid,)) or []
+               LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
+               WHERE t.TeacherID=? ORDER BY c.Semester, s.SubjectName""", (uid,)) or []
     result = _serialize(rows)
     for r in result:
         r['ClassName'] = f"{r.get('DepartmentName','')} Sem {r.get('Semester','')}"
@@ -279,17 +283,18 @@ def timetable():
     if err: return err
     ilab = ', s.IsLab' if _islab_col() else ', 0 AS IsLab'
     rows = db.execute_query(
-        f"""SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber, t.StartTime, t.EndTime,
-                  t.RoomNumber, t.DepartmentID, t.Semester,
+        f"""SELECT t.TimetableID, t.DayOfWeek, 0 AS PeriodNumber, t.StartTime, t.EndTime,
+                  COALESCE(t.RoomNumber,t.Room,'') AS RoomNumber, c.DepartmentID, c.Semester,
                   s.SubjectID, s.SubjectName, s.SubjectCode {ilab},
-                  d.DepartmentName, d.DepartmentCode
+                  d.DepartmentName, d.DepartmentCode, c.ClassName, c.Section
            FROM Timetable t
+           JOIN Classes c ON t.ClassID=c.ClassID
            INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
-           LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
+           LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
            WHERE t.TeacherID=?
            ORDER BY CASE t.DayOfWeek
                WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
-               WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 ELSE 6 END, t.PeriodNumber""", (uid,)) or []
+               WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 ELSE 6 END, t.StartTime""", (uid,)) or []
     result = _serialize(rows)
     for r in result:
         if r.get('IsLab') is None:
@@ -308,13 +313,14 @@ def classes():
     uid, err = _get_teacher_user_id()
     if err: return err
     combos = db.execute_query(
-        """SELECT DISTINCT t.DepartmentID, t.Semester, d.DepartmentName, d.DepartmentCode,
-                  COUNT(DISTINCT t.SubjectID) AS subjectCount
+        """SELECT DISTINCT c.DepartmentID, c.Semester, d.DepartmentName, d.DepartmentCode,
+                  COUNT(DISTINCT t.SubjectID) AS subjectCount, c.ClassID, c.ClassName, c.Section
            FROM Timetable t
-           LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
+           JOIN Classes c ON t.ClassID=c.ClassID
+           LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
            WHERE t.TeacherID=?
-           GROUP BY t.DepartmentID, t.Semester, d.DepartmentName, d.DepartmentCode
-           ORDER BY d.DepartmentName, t.Semester""", (uid,)) or []
+           GROUP BY c.DepartmentID, c.Semester, d.DepartmentName, d.DepartmentCode, c.ClassID, c.ClassName, c.Section
+           ORDER BY d.DepartmentName, c.Semester""", (uid,)) or []
     result = []
     for row in combos:
         dept_id  = row['DepartmentID']
@@ -342,9 +348,9 @@ def students_by_class(department_id, semester):
     if err: return err
 
     teaches = _try_queries([
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND DepartmentID=? AND Semester=?', (uid, department_id, semester)),
+        ('SELECT t.ClassID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE t.TeacherID=? AND c.DepartmentID=? AND c.Semester=? LIMIT 1', (uid, department_id, semester)),
         ('SELECT TOP 1 SubjectID FROM TeacherSubjects WHERE TeacherID=? AND DepartmentID=? AND Semester=?', (uid, department_id, semester)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND DepartmentID=? AND Semester=? LIMIT 1', (uid, department_id, semester)),
+        ('SELECT t.ClassID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE t.TeacherID=? AND c.DepartmentID=? AND c.Semester=? LIMIT 1', (uid, department_id, semester)),
     ], fetch_one=True)
     if not teaches: return _err('You do not teach this department/semester combination', 403)
 
@@ -388,10 +394,10 @@ def attendance_submit():
 
     timetable_id = None
     tt = _try_queries([
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
-    if tt: timetable_id = tt.get('TimetableID')
+    if tt: timetable_id = tt.get('ClassID') or tt.get('TimetableID')
 
     saved = 0
     for rec in records:
@@ -414,9 +420,9 @@ def attendance_submit():
                 saved += 1
             else:
                 ok, _ = _try_inserts('Attendance', [
-                    ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy,MarkedAt',
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedAt',
                      (student_id, subject_id, timetable_id, attendance_date, status, str(uid), datetime.now())),
-                    ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy',
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
                      (student_id, subject_id, timetable_id, attendance_date, status, str(uid))),
                     ('StudentID,SubjectID,AttendanceDate,Status,MarkedBy',
                      (student_id, subject_id, attendance_date, status, str(uid))),
@@ -471,18 +477,18 @@ def generate_qr():
 
     timetable_id = None
     tt = _try_queries([
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
-    if tt: timetable_id = tt.get('TimetableID')
+    if tt: timetable_id = tt.get('ClassID') or tt.get('TimetableID')
 
     qr_token   = secrets.token_urlsafe(24)
     expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
 
     _try_inserts('QRCodes', [
-        ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt,CreatedAt',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1, datetime.now())),
-        ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive',
+        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1)),
         ('SubjectID,TeacherID,QRToken,ExpiresAt,IsActive',
          (subject_id, uid, qr_token, expires_at, 1)),
@@ -577,8 +583,8 @@ def mark_absent_non_scanners():
 
     timetable_id = None
     tt2 = _try_queries([
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
     if tt2: timetable_id = tt2.get('TimetableID')
 
@@ -587,7 +593,7 @@ def mark_absent_non_scanners():
         sid = s['StudentID']
         if sid not in already:
             ok, _ = _try_inserts('Attendance', [
-                ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy',
+                ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
                  (sid, subject_id, timetable_id, att_date, 'Absent', str(uid))),
                 ('StudentID,SubjectID,AttendanceDate,Status',
                  (sid, subject_id, att_date, 'Absent')),
@@ -806,13 +812,15 @@ def get_exam_submissions(exam_id):
         try:
             # Fallback: get all students in the same dept+semester cohort as this exam's subject
             cohort = db.execute_query(
-                """SELECT TOP 1 t.DepartmentID, t.Semester FROM Timetable t
+                """SELECT c.DepartmentID, c.Semester FROM Timetable t
+                   JOIN Classes c ON t.ClassID=c.ClassID
                    INNER JOIN Exams e ON e.SubjectID=t.SubjectID
-                   WHERE e.ExamID=?""", (exam_id,), fetch_one=True)
+                   WHERE e.ExamID=? LIMIT 1""", (exam_id,), fetch_one=True)
             if not cohort:
                 cohort = db.execute_query(
-                    """SELECT DepartmentID, Semester FROM Timetable
-                       WHERE SubjectID=? LIMIT 1""", (subject_id,), fetch_one=True)
+                    """SELECT c.DepartmentID, c.Semester FROM Timetable t
+                       JOIN Classes c ON t.ClassID=c.ClassID
+                       WHERE t.SubjectID=? LIMIT 1""", (subject_id,), fetch_one=True)
             if cohort:
                 all_students = db.execute_query(
                     """SELECT DISTINCT u.UserID AS StudentID, u.FullName AS StudentName,
@@ -1282,8 +1290,8 @@ def save_marks():
     if not subject_id or not marks_list: return _err('subjectId and marks list required')
 
     teaches = bool(_try_queries([
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True))
     if not teaches: return _err('You do not teach this subject', 403)
 
@@ -1377,8 +1385,9 @@ def my_students():
                u.Semester, u.Gender, u.IsActive, d.DepartmentName
            FROM Users u
            JOIN Departments d ON u.DepartmentID = d.DepartmentID
-           JOIN Timetable t ON t.DepartmentID = u.DepartmentID AND t.Semester = u.Semester
-           WHERE u.UserType='Student' AND u.IsActive=1 AND t.TeacherID=?
+           JOIN Timetable t ON t.TeacherID = ?
+           JOIN Classes c ON t.ClassID = c.ClassID AND c.DepartmentID = u.DepartmentID AND c.Semester = u.Semester
+           WHERE u.UserType='Student' AND u.IsActive=1
            ORDER BY u.FullName""", (uid,)) or []
     return _ok({'students': _serialize(students), 'count': len(students)})
 
@@ -1439,17 +1448,18 @@ def get_student_timetable():
         if not dept_id or not semester:
             return jsonify({'success': False, 'error': 'dept_id and semester are required'}), 400
         rows = _serialize(db.execute_query(
-            """SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber, t.StartTime, t.EndTime,
-                      t.RoomNumber, t.Semester, t.DepartmentID,
+            """SELECT t.TimetableID, t.DayOfWeek, 0 AS PeriodNumber, t.StartTime, t.EndTime,
+                      COALESCE(t.RoomNumber,t.Room,'') AS RoomNumber, c.Semester, c.DepartmentID,
                       s.SubjectName, s.SubjectCode,
                       u.FullName AS TeacherName, u.UserCode AS TeacherCode,
-                      d.DepartmentName, d.DepartmentCode
+                      d.DepartmentName, d.DepartmentCode, c.ClassName, c.Section
                FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
                JOIN Subjects s ON t.SubjectID=s.SubjectID
                JOIN Users u ON t.TeacherID=u.UserID
-               JOIN Departments d ON t.DepartmentID=d.DepartmentID
-               WHERE t.DepartmentID=? AND t.Semester=?
-               ORDER BY t.DayOfWeek, t.PeriodNumber""", (dept_id, semester)))
+               JOIN Departments d ON c.DepartmentID=d.DepartmentID
+               WHERE c.DepartmentID=? AND c.Semester=?
+               ORDER BY t.DayOfWeek, t.StartTime""", (dept_id, semester)))
         return jsonify({'success': True, 'timetable': rows}), 200
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1459,15 +1469,16 @@ def get_student_timetable():
 def get_teacher_timetable(teacher_id):
     try:
         semester = request.args.get('semester')
-        q = """SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber, t.StartTime, t.EndTime,
-                      t.RoomNumber, t.Semester, t.DepartmentID,
+        q = """SELECT t.TimetableID, t.DayOfWeek, 0 AS PeriodNumber, t.StartTime, t.EndTime,
+                      COALESCE(t.RoomNumber,t.Room,'') AS RoomNumber, c.Semester, c.DepartmentID,
                       s.SubjectName, s.SubjectCode,
                       u.FullName AS TeacherName, u.UserCode AS TeacherCode,
-                      d.DepartmentName, d.DepartmentCode
+                      d.DepartmentName, d.DepartmentCode, c.ClassName, c.Section
                FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
                JOIN Subjects s ON t.SubjectID=s.SubjectID
                JOIN Users u ON t.TeacherID=u.UserID
-               JOIN Departments d ON t.DepartmentID=d.DepartmentID
+               JOIN Departments d ON c.DepartmentID=d.DepartmentID
                WHERE t.TeacherID=?"""
         params = [teacher_id]
         if semester: q += ' AND t.Semester=?'; params.append(semester)

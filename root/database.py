@@ -51,9 +51,8 @@ MYSQL_USER     = os.environ.get('MYSQLUSER',     'root')
 MYSQL_PASSWORD = os.environ.get('MYSQLPASSWORD', '')
 MYSQL_DB       = os.environ.get('MYSQLDATABASE', 'railway')
 
-# If Railway MySQL variables are set, override DB_SERVER/DB_NAME for pyodbc fallback
+# If Railway MySQL variables are set, log detection (do NOT force sqlite — let _detect_backend try MySQL first)
 if MYSQL_HOST:
-    os.environ.setdefault('DB_BACKEND', 'sqlite')  # Use SQLite since pyodbc won't connect to MySQL
     print(f'✅ [DB] Railway MySQL detected: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
 
 try:
@@ -293,7 +292,9 @@ class Database:
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
             autocommit=False,
-            connect_timeout=15,
+            connect_timeout=30,
+            read_timeout=30,
+            write_timeout=30,
         )
 
     def _ensure_mysql_schema(self):

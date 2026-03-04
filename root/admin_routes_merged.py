@@ -876,17 +876,19 @@ def get_timetable():
                            t.StartTime, t.EndTime, t.RoomNumber,
                            t.Semester, t.AcademicYear, t.IsLab,
                            s.SubjectName, s.SubjectCode,
-                           {teacher_cols}, d.DepartmentName
+                           {teacher_cols}, d.DepartmentName,
+                           c.Semester, c.DepartmentID, c.ClassName, c.Section
                     FROM Timetable t
+                    JOIN Classes     c  ON t.ClassID      = c.ClassID
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                     {teacher_join}
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
                     WHERE 1 = 1
                 """
                 params = []
-                if dept_id:  query += ' AND t.DepartmentID = ?'; params.append(dept_id)
-                if semester: query += ' AND t.Semester = ?';     params.append(semester)
-                query += ' ORDER BY t.DayOfWeek, t.PeriodNumber'
+                if dept_id:  query += ' AND c.DepartmentID = ?'; params.append(dept_id)
+                if semester: query += ' AND c.Semester = ?';     params.append(semester)
+                query += ' ORDER BY t.DayOfWeek, t.StartTime'
 
                 entries = serialize_rows(db.execute_query(query, tuple(params) if params else ()))
                 return jsonify({'success': True, 'timetable': entries}), 200
