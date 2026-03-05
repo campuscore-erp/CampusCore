@@ -46,6 +46,12 @@ def _get_teacher_user_id():
 
 
 def _sv(val):
+    if isinstance(val, timedelta):
+        # MySQL returns TIME columns as timedelta — convert to HH:MM string
+        total = int(val.total_seconds())
+        h, m = divmod(abs(total), 3600)
+        m, s = divmod(m, 60)
+        return f'{h:02d}:{m:02d}'
     if isinstance(val, (datetime, date, time)): return str(val)
     return val
 
@@ -616,9 +622,9 @@ def get_exams():
     for sql in [
         # Full: ExamName + StartTime + EndTime + counts
         """SELECT e.ExamID, e.ExamType, e.TotalMarks, e.ExamDate, e.Duration, e.CreatedAt,
-                  ISNULL(e.ExamName, ISNULL(e.ExamTitle, e.ExamType)) AS ExamName,
-                  ISNULL(e.ExamTitle, e.ExamType) AS ExamTitle,
-                  ISNULL(e.StartTime,'') AS StartTime, ISNULL(e.EndTime,'') AS EndTime,
+                  COALESCE(e.ExamName, COALESCE(e.ExamTitle, e.ExamType)) AS ExamName,
+                  COALESCE(e.ExamTitle, e.ExamType) AS ExamTitle,
+                  COALESCE(e.StartTime,'') AS StartTime, COALESCE(e.EndTime,'') AS EndTime,
                   s.SubjectName, s.SubjectCode, s.Semester, d.DepartmentName,
                   (SELECT COUNT(*) FROM ExamQuestions q WHERE q.ExamID=e.ExamID) AS QuestionCount,
                   (SELECT COUNT(*) FROM ExamSubmissions es WHERE es.ExamID=e.ExamID) AS SubmissionCount
@@ -627,7 +633,7 @@ def get_exams():
            WHERE e.TeacherID=? ORDER BY e.CreatedAt DESC""",
         # Without StartTime/EndTime columns
         """SELECT e.ExamID, e.ExamType, e.TotalMarks, e.ExamDate, e.Duration, e.CreatedAt,
-                  ISNULL(e.ExamName, ISNULL(e.ExamTitle, e.ExamType)) AS ExamName,
+                  COALESCE(e.ExamName, COALESCE(e.ExamTitle, e.ExamType)) AS ExamName,
                   s.SubjectName, s.SubjectCode, s.Semester, d.DepartmentName,
                   (SELECT COUNT(*) FROM ExamQuestions q WHERE q.ExamID=e.ExamID) AS QuestionCount,
                   (SELECT COUNT(*) FROM ExamSubmissions es WHERE es.ExamID=e.ExamID) AS SubmissionCount
@@ -959,7 +965,7 @@ def add_question(exam_id):
     # Get current max question order (safe fallback to 0)
     max_order = 0
     for q in [
-        'SELECT ISNULL(MAX(QuestionOrder),0) AS MaxOrder FROM ExamQuestions WHERE ExamID=?',
+        'SELECT COALESCE(MAX(QuestionOrder),0) AS MaxOrder FROM ExamQuestions WHERE ExamID=?',
         'SELECT COALESCE(MAX(QuestionOrder),0) AS MaxOrder FROM ExamQuestions WHERE ExamID=?',
         'SELECT COUNT(*) AS MaxOrder FROM ExamQuestions WHERE ExamID=?',
     ]:
