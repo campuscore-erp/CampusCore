@@ -413,10 +413,20 @@ def get_dashboard():
         enrolled_subjects = 0
         try:
             if dept_id and semester:
-                r = db.execute_query(
+                for q in [
                     "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=%s AND Semester=%s",
-                    (dept_id, semester), fetch_one=True)
-                enrolled_subjects = int(r['cnt'] or 0) if r else 0
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=%s AND Semester=%s",
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=? AND Semester=?",
+                ]:
+                    try:
+                        r = db.execute_query(q, (dept_id, semester), fetch_one=True)
+                        if r:
+                            enrolled_subjects = int(r.get('cnt') or 0)
+                            if enrolled_subjects > 0:
+                                break
+                    except Exception:
+                        continue
         except Exception as e:
             print(f'[Dashboard] enrolled err: {e}')
 
@@ -635,70 +645,73 @@ def get_subjects():
         student_id, dept_id, semester, _ = _resolve(user_id)
         subjects = []
 
-        # All 4 strategies: (Enrollments|Cohort) x (Teachers|Users)
-        strategies = []
-
-        # Enrollment-based
-        for tc_join, tc_cols in [
-            ("JOIN Teachers tc ON t.TeacherID = tc.TeacherID",
-             "tc.TeacherID, tc.TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, tc.Designation AS TeacherDesignation"),
-            ("JOIN Users tc ON t.TeacherID = tc.UserID",
-             "tc.UserID AS TeacherID, tc.UserCode AS TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, NULL AS TeacherDesignation"),
-        ]:
-            # Determine GROUP BY based on join
-            if 'Teachers' in tc_join:
-                grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.TeacherID, tc.TeacherCode, tc.FullName, tc.Email, tc.Phone, tc.Designation, d.DepartmentName, d.DepartmentCode"
-            else:
-                grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.UserID, tc.UserCode, tc.FullName, tc.Email, tc.Phone, d.DepartmentName, d.DepartmentCode"
-            strategies.append((f"""
-                SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
-                    COALESCE(s.IsLab,0) AS IsLab,
-                    {tc_cols}, d.DepartmentName, d.DepartmentCode
-                FROM StudentEnrollments se
-                JOIN Timetable   t  ON se.ClassID = t.ClassID
-                JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                {tc_join}
-                JOIN Classes     c  ON t.ClassID      = c.ClassID
-                JOIN Departments d  ON c.DepartmentID = d.DepartmentID
-                WHERE se.StudentID = ?
-                GROUP BY {grp}
-                ORDER BY s.IsLab ASC, s.SubjectName
-            """, (student_id,)))
-
-        # Cohort-based
+        # Strategy 1: MySQL/Railway — Timetable has DepartmentID+Semester directly, JOIN Users for teacher
         if dept_id and semester:
-            for tc_join, tc_cols in [
-                ("JOIN Teachers tc ON t.TeacherID = tc.TeacherID",
-                 "tc.TeacherID, tc.TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, tc.Designation AS TeacherDesignation"),
-                ("JOIN Users tc ON t.TeacherID = tc.UserID",
-                 "tc.UserID AS TeacherID, tc.UserCode AS TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, NULL AS TeacherDesignation"),
-            ]:
-                if 'Teachers' in tc_join:
-                    grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.TeacherID, tc.TeacherCode, tc.FullName, tc.Email, tc.Phone, tc.Designation, d.DepartmentName, d.DepartmentCode"
-                else:
-                    grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.UserID, tc.UserCode, tc.FullName, tc.Email, tc.Phone, d.DepartmentName, d.DepartmentCode"
-                strategies.append((f"""
-                    SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
-                        COALESCE(s.IsLab,0) AS IsLab,
-                        {tc_cols}, d.DepartmentName, d.DepartmentCode
-                    FROM Timetable   t
+            for q, p in [
+                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                        s.Credits, s.IsLab,
+                        tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
+                        tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
+                        tc.Phone AS TeacherPhone,
+                        d.DepartmentName, d.DepartmentCode
+                    FROM Timetable t
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    {tc_join}
-                    JOIN Classes     c  ON t.ClassID     = c.ClassID
-                JOIN Departments d  ON c.DepartmentID = d.DepartmentID
-                    WHERE c.DepartmentID = ? AND c.Semester = ?
-                    GROUP BY {grp}
-                    ORDER BY s.IsLab ASC, s.SubjectName
-                """, (dept_id, semester)))
+                    JOIN Users       tc ON t.TeacherID   = tc.UserID
+                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    WHERE t.DepartmentID = %s AND t.Semester = %s
+                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
+                # No teacher join fallback
+                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                        s.Credits, s.IsLab,
+                        t.TeacherID, NULL AS TeacherCode,
+                        NULL AS TeacherName, NULL AS TeacherEmail,
+                        NULL AS TeacherPhone,
+                        d.DepartmentName, d.DepartmentCode
+                    FROM Timetable t
+                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    WHERE t.DepartmentID = %s AND t.Semester = %s
+                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
+                # Subjects table only (no Timetable needed)
+                ("""SELECT SubjectID, SubjectName, SubjectCode, Credits, IsLab,
+                        NULL AS TeacherID, NULL AS TeacherCode,
+                        NULL AS TeacherName, NULL AS TeacherEmail,
+                        NULL AS TeacherPhone,
+                        NULL AS DepartmentName, NULL AS DepartmentCode
+                    FROM Subjects
+                    WHERE DepartmentID = %s AND Semester = %s
+                    ORDER BY IsLab ASC, SubjectName""", (dept_id, semester)),
+            ]:
+                try:
+                    rows = db.execute_query(q, p)
+                    if rows:
+                        subjects = serialize_rows(rows)
+                        break
+                except Exception as e:
+                    print(f'[Subjects] strategy err: {e}')
 
-        for sql, params in strategies:
+        # Strategy 2: SQLite fallback via StudentEnrollments + Classes
+        if not subjects:
             try:
-                rows = db.execute_query(sql, params)
+                rows = db.execute_query("""
+                    SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                        s.Credits, COALESCE(s.IsLab,0) AS IsLab,
+                        tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
+                        tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
+                        tc.Phone AS TeacherPhone,
+                        d.DepartmentName, d.DepartmentCode
+                    FROM StudentEnrollments se
+                    JOIN Timetable   t  ON se.TimetableID = t.TimetableID
+                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID    = tc.UserID
+                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    WHERE se.StudentID = ?
+                    ORDER BY s.IsLab ASC, s.SubjectName
+                """, (student_id,))
                 if rows:
                     subjects = serialize_rows(rows)
-                    break
             except Exception as e:
-                print(f'[Subjects] strategy err: {e}')
+                print(f'[Subjects] SQLite fallback err: {e}')
 
         return jsonify({'success': True, 'subjects': subjects}), 200
     except Exception as e:
