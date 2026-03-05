@@ -195,6 +195,84 @@ def _to_mssql_sql(sql: str) -> str:
     return without_limit
 
 
+def _to_mysql_sql(sql: str) -> str:
+    """
+    Translate MSSQL/SQLite-specific SQL syntax to MySQL equivalents.
+    Called automatically when backend == 'mysql'.
+    """
+    # ISNULL(a, b) → IFNULL(a, b)
+    sql = re.sub(r'\bISNULL\s*\(', 'IFNULL(', sql, flags=re.IGNORECASE)
+
+    # CONVERT(VARCHAR(n), col, 23)  → DATE_FORMAT(col, '%Y-%m-%d')
+    sql = re.sub(
+        r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*23\s*\)",
+        lambda m: f"DATE_FORMAT({m.group(1).strip()}, '%Y-%m-%d')",
+        sql, flags=re.IGNORECASE,
+    )
+
+    # CONVERT(VARCHAR(n), col, 108) → TIME_FORMAT(col, '%H:%i')
+    sql = re.sub(
+        r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*108\s*\)",
+        lambda m: f"TIME_FORMAT({m.group(1).strip()}, '%H:%i')",
+        sql, flags=re.IGNORECASE,
+    )
+
+    # CONVERT(VARCHAR(n), expr) → CAST(expr AS CHAR)
+    sql = re.sub(
+        r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^)]+?)\s*\)",
+        lambda m: f"CAST({m.group(1).strip()} AS CHAR)",
+        sql, flags=re.IGNORECASE,
+    )
+
+    # STRING_AGG(col, ', ') → GROUP_CONCAT(col SEPARATOR ', ')
+    sql = re.sub(
+        r"STRING_AGG\s*\(\s*([^,]+?)\s*,\s*'([^']*)'\s*\)",
+        lambda m: f"GROUP_CONCAT({m.group(1).strip()} SEPARATOR '{m.group(2)}')",
+        sql, flags=re.IGNORECASE,
+    )
+
+    # CAST(x AS VARCHAR) / CAST(x AS NVARCHAR) → CAST(x AS CHAR)
+    sql = re.sub(r'\bCAST\s*\((.+?)\s+AS\s+N?VARCHAR(?:\s*\(\s*\d+\s*\))?\s*\)',
+                 lambda m: f'CAST({m.group(1)} AS CHAR)', sql, flags=re.IGNORECASE)
+
+    # SELECT TOP N → SELECT (move LIMIT to end)
+    top_match = re.search(r'\bSELECT\s+TOP\s*\(?\s*(\d+)\s*\)?\s+', sql, flags=re.IGNORECASE)
+    if top_match:
+        n = top_match.group(1)
+        sql = re.sub(r'\bSELECT\s+TOP\s*\(?\s*\d+\s*\)?\s+', 'SELECT ', sql, flags=re.IGNORECASE)
+        if not re.search(r'\bLIMIT\b', sql, flags=re.IGNORECASE):
+            sql = sql.rstrip().rstrip(';') + f' LIMIT {n}'
+
+    # IF NOT EXISTS ... INSERT → INSERT IGNORE (MySQL equivalent)
+    sql = re.sub(
+        r"IF\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+(\w+)\s+WHERE\s+([^)]+)\)\s+INSERT\s+INTO\s+\1\s*(\([^)]+\))\s*VALUES\s*(\([^)]+\))",
+        lambda m: f"INSERT IGNORE INTO {m.group(1)} {m.group(3)} VALUES {m.group(4)}",
+        sql, flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    # INSERT OR IGNORE → INSERT IGNORE
+    sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\b', 'INSERT IGNORE', sql, flags=re.IGNORECASE)
+
+    # NULLIF with FLOAT cast — MySQL compatible as-is; just ensure FLOAT→DECIMAL safe
+    # CAST(... AS FLOAT) → CAST(... AS DECIMAL(10,4))
+    sql = re.sub(r'\bCAST\s*\((.+?)\s+AS\s+FLOAT\s*\)',
+                 lambda m: f'CAST({m.group(1)} AS DECIMAL(10,4))', sql, flags=re.IGNORECASE)
+
+    # COALESCE with 3+ args where some columns may not exist — keep as-is (MySQL supports COALESCE natively)
+    # But replace COALESCE(t.RoomNumber, t.Room, '') → COALESCE(t.RoomNumber, '') for safety
+    # since MySQL will error if column doesn't exist, we just use the primary column
+    sql = re.sub(
+        r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*''\s*\)",
+        "IFNULL(t.RoomNumber, '')",
+        sql, flags=re.IGNORECASE,
+    )
+
+    # ? → %s (parameterized query marker)
+    sql = sql.replace('?', '%s')
+
+    return sql
+
+
 def _serialize_db_value(v: Any) -> Any:
     """Convert DB-specific scalar types to JSON-safe primitives."""
     if isinstance(v, datetime):
@@ -727,7 +805,7 @@ class Database:
         conn = None
         try:
             conn = self._mysql_connect()
-            query = query.replace('?', '%s')
+            query = _to_mysql_sql(query)  # translate MSSQL→MySQL syntax
             with conn.cursor() as cursor:
                 cursor.execute(query, params if params is not None else ())
                 if fetch_one:
@@ -745,7 +823,7 @@ class Database:
         conn = None
         try:
             conn = self._mysql_connect()
-            query = query.replace('?', '%s')
+            query = _to_mysql_sql(query)  # translate MSSQL→MySQL syntax
             with conn.cursor() as cursor:
                 cursor.execute(query, params if params is not None else ())
                 conn.commit()

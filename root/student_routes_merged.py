@@ -205,7 +205,7 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
                 params.append(day)
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
-                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        IFNULL(t.RoomNumber, '') AS RoomNumber,
                         0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         tc.UserID AS TeacherID, tc.FullName AS TeacherName,
@@ -234,7 +234,7 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
                 params.append(day)
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
-                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        IFNULL(t.RoomNumber, '') AS RoomNumber,
                         0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         tc.UserID AS TeacherID, tc.FullName AS TeacherName,
@@ -263,7 +263,7 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
                 params.append(day)
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
-                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        IFNULL(t.RoomNumber, '') AS RoomNumber,
                         0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         t.TeacherID,
@@ -330,7 +330,7 @@ def get_dashboard():
         subject_wise   = []
         try:
             r = db.execute_query(
-                f"SELECT CAST(SUM(CASE WHEN Status='Present' THEN 1.0 ELSE 0 END) * 100.0 / NULLIF(COUNT(*),0) AS FLOAT) AS pct FROM Attendance WHERE StudentID IN ({id_ph})",
+                f"SELECT CAST(SUM(CASE WHEN Status='Present' THEN 1.0 ELSE 0 END) * 100.0 / NULLIF(COUNT(*),0) AS DECIMAL(10,2)) AS pct FROM Attendance WHERE StudentID IN ({id_ph})",
                 tuple(all_ids), fetch_one=True)
             attendance_pct = round(float(r['pct'] or 0), 1) if r and r['pct'] else 0
         except Exception as e:
@@ -342,7 +342,7 @@ def get_dashboard():
                         COUNT(*) AS TotalClasses,
                         SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) AS PresentCount,
                         CAST(SUM(CASE WHEN a.Status='Present' THEN 1.0 ELSE 0 END)
-                             * 100.0 / NULLIF(COUNT(*),0) AS FLOAT) AS Percentage
+                             * 100.0 / NULLIF(COUNT(*),0) AS DECIMAL(10,2)) AS Percentage
                     FROM Attendance a
                     JOIN Subjects s ON a.SubjectID = s.SubjectID
                     WHERE a.StudentID IN ({id_ph})
@@ -771,10 +771,10 @@ def get_attendance():
             # Try MSSQL syntax first, then SQLite
             for q in [
                 f"""SELECT s.SubjectName, s.SubjectCode,
-                           ISNULL(COUNT(a.AttendanceID), 0) AS TotalClasses,
-                           ISNULL(SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END), 0) AS PresentCount,
-                           ISNULL(CAST(SUM(CASE WHEN a.Status='Present' THEN 1.0 ELSE 0.0 END)
-                                * 100.0 / NULLIF(COUNT(a.AttendanceID), 0) AS FLOAT), 0.0) AS Percentage
+                           IFNULL(COUNT(a.AttendanceID), 0) AS TotalClasses,
+                           IFNULL(SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END), 0) AS PresentCount,
+                           IFNULL(CAST(SUM(CASE WHEN a.Status='Present' THEN 1.0 ELSE 0.0 END)
+                                * 100.0 / NULLIF(COUNT(a.AttendanceID), 0) AS DECIMAL(10,2)), 0.0) AS Percentage
                     FROM   Subjects s
                     LEFT JOIN Attendance a ON a.SubjectID = s.SubjectID
                            AND a.StudentID IN ({id_ph})
@@ -785,7 +785,7 @@ def get_attendance():
                            COUNT(a.AttendanceID) AS TotalClasses,
                            SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) AS PresentCount,
                            CAST(SUM(CASE WHEN a.Status='Present' THEN 1.0 ELSE 0.0 END)
-                                * 100.0 / NULLIF(COUNT(a.AttendanceID), 0) AS FLOAT) AS Percentage
+                                * 100.0 / NULLIF(COUNT(a.AttendanceID), 0) AS DECIMAL(10,2)) AS Percentage
                     FROM   Subjects s
                     LEFT JOIN Attendance a ON a.SubjectID = s.SubjectID
                            AND a.StudentID IN ({id_ph})
@@ -816,7 +816,7 @@ def get_attendance():
                            COUNT(*) AS TotalClasses,
                            SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) AS PresentCount,
                            CAST(SUM(CASE WHEN a.Status='Present' THEN 1.0 ELSE 0 END)
-                                * 100.0 / NULLIF(COUNT(*), 0) AS FLOAT) AS Percentage
+                                * 100.0 / NULLIF(COUNT(*), 0) AS DECIMAL(10,2)) AS Percentage
                     FROM   Attendance a JOIN Subjects s ON a.SubjectID = s.SubjectID
                     WHERE  a.StudentID IN ({id_ph})
                     GROUP BY s.SubjectID, s.SubjectName, s.SubjectCode
@@ -996,37 +996,37 @@ def get_materials():
 def _safe_exams_query(student_id, where_sql, where_params):
     """Try full Exams query, fall back to minimal column sets for MSSQL compatibility."""
     for sql_variant in [
-        # MSSQL primary: include StartTime + normalize ExamDate to date-only string
+        # MySQL/MSSQL primary: include StartTime + normalize ExamDate to date-only string
         f"""SELECT e.ExamID, e.ExamType,
-               CONVERT(VARCHAR(10), e.ExamDate, 23) AS ExamDate,
+               DATE_FORMAT(e.ExamDate, '%Y-%m-%d') AS ExamDate,
                e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
-               ISNULL(e.ExamTitle, e.ExamType) AS ExamName,
+               IFNULL(e.ExamTitle, e.ExamType) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
-               CONVERT(VARCHAR(5), ISNULL(e.StartTime, '00:00'), 108) AS StartTime,
+               IFNULL(TIME_FORMAT(e.StartTime, '%H:%i'), '00:00') AS StartTime,
                NULL AS EndTime,
-               ISNULL(e.Instructions, '') AS Instructions,
+               IFNULL(e.Instructions, '') AS Instructions,
                1 AS IsActive, es.MarksObtained
             FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID
             LEFT JOIN ExamSubmissions es ON e.ExamID = es.ExamID AND es.StudentID = ?
             WHERE {where_sql}
             ORDER BY e.ExamDate DESC""",
-        # MSSQL fallback: ExamDate raw (no CONVERT), StartTime null
+        # Fallback: ExamDate raw, StartTime null
         f"""SELECT e.ExamID, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
-               ISNULL(e.ExamTitle, e.ExamType) AS ExamName,
+               IFNULL(e.ExamTitle, e.ExamType) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
                NULL AS StartTime, NULL AS EndTime,
-               ISNULL(e.Instructions, '') AS Instructions,
+               IFNULL(e.Instructions, '') AS Instructions,
                1 AS IsActive, es.MarksObtained
             FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID
             LEFT JOIN ExamSubmissions es ON e.ExamID = es.ExamID AND es.StudentID = ?
             WHERE {where_sql}
             ORDER BY e.ExamDate DESC""",
-        # MSSQL fallback: no ExamTitle either
+        # Fallback: no ExamTitle either
         f"""SELECT e.ExamID, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
-               CAST(e.ExamID AS VARCHAR) AS ExamName,
+               CAST(e.ExamID AS CHAR) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
                NULL AS StartTime, NULL AS EndTime, NULL AS Instructions,
                1 AS IsActive, NULL AS MarksObtained
@@ -1102,9 +1102,9 @@ def get_exam_details(exam_id):
 
         exam = None
         for exam_sql in [
-            # MSSQL safe — no StartTime/EndTime
-            "SELECT e.ExamID, ISNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, CONVERT(VARCHAR(10),e.ExamDate,23) AS ExamDate, e.Duration, e.TotalMarks, ISNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, CONVERT(VARCHAR(5),ISNULL(e.StartTime,'00:00'),108) AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
-            "SELECT e.ExamID, e.ExamType AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            # MySQL-compatible primary
+            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate,'%Y-%m-%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, IFNULL(TIME_FORMAT(e.StartTime,'%H:%i'),'00:00') AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             # SQLite full columns
             "SELECT e.ExamID, e.ExamName, e.ExamType, e.ExamDate, e.StartTime, e.EndTime, e.Duration, e.TotalMarks, e.Instructions, e.IsActive, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
         ]:
