@@ -153,21 +153,30 @@ tr:hover td{background:rgba(255,255,255,.015)}
 th{font-size:.67rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;padding:.7rem 1rem;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border)}
 
 /* ── NEW TIMETABLE — card-based, original teal/purple ── */
-.tt-outer{display:flex;flex-direction:column;gap:4px}
-.tt-hdr-row{display:grid;grid-template-columns:72px repeat(5,1fr);gap:4px;margin-bottom:6px}
-.tt-hdr{background:var(--bg3);border:1px solid var(--border);padding:.55rem .5rem;font-size:.68rem;font-weight:700;color:var(--text2);text-align:center;border-radius:var(--r-sm);letter-spacing:.05em;text-transform:uppercase}
-.tt-hdr.today-col{background:rgba(20,184,166,.1);color:var(--teal);border-color:rgba(20,184,166,.3)}
-.tt-row{display:grid;grid-template-columns:72px repeat(5,1fr);gap:4px}
-.tt-period-label{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.4rem .3rem;gap:3px;min-height:82px}
+.tt-outer{display:flex;flex-direction:column;gap:5px}
+.tt-hdr-row{display:grid;grid-template-columns:80px repeat(5,1fr);gap:5px;margin-bottom:6px}
+.tt-hdr{background:var(--bg3);border:1px solid var(--border);padding:.6rem .5rem;font-size:.68rem;font-weight:700;color:var(--text2);text-align:center;border-radius:var(--r-sm);letter-spacing:.05em;text-transform:uppercase}
+.tt-hdr.today-col{background:rgba(20,184,166,.12);color:var(--teal);border-color:rgba(20,184,166,.35)}
+.tt-row{display:grid;grid-template-columns:80px repeat(5,1fr);gap:5px}
+.tt-period-label{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.4rem .3rem;gap:3px;min-height:92px}
 .tt-period-num{font-size:.72rem;font-weight:700;color:var(--text2)}
 .tt-period-time{font-size:.58rem;color:var(--text3);font-family:var(--mono);text-align:center;line-height:1.4}
 .tt-empty{background:var(--bg4);border-radius:var(--r-sm);min-height:82px;border:1px dashed rgba(255,255,255,.04)}
-.tt-slot{border-radius:var(--r-sm);min-height:82px;padding:.65rem .7rem;border:1px solid;display:flex;flex-direction:column;justify-content:space-between;transition:transform .15s,box-shadow .15s}
-.tt-slot:hover{transform:translateY(-2px)}
-.tt-slot.theory{background:linear-gradient(140deg,rgba(20,184,166,.1),rgba(20,184,166,.03));border-color:rgba(20,184,166,.3)}
-.tt-slot.lab{background:linear-gradient(140deg,rgba(168,85,247,.1),rgba(168,85,247,.03));border-color:rgba(168,85,247,.3)}
-.tt-slot.today-slot{box-shadow:inset 0 0 0 1px rgba(20,184,166,.25),0 4px 16px rgba(20,184,166,.08)}
-.tt-slot.today-slot.lab{box-shadow:inset 0 0 0 1px rgba(168,85,247,.25),0 4px 16px rgba(168,85,247,.08)}
+.tt-slot{border-radius:var(--r-sm);min-height:92px;padding:.65rem .75rem;border:1px solid;display:flex;flex-direction:column;justify-content:space-between;transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden}
+.tt-slot:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3)}
+/* Status colors: present=green, absent=red, no-attendance=yellow, upcoming=blue */
+.tt-slot.att-present{background:linear-gradient(140deg,rgba(34,197,94,.13),rgba(34,197,94,.04));border-color:rgba(34,197,94,.4)}
+.tt-slot.att-absent{background:linear-gradient(140deg,rgba(239,68,68,.15),rgba(239,68,68,.04));border-color:rgba(239,68,68,.45)}
+.tt-slot.att-no-att{background:linear-gradient(140deg,rgba(245,158,11,.13),rgba(245,158,11,.04));border-color:rgba(245,158,11,.4)}
+.tt-slot.att-upcoming{background:linear-gradient(140deg,rgba(59,130,246,.12),rgba(59,130,246,.03));border-color:rgba(59,130,246,.35)}
+.tt-slot.att-lab{background:linear-gradient(140deg,rgba(168,85,247,.1),rgba(168,85,247,.03));border-color:rgba(168,85,247,.3)}
+.tt-slot.today-glow{box-shadow:0 0 0 1.5px rgba(20,184,166,.4),0 4px 20px rgba(20,184,166,.1)}
+.tt-status-bar{position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-sm) var(--r-sm) 0 0}
+.att-present .tt-status-bar{background:var(--green)}
+.att-absent  .tt-status-bar{background:var(--red)}
+.att-no-att  .tt-status-bar{background:var(--amber)}
+.att-upcoming .tt-status-bar{background:var(--blue)}
+.att-lab      .tt-status-bar{background:var(--purple)}
 .tt-slot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.3rem;margin-bottom:.3rem}
 .tt-subj{font-weight:700;color:var(--teal);font-size:.75rem;line-height:1.3;flex:1}
 .tt-slot.lab .tt-subj{color:var(--purple)}
@@ -661,33 +670,104 @@ async function loadProfile(){
 }
 
 async function loadTT(){
-  const d=await api('/api/student/timetable');const wrap=document.getElementById('ttWrap');
-  if(!d.success||!d.timetable?.length){wrap.innerHTML=`<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable found</div><div class="empty-sub">Enrollment may be pending.</div></div>`;return}
+  const wrap=document.getElementById('ttWrap');
+  wrap.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+
+  // Fetch timetable + today's attendance in parallel
+  const [td, ad] = await Promise.all([
+    api('/api/student/timetable'),
+    api('/api/student/attendance')
+  ]);
+
+  if(!td.success||!td.timetable?.length){
+    wrap.innerHTML=`<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable found</div><div class="empty-sub">Enrollment may be pending.</div></div>`;
+    return;
+  }
+
   const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
   const today=new Date().toLocaleDateString('en-US',{weekday:'long'});
+  const todayDate=new Date().toISOString().slice(0,10); // YYYY-MM-DD
 
-  // ── Normalize PeriodNumber: if all are 0, derive from StartTime ──────────
-  const allZero=d.timetable.every(r=>!r.PeriodNumber||Number(r.PeriodNumber)===0);
+  // ── Build attendance lookup: SubjectID_Date → status ─────────────────────
+  // status: 'Present' | 'Absent' | (no record)
+  const attMap={};
+  if(ad.success && ad.attendance){
+    ad.attendance.forEach(a=>{
+      const dt=(a.AttendanceDate||'').slice(0,10);
+      const key=`${a.SubjectID}_${dt}`;
+      attMap[key]=a.Status;
+    });
+  }
+
+  // ── Normalize PeriodNumber if all 0 ──────────────────────────────────────
+  const allZero=td.timetable.every(r=>!r.PeriodNumber||Number(r.PeriodNumber)===0);
   if(allZero){
-    // Collect unique start times, sort them, assign period numbers 1,2,3...
-    const uniqueTimes=[...new Set(d.timetable.map(r=>r.StartTime||'').filter(Boolean))].sort();
+    const uniqueTimes=[...new Set(td.timetable.map(r=>r.StartTime||'').filter(Boolean))].sort();
     const timeToP={};uniqueTimes.forEach((t,i)=>timeToP[t]=i+1);
-    d.timetable.forEach(r=>{r.PeriodNumber=timeToP[r.StartTime||'']||1;});
+    td.timetable.forEach(r=>{r.PeriodNumber=timeToP[r.StartTime||'']||1;});
   }
 
   // ── Build lookup maps ────────────────────────────────────────────────────
-  const ps=[...new Set(d.timetable.map(r=>Number(r.PeriodNumber)))].sort((a,b)=>a-b);
-  // Key: DayOfWeek_PeriodNumber — one slot per cell
+  const ps=[...new Set(td.timetable.map(r=>Number(r.PeriodNumber)))].sort((a,b)=>a-b);
   const mp={};
-  d.timetable.forEach(r=>{
+  td.timetable.forEach(r=>{
     const key=`${r.DayOfWeek}_${Number(r.PeriodNumber)}`;
     if(!mp[key])mp[key]=r;
   });
-  const ptimes={};d.timetable.forEach(r=>{if(!ptimes[r.PeriodNumber]&&r.StartTime)ptimes[r.PeriodNumber]=r.StartTime;});
-  const pend={};d.timetable.forEach(r=>{if(!pend[r.PeriodNumber]&&r.EndTime)pend[r.PeriodNumber]=r.EndTime;});
+  const ptimes={};td.timetable.forEach(r=>{if(!ptimes[r.PeriodNumber]&&r.StartTime)ptimes[r.PeriodNumber]=r.StartTime;});
+  const pend={};td.timetable.forEach(r=>{if(!pend[r.PeriodNumber]&&r.EndTime)pend[r.PeriodNumber]=r.EndTime;});
+
+  // ── Day → date mapping for past days this week ────────────────────────────
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const nowDate=new Date();
+  const todayIdx=nowDate.getDay(); // 0=Sun
+  function getDayDate(dayName){
+    const targetIdx=dayNames.indexOf(dayName);
+    const diff=targetIdx-todayIdx;
+    const d=new Date(nowDate);
+    d.setDate(nowDate.getDate()+diff);
+    return d.toISOString().slice(0,10);
+  }
+
+  // ── Determine slot status ─────────────────────────────────────────────────
+  function getSlotStatus(c, dayName){
+    const isLab=c.IsLab||(c.SubjectCode&&c.SubjectCode.endsWith('L'));
+    if(isLab) return 'lab';
+    const slotDate=getDayDate(dayName);
+    const attKey=`${c.SubjectID}_${slotDate}`;
+    const attStatus=attMap[attKey];
+    // Future day this week → upcoming (blue)
+    const dayIdx=dayNames.indexOf(dayName);
+    if(dayIdx>todayIdx) return 'upcoming';
+    // Today → check time
+    if(dayName===today){
+      const nowMins=nowDate.getHours()*60+nowDate.getMinutes();
+      const [sh,sm]=(c.StartTime||'00:00').split(':').map(Number);
+      if(nowMins < sh*60+sm) return 'upcoming'; // class not started yet
+    }
+    // Past or ongoing — check attendance record
+    if(attStatus==='Present') return 'present';
+    if(attStatus==='Absent')  return 'absent';
+    // No attendance record → teacher didn't mark attendance
+    return 'no-att';
+  }
+
+  function statusIcon(s){
+    if(s==='present')  return '<span style="font-size:.7rem;color:var(--green)">✓ Present</span>';
+    if(s==='absent')   return '<span style="font-size:.7rem;color:var(--red)">✗ Absent</span>';
+    if(s==='no-att')   return '<span style="font-size:.7rem;color:var(--amber)">— No Record</span>';
+    if(s==='upcoming') return '<span style="font-size:.7rem;color:var(--blue2)">◷ Upcoming</span>';
+    if(s==='lab')      return '<span style="font-size:.7rem;color:var(--purple)">⚗ Lab</span>';
+    return '';
+  }
 
   // ── Render ───────────────────────────────────────────────────────────────
-  let h=`<div class="tt-outer"><div class="tt-hdr-row"><div class="tt-hdr" style="background:var(--bg3)"></div>${days.map(day=>`<div class="tt-hdr ${day===today?'today-col':''}">${day.slice(0,3).toUpperCase()}${day===today?'<br><span style="font-size:.56rem;letter-spacing:.03em;opacity:.8">TODAY</span>':''}</div>`).join('')}</div>`;
+  let h=`<div class="tt-outer">
+  <div class="tt-hdr-row">
+    <div class="tt-hdr" style="background:var(--bg3)"></div>
+    ${days.map(day=>`<div class="tt-hdr ${day===today?'today-col':''}">${day.slice(0,3).toUpperCase()}${day===today?'<br><span style="font-size:.56rem;opacity:.8">TODAY</span>':''}</div>`).join('')}
+  </div>`;
+
   ps.forEach(p=>{
     const startT=ptimes[p]?String(ptimes[p]).slice(0,5):'';
     const endT=pend[p]?String(pend[p]).slice(0,5):'';
@@ -695,18 +775,32 @@ async function loadTT(){
     days.forEach(day=>{
       const c=mp[`${day}_${p}`];
       if(c){
-        const lab=c.IsLab||(c.SubjectCode&&c.SubjectCode.endsWith('L'));
+        const status=getSlotStatus(c,day);
         const isToday=day===today;
-        h+=`<div class="tt-slot ${lab?'lab':'theory'}${isToday?' today-slot':''}">
-          <div class="tt-slot-top"><span class="tt-subj">${c.SubjectName||''}</span>${lab?'<span class="tt-lab-pill">LAB</span>':''}</div>
-          <div class="tt-slot-bottom"><div class="tt-teacher">👤 ${c.TeacherName||'—'}</div><div class="tt-room">📍 ${c.RoomNumber||'TBD'}</div></div>
+        h+=`<div class="tt-slot att-${status}${isToday?' today-glow':''}">
+          <div class="tt-status-bar"></div>
+          <div class="tt-slot-top">
+            <span class="tt-subj" style="font-size:.78rem;font-weight:700;line-height:1.3">${c.SubjectName||''}</span>
+            ${c.SubjectCode&&c.SubjectCode.endsWith('L')?'<span class="tt-lab-pill">LAB</span>':''}
+          </div>
+          <div class="tt-slot-bottom">
+            <div class="tt-teacher" style="font-size:.68rem">👤 ${c.TeacherName||'—'}</div>
+            <div class="tt-room" style="font-size:.65rem;color:var(--text3)">📍 ${c.RoomNumber||'TBD'}</div>
+            <div style="margin-top:.25rem">${statusIcon(status)}</div>
+          </div>
         </div>`;
       }else h+=`<div class="tt-empty"></div>`;
     });
     h+=`</div>`;
   });
   h+=`</div>`;
-  h+=`<div class="tt-legend"><span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:var(--teal-bg);border:1px solid rgba(20,184,166,.3)"></span>Theory</span><span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:var(--purple-bg);border:1px solid rgba(168,85,247,.3)"></span>Lab</span><span style="display:flex;align-items:center;gap:.45rem"><span style="width:10px;height:10px;border-radius:3px;border:1.5px solid var(--teal);display:inline-block"></span>Today</span></div>`;
+  h+=`<div class="tt-legend">
+    <span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.5)"></span><span style="color:var(--green);font-size:.72rem;font-weight:600">Present</span></span>
+    <span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:rgba(239,68,68,.2);border:1px solid rgba(239,68,68,.5)"></span><span style="color:var(--red);font-size:.72rem;font-weight:600">Absent</span></span>
+    <span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.5)"></span><span style="color:var(--amber);font-size:.72rem;font-weight:600">No Attendance</span></span>
+    <span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.5)"></span><span style="color:var(--blue2);font-size:.72rem;font-weight:600">Upcoming</span></span>
+    <span style="display:flex;align-items:center;gap:.45rem"><span class="tt-legend-dot" style="background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.5)"></span><span style="color:var(--purple);font-size:.72rem;font-weight:600">Lab</span></span>
+  </div>`;
   wrap.innerHTML=h;
 }
 
