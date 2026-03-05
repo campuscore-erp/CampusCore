@@ -383,7 +383,7 @@ def students_by_class(department_id, semester):
 
 
 # =============================================================================
-# ATTENDANCE — SUBMIT (once-only: if any record exists for subject+date, reject)
+# ATTENDANCE — SUBMIT (multi-fallback for MSSQL)
 # =============================================================================
 
 @bp_teacher.route('/attendance/submit', methods=['POST'])
@@ -398,20 +398,10 @@ def attendance_submit():
     records         = data.get('attendance', [])
     if not subject_id or not records: return _err('subjectId and attendance list required')
 
-    # ── ONCE-ONLY GUARD: reject if any attendance already recorded for this subject+date ──
-    try:
-        already_count = db.execute_scalar(
-            'SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=?',
-            (subject_id, attendance_date)) or 0
-        if already_count > 0:
-            return _err('Attendance for this session has already been saved and cannot be changed.', 409)
-    except Exception as e:
-        print(f'[attendance_submit] check existing err: {e}')
-
     timetable_id = None
     tt = _try_queries([
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
     if tt: timetable_id = tt.get('ClassID') or tt.get('TimetableID')
 
@@ -421,19 +411,31 @@ def attendance_submit():
         status     = rec.get('status', 'Present')
         if not student_id: continue
         try:
-            ok, _ = _try_inserts('Attendance', [
-                ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedBy,MarkedAt',
-                 (student_id, subject_id, timetable_id, attendance_date, status, str(uid), datetime.now())),
-                ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedBy',
-                 (student_id, subject_id, timetable_id, attendance_date, status, str(uid))),
-                ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
-                 (student_id, subject_id, timetable_id, attendance_date, status)),
-                ('StudentID,SubjectID,AttendanceDate,Status,MarkedBy',
-                 (student_id, subject_id, attendance_date, status, str(uid))),
-                ('StudentID,SubjectID,AttendanceDate,Status',
-                 (student_id, subject_id, attendance_date, status)),
-            ])
-            if ok: saved += 1
+            existing = _try_queries([
+                ('SELECT AttendanceID FROM Attendance WHERE StudentID=? AND SubjectID=? AND AttendanceDate=?',
+                 (student_id, subject_id, attendance_date)),
+            ], fetch_one=True)
+
+            if existing:
+                for upd, uvals in [
+                    ('UPDATE Attendance SET Status=?,MarkedAt=? WHERE AttendanceID=?', (status, datetime.now(), existing['AttendanceID'])),
+                    ('UPDATE Attendance SET Status=? WHERE AttendanceID=?', (status, existing['AttendanceID'])),
+                ]:
+                    try: db.execute_non_query(upd, uvals); break
+                    except Exception: pass
+                saved += 1
+            else:
+                ok, _ = _try_inserts('Attendance', [
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedAt',
+                     (student_id, subject_id, timetable_id, attendance_date, status, str(uid), datetime.now())),
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                     (student_id, subject_id, timetable_id, attendance_date, status, str(uid))),
+                    ('StudentID,SubjectID,AttendanceDate,Status,MarkedBy',
+                     (student_id, subject_id, attendance_date, status, str(uid))),
+                    ('StudentID,SubjectID,AttendanceDate,Status',
+                     (student_id, subject_id, attendance_date, status)),
+                ])
+                if ok: saved += 1
         except Exception as e:
             print(f'[attendance_submit] row error: {e}')
 
@@ -518,13 +520,22 @@ def qr_status():
     parts = token.split('|')
     subject_id = parts[2] if len(parts) >= 3 else None
     att_date   = parts[1] if len(parts) >= 2 else date.today().isoformat()
+    scanned = 0
+    scanned_students = []
     try:
-        scanned = db.execute_scalar(
-            "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present' AND MarkedBy=?",
-            (subject_id, att_date, str(uid))) or 0
+        rows = db.execute_query(
+            "SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
+            (subject_id, att_date)) or []
+        scanned_students = [r['StudentID'] for r in rows]
+        scanned = len(scanned_students)
     except Exception:
-        scanned = 0
-    return _ok({'scanned': scanned, 'token': token})
+        try:
+            scanned = db.execute_scalar(
+                "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
+                (subject_id, att_date)) or 0
+        except Exception:
+            scanned = 0
+    return _ok({'scanned': scanned, 'scannedStudents': scanned_students, 'token': token})
 
 
 @bp_teacher.route('/attendance/session-stats')
