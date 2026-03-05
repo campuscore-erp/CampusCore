@@ -187,8 +187,6 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
     <div class="nav-sec">
       <div class="nav-sec-title">Academics</div>
-      <div class="nav-item" id="nav-attendance" onclick="go('attendance')"><span class="ic">📋</span> Attendance</div>
-      <div class="nav-item" id="nav-qr" onclick="go('qr')"><span class="ic">📷</span> Generate QR</div>
       <div class="nav-item" id="nav-marks" onclick="go('marks')"><span class="ic">📝</span> Marks Entry</div>
       <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="ic">📄</span> Exams</div>
       <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="ic">📁</span> Study Materials</div>
@@ -223,8 +221,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="card">
           <div class="card-hdr"><div class="card-title">Quick Actions</div></div>
           <div style="display:grid;gap:.75rem">
-            <button class="btn btn-primary" style="justify-content:center" onclick="go('attendance')">📋 Take Attendance</button>
-            <button class="btn btn-teal" style="justify-content:center" onclick="go('qr')">📷 Generate QR Code</button>
+            <button class="btn btn-primary" style="justify-content:center" onclick="go('timetable')">📅 View Timetable & Attendance</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('marks')">📝 Enter Marks</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('exams')">📄 Create Exam</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('materials')">📁 Upload Material</button>
@@ -244,9 +241,36 @@ textarea.form-input{resize:vertical;min-height:80px}
 
     <!-- ═══════════════════════════════ TIMETABLE ═══════════════════════════════ -->
     <div class="view" id="view-timetable">
-      <div class="card">
-        <div class="card-hdr"><div><div class="card-title">My Weekly Timetable</div><div class="card-sub">Your class schedule — subjects, rooms and timings</div></div></div>
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="card-hdr">
+          <div><div class="card-title">📅 My Weekly Timetable</div><div class="card-sub">Click any class cell to take attendance · Colour-coded by attendance status</div></div>
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+            <span style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span style="width:14px;height:14px;background:#166534;border-radius:3px;display:inline-block;border:1px solid #22c55e"></span> Taken</span>
+            <span style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span style="width:14px;height:14px;background:#7f1d1d;border-radius:3px;display:inline-block;border:1px solid #ef4444"></span> Not Taken (Past)</span>
+            <span style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span style="width:14px;height:14px;background:#78350f;border-radius:3px;display:inline-block;border:1px solid #f59e0b"></span> Today (Pending)</span>
+            <span style="display:flex;align-items:center;gap:.4rem;font-size:.74rem"><span style="width:14px;height:14px;background:#1e3a5f;border-radius:3px;display:inline-block;border:1px solid #3b82f6"></span> Upcoming</span>
+          </div>
+        </div>
         <div id="ttWrap"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ ATTENDANCE (opened via timetable) ═══════════════════════════════ -->
+    <div class="view" id="view-attendance">
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="card-hdr">
+          <div>
+            <div class="card-title">📋 Take Attendance</div>
+            <div class="card-sub" id="attContextSub">Mark students present or absent</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="go('timetable')">← Back to Timetable</button>
+        </div>
+        <div id="attLockedBanner" style="display:none" class="alert alert-warning" style="margin-bottom:1rem">🔒 Attendance for this session has already been saved and cannot be changed.</div>
+        <div id="attRoster"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Loading attendance roster…</div></div></div>
+        <div id="attSaveBar" style="display:none;margin-top:1.25rem;display:flex;justify-content:flex-end;gap:.75rem">
+          <button class="btn btn-ghost" onclick="go('timetable')">Cancel</button>
+          <button class="btn btn-primary" id="attSaveBtn" onclick="submitAttendance()">💾 Save Attendance</button>
+        </div>
       </div>
     </div>
 
@@ -271,56 +295,6 @@ textarea.form-input{resize:vertical;min-height:80px}
       <div class="card">
         <div class="card-hdr"><div class="card-title">My Students</div></div>
         <div id="studentsList"><div class="loading"><div class="spinner"></div></div></div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════ ATTENDANCE ═══════════════════════════════ -->
-    <div class="view" id="view-attendance">
-      <div class="card" style="margin-bottom:1.25rem">
-        <div class="card-hdr">
-          <div><div class="card-title">Take Attendance</div><div class="card-sub">Select subject, date and mark each student</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.85rem;margin-bottom:1.25rem;align-items:end">
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Subject</label>
-            <select id="attSubject" class="form-input" onchange="loadAttRoster()"><option value="">— Select Subject —</option></select>
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Date</label>
-            <input id="attDate" class="form-input" type="date" onchange="loadAttRoster()">
-          </div>
-          <button class="btn btn-primary" onclick="submitAttendance()">💾 Save Attendance</button>
-        </div>
-        <div id="attRoster"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Select a subject to load students</div></div></div>
-      </div>
-      <div class="card">
-        <div class="card-hdr"><div class="card-title">Attendance History</div></div>
-        <div id="attHistory"><div class="loading"><div class="spinner"></div></div></div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════ QR GENERATE ═══════════════════════════════ -->
-    <div class="view" id="view-qr">
-      <div class="card" style="max-width:520px">
-        <div class="card-hdr"><div><div class="card-title">Generate QR Attendance Code</div><div class="card-sub">Show QR on projector — students scan to mark present</div></div></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:1.25rem">
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Subject</label>
-            <select id="qrSubject" class="form-input"><option value="">— Select Subject —</option></select>
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Date</label>
-            <input id="qrDate" class="form-input" type="date">
-          </div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:1.25rem" onclick="genQR()">📷 Generate QR Code</button>
-        <div id="qrStatus"></div>
-        <div id="qrDisplay" style="text-align:center;display:none">
-          <canvas id="qrCanvas" width="220" height="220"></canvas>
-          <div style="margin-top:.85rem;font-size:.78rem;color:var(--text3)">QR valid for 45 seconds · Refresh to regenerate</div>
-          <div id="qrCountdown" style="font-size:1.5rem;font-weight:800;color:var(--orange);margin-top:.5rem"></div>
-          <div id="qrStats" style="margin-top:1rem;font-size:.82rem;color:var(--text2)"></div>
-        </div>
       </div>
     </div>
 
@@ -460,7 +434,7 @@ textarea.form-input{resize:vertical;min-height:80px}
 <script>
 /* ══════════════════════════ CORE UTILITIES ══════════════════════════ */
 const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');return window.location.origin;})();
-let token='', mySubjects=[], qrInterval=null, qrCountdownInt=null;
+let token='', mySubjects=[];
 
 function getToken(){
   token=localStorage.getItem('accessToken')||localStorage.getItem('token')||sessionStorage.getItem('accessToken')||'';
@@ -490,12 +464,11 @@ function closeMdl(id){document.getElementById(id).classList.remove('open')}
 const TITLES={
   dashboard:['Dashboard','Your teaching overview'],
   profile:['My Profile','Personal information'],
-  timetable:['My Timetable','Weekly teaching schedule'],
+  timetable:['My Timetable','Click a class to take attendance'],
   subjects:['My Subjects','Assigned subjects'],
   classes:['My Classes','Departments and semesters'],
   students:['My Students','Students in your classes'],
-  attendance:['Attendance','Record student attendance'],
-  qr:['Generate QR','QR-based attendance for class'],
+  attendance:['Take Attendance','Mark students for selected class'],
   marks:['Marks Entry','Enter CA, midterm and endterm marks'],
   exams:['Exams','Create and manage online exams'],
   materials:['Study Materials','Upload resources for students'],
@@ -510,7 +483,6 @@ function go(v){
   const[t,s]=TITLES[v]||[v,''];
   document.getElementById('pageTitle').textContent=t;
   document.getElementById('pageSub').textContent=s;
-  if(v!=='qr'){stopQR();}
   loadView(v);
 }
 
@@ -521,7 +493,6 @@ function loadView(v){
   else if(v==='subjects')loadSubjs();
   else if(v==='classes')loadClasses();
   else if(v==='students')loadStudents();
-  else if(v==='attendance')loadAtt();
   else if(v==='marks')loadMarksView();
   else if(v==='exams')loadExams();
   else if(v==='materials')loadMats();
@@ -606,21 +577,50 @@ async function loadProfile(){
 }
 
 /* ══════════════════════════ TIMETABLE ══════════════════════════ */
+// Cache of attendance status: key = "subjectId_date" -> true/false
+let _attCache = {};
+
 async function loadTT(){
-  const d=await api('/api/teacher/timetable');
   const wrap=document.getElementById('ttWrap');
+  wrap.innerHTML=`<div class="loading"><div class="spinner"></div> Loading timetable…</div>`;
+  const d=await api('/api/teacher/timetable');
   if(!d.success||!d.timetable?.length){
     wrap.innerHTML=`<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable found</div><div class="empty-sub">Contact admin to assign classes</div></div>`;return
   }
+
+  // Fetch attendance history to know which sessions are done
+  const hist=await api('/api/teacher/attendance/history');
+  _attCache={};
+  (hist.attendance||[]).forEach(a=>{
+    const key=`${a.SubjectID||a.SubjectCode}_${a.AttendanceDate}`;
+    _attCache[key]=true;
+    // Also store by subjectId_date for direct lookup
+    if(a.SubjectID)_attCache[`${a.SubjectID}_${a.AttendanceDate}`]=true;
+  });
+
   const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
   const times=[...new Set(d.timetable.map(r=>r.StartTime))].sort();
-  // Build map: day_time -> row
   const mp={};
   d.timetable.forEach(r=>{mp[`${r.DayOfWeek}_${r.StartTime}`]=r;});
-  const today=new Date().toLocaleDateString('en-US',{weekday:'long'});
+
+  const todayName=new Date().toLocaleDateString('en-US',{weekday:'long'});
+  const todayStr=new Date().toISOString().split('T')[0];
+
+  // Compute date strings for each day column (for this week)
+  const todayDate=new Date();
+  const todayDow=todayDate.getDay(); // 0=Sun
+  const dayOffsets={Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5};
+  function getDayDate(dayName){
+    const offset=dayOffsets[dayName]-todayDow;
+    const d2=new Date(todayDate);
+    d2.setDate(d2.getDate()+offset);
+    return d2.toISOString().split('T')[0];
+  }
+
   let h=`<div class="tt-grid">
     <div class="tt-hdr">Time</div>
-    ${days.map(day=>`<div class="tt-hdr" style="color:${day===today?'var(--orange)':'var(--text2)'}">${day.slice(0,3)}</div>`).join('')}`;
+    ${days.map(day=>`<div class="tt-hdr" style="color:${day===todayName?'var(--orange)':'var(--text2)'}">${day.slice(0,3)}${day===todayName?' <span style="font-size:.58rem;background:var(--orange-bg);color:var(--orange);padding:.1rem .4rem;border-radius:100px;margin-left:.25rem">TODAY</span>':''}</div>`).join('')}`;
+
   times.forEach(t=>{
     const tStr=String(t||'').slice(0,5);
     h+=`<div class="tt-time"><span style="font-weight:700">${tStr}</span></div>`;
@@ -628,30 +628,75 @@ async function loadTT(){
       const c=mp[`${day}_${t}`];
       if(c){
         const lab=c.IsLab;
-        h+=`<div class="tt-cell tt-has ${lab?'tt-lab':''}">
-          <div class="tt-subj">${c.SubjectName||''}</div>
+        const dayDate=getDayDate(day);
+        const attKey=`${c.SubjectID}_${dayDate}`;
+        const isToday=day===todayName;
+        const isPast=dayDate<todayStr;
+        const isFuture=dayDate>todayStr;
+        const attTaken=_attCache[attKey]||false;
+
+        let cellStyle='', cellClass='tt-cell tt-has', titleColor='', badge='', cursor='pointer', tooltip='';
+        let statusDot='';
+
+        if(isFuture){
+          // Blue — upcoming, not clickable today
+          cellStyle='background:rgba(30,58,95,.55);border:1px solid rgba(59,130,246,.35);cursor:not-allowed;opacity:.8';
+          titleColor='color:#60a5fa';
+          badge=`<span style="font-size:.6rem;background:rgba(59,130,246,.18);color:#60a5fa;padding:.15rem .45rem;border-radius:100px;font-weight:700">UPCOMING</span>`;
+          cursor='not-allowed';
+          tooltip='title="Future class — open on the day"';
+        }else if(attTaken){
+          // Green — attendance done
+          cellStyle='background:rgba(20,60,35,.6);border:1px solid rgba(34,197,94,.45);cursor:default';
+          titleColor='color:#4ade80';
+          badge=`<span style="font-size:.6rem;background:rgba(34,197,94,.18);color:#4ade80;padding:.15rem .45rem;border-radius:100px;font-weight:700">✓ DONE</span>`;
+          cursor='default';
+          tooltip='title="Attendance already taken"';
+        }else if(isToday){
+          // Amber/Yellow — today, not taken yet
+          cellStyle='background:rgba(80,50,0,.55);border:2px solid rgba(245,158,11,.6);cursor:pointer;animation:pulse-amber 2s infinite';
+          titleColor='color:#fbbf24';
+          badge=`<span style="font-size:.6rem;background:rgba(245,158,11,.2);color:#fbbf24;padding:.15rem .45rem;border-radius:100px;font-weight:700">TAKE NOW</span>`;
+          tooltip='title="Click to take attendance"';
+        }else if(isPast){
+          // Red — past, not taken
+          cellStyle='background:rgba(80,15,15,.55);border:1px solid rgba(239,68,68,.4);cursor:pointer';
+          titleColor='color:#f87171';
+          badge=`<span style="font-size:.6rem;background:rgba(239,68,68,.18);color:#f87171;padding:.15rem .45rem;border-radius:100px;font-weight:700">MISSED</span>`;
+          tooltip='title="Click to record missed attendance"';
+        }
+
+        const clickFn=isFuture?'':`onclick="openAttFromTT(${c.SubjectID},'${c.SubjectName}','${dayDate}','${c.DepartmentID}',${c.Semester},${attTaken?'true':'false'})"`;
+
+        h+=`<div class="tt-cell tt-has ${lab?'tt-lab':''}" style="${cellStyle}" ${clickFn} ${tooltip}>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.25rem;margin-bottom:.3rem">
+            <div class="tt-subj" style="${titleColor}">${c.SubjectName||''}</div>
+            ${badge}
+          </div>
           <div class="tt-class">🏫 ${c.ClassName||''}</div>
-          <div class="tt-room">📍 ${c.RoomNumber||'TBD'}</div>
+          <div class="tt-room">📍 ${c.RoomNumber||'TBD'} · ${tStr}${c.EndTime?' – '+String(c.EndTime).slice(0,5):''}</div>
         </div>`;
       }else h+=`<div class="tt-cell"></div>`;
     });
   });
   h+='</div>';
-  h+=`<div style="display:flex;gap:1rem;margin-top:.85rem;font-size:.74rem">
-    <span style="display:flex;align-items:center;gap:.4rem"><span style="width:12px;height:12px;background:var(--orange-bg);border:1px solid rgba(249,115,22,.3);border-radius:3px;display:inline-block"></span> Theory</span>
-    <span style="display:flex;align-items:center;gap:.4rem"><span style="width:12px;height:12px;background:var(--purple-bg);border:1px solid rgba(168,85,247,.3);border-radius:3px;display:inline-block"></span> Lab</span>
-  </div>`;
+  h+=`<style>@keyframes pulse-amber{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 6px rgba(245,158,11,0)}}</style>`;
   wrap.innerHTML=h;
 }
 
 /* ══════════════════════════ SUBJECTS ══════════════════════════ */
 async function loadSubjs(){
   const el=document.getElementById('subjList');
-  if(!mySubjects.length){
+  el.innerHTML=`<div class="loading"><div class="spinner"></div> Loading subjects…</div>`;
+  const d=await api('/api/teacher/subjects');
+  const subs=d.subjects||[];
+  if(!subs.length){
     el.innerHTML=`<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">No subjects assigned</div><div class="empty-sub">Contact admin to assign subjects</div></div>`;return
   }
+  // Also refresh global cache
+  mySubjects=subs;
   el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Name</th><th>Credits</th><th>Type</th><th>Semester</th><th>Department</th></tr></thead><tbody>
-    ${mySubjects.map((s,i)=>`<tr>
+    ${subs.map((s,i)=>`<tr>
       <td style="color:var(--text3)">${i+1}</td>
       <td><span style="font-family:var(--mono);color:var(--amber)">${s.SubjectCode||''}</span></td>
       <td style="font-weight:600">${s.SubjectName||''}</td>
@@ -701,50 +746,78 @@ async function loadStudents(){
   </tbody></table></div>`;
 }
 
-/* ══════════════════════════ ATTENDANCE ══════════════════════════ */
-let attRosterData=[];
+/* ══════════════════════════ ATTENDANCE (via Timetable) ══════════════════════════ */
+let attRosterData=[], _attSubjectId=null, _attDate=null, _attDeptId=null, _attSemester=null, _attLocked=false;
 
-async function loadAtt(){
-  // Set today's date as default
-  const di=document.getElementById('attDate');
-  if(!di.value)di.value=new Date().toISOString().split('T')[0];
-  // Load history
-  const h=await api('/api/teacher/attendance/history');
-  const el=document.getElementById('attHistory');
-  if(!h.attendance?.length){
-    el.innerHTML=`<div class="empty"><div class="empty-sub">No attendance records yet</div></div>`;
+function openAttFromTT(subjectId, subjectName, date, deptId, semester, alreadyTaken){
+  _attSubjectId=subjectId;
+  _attDate=date;
+  _attDeptId=deptId;
+  _attSemester=semester;
+  _attLocked=alreadyTaken;
+
+  const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('attContextSub').textContent=`${subjectName} · ${dateLabel}`;
+  document.getElementById('pageTitle').textContent='Take Attendance';
+  document.getElementById('pageSub').textContent=`${subjectName} · ${dateLabel}`;
+
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+  document.getElementById('view-attendance').classList.add('active');
+
+  const lockedBanner=document.getElementById('attLockedBanner');
+  const saveBar=document.getElementById('attSaveBar');
+  if(alreadyTaken){
+    lockedBanner.style.display='block';
+    saveBar.style.display='none';
   }else{
-    el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Subject</th><th>Status</th></tr></thead><tbody>
-      ${h.attendance.slice(0,80).map(a=>`<tr>
-        <td style="font-family:var(--mono);font-size:.78rem">${a.AttendanceDate||''}</td>
-        <td>${a.StudentName||''} <span style="color:var(--text3);font-size:.72rem">${a.UserCode||''}</span></td>
-        <td>${a.SubjectName||''} <span style="color:var(--text3)">(${a.SubjectCode||''})</span></td>
-        <td><span class="badge ${a.Status==='Present'?'badge-green':a.Status==='Late'?'badge-amber':'badge-red'}">${a.Status||''}</span></td>
-      </tr>`).join('')}
-    </tbody></table></div>`;
+    lockedBanner.style.display='none';
+    saveBar.style.display='flex';
   }
+  loadAttRoster();
 }
 
 async function loadAttRoster(){
-  const subjectId=document.getElementById('attSubject').value;
-  const attDate=document.getElementById('attDate').value;
   const el=document.getElementById('attRoster');
-  if(!subjectId){el.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Select a subject to load students</div></div>`;return}
-  // Find dept/semester from mySubjects... then fetch students
-  const subj=mySubjects.find(s=>String(s.SubjectID)===String(subjectId));
-  if(!subj){el.innerHTML=`<div class="alert alert-error">Subject not found</div>`;return}
   el.innerHTML=`<div class="loading"><div class="spinner"></div> Loading students…</div>`;
-  const d=await api(`/api/teacher/students/by-class/${subj.DepartmentID}/${subj.Semester}`);
+  if(!_attSubjectId||!_attDeptId||!_attSemester){
+    el.innerHTML=`<div class="alert alert-error">Missing class context. Go back and click a timetable cell.</div>`;return;
+  }
+  const d=await api(`/api/teacher/students/by-class/${_attDeptId}/${_attSemester}`);
   if(!d.success||!d.students?.length){
     el.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this class</div></div>`;return
   }
+
+  if(_attLocked){
+    // Show read-only saved attendance
+    const hist=await api('/api/teacher/attendance/history');
+    const dayRecs=(hist.attendance||[]).filter(a=>String(a.SubjectID||'')===String(_attSubjectId)&&a.AttendanceDate===_attDate);
+    const statusMap={};
+    dayRecs.forEach(a=>statusMap[a.StudentName||'']={status:a.Status,code:a.UserCode});
+    el.innerHTML=`<div class="alert alert-success" style="margin-bottom:1rem">✅ Attendance was saved for this session. Read-only view below.</div>
+    <div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">
+      <div class="roster-row marks-hdr" style="grid-template-columns:40px 1.5fr 1.2fr auto">#<span>Name</span><span>Roll No</span><span>Status</span></div>
+      ${d.students.map((s,i)=>{
+        const rec=dayRecs.find(a=>a.UserCode===s.RollNumber)||{};
+        const st=rec.Status||'—';
+        const cls=st==='Present'?'badge-green':st==='Absent'?'badge-red':st==='Late'?'badge-amber':'';
+        return `<div class="roster-row" style="grid-template-columns:40px 1.5fr 1.2fr auto">
+          <span style="color:var(--text3)">${i+1}</span>
+          <span style="font-weight:600">${s.FullName||''}</span>
+          <span style="font-family:var(--mono);color:var(--amber);font-size:.75rem">${s.RollNumber||''}</span>
+          <span class="badge ${cls}">${st}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+    return;
+  }
+
   attRosterData=d.students.map(s=>({...s,status:'Present'}));
   renderAttRoster();
 }
 
 function renderAttRoster(){
+  if(_attLocked)return;
   const el=document.getElementById('attRoster');
-  const markAll=(st)=>{attRosterData.forEach(s=>s.status=st);renderAttRoster();}
   let h=`<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
     <span style="font-size:.82rem;color:var(--text3)">Mark all as:</span>
     <button class="btn btn-success btn-sm" onclick="markAllAtt('Present')">✅ Present</button>
@@ -779,63 +852,25 @@ function setAtt(studentId,status){
 }
 
 async function submitAttendance(){
-  const subjectId=document.getElementById('attSubject').value;
-  const attDate=document.getElementById('attDate').value;
-  if(!subjectId){toast('Please select a subject','warning');return}
-  if(!attDate){toast('Please select a date','warning');return}
+  if(_attLocked){toast('Attendance already saved — cannot change','warning');return}
+  if(!_attSubjectId){toast('No subject selected','warning');return}
+  if(!_attDate){toast('No date selected','warning');return}
   if(!attRosterData.length){toast('No students loaded','warning');return}
+  const btn=document.getElementById('attSaveBtn');
+  btn.disabled=true;btn.textContent='Saving…';
   const records=attRosterData.map(s=>({studentId:s.StudentID,status:s.status}));
-  const d=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),attendanceDate:attDate,attendance:records})});
-  if(d.success){toast(d.message||'Attendance saved!','success');loadAtt();}
-  else toast(d.error||'Failed to save attendance','error');
-}
-
-/* ══════════════════════════ QR GENERATE ══════════════════════════ */
-let qrToken=null;
-
-function stopQR(){
-  if(qrInterval){clearInterval(qrInterval);qrInterval=null;}
-  if(qrCountdownInt){clearInterval(qrCountdownInt);qrCountdownInt=null;}
-}
-
-async function genQR(){
-  const subjectId=document.getElementById('qrSubject').value;
-  const attDate=document.getElementById('qrDate').value||new Date().toISOString().split('T')[0];
-  if(!subjectId){toast('Please select a subject','warning');return}
-  stopQR();
-  document.getElementById('qrStatus').innerHTML=`<div class="alert alert-info">⏳ Generating QR code…</div>`;
-  const d=await api('/api/teacher/attendance/generate-qr',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),attendanceDate:attDate})});
-  if(!d.success){
-    document.getElementById('qrStatus').innerHTML=`<div class="alert alert-error">❌ ${d.error||'Failed to generate QR'}</div>`;return;
-  }
-  qrToken=d.qrToken||d.qrData;
-  document.getElementById('qrStatus').innerHTML='';
-  const disp=document.getElementById('qrDisplay');disp.style.display='block';
-  // Draw QR
-  try{
-    const canvas=document.getElementById('qrCanvas');
-    QRCode.toCanvas(canvas,qrToken,{width:220,margin:2,color:{dark:'#000',light:'#fff'}});
-  }catch(e){
-    document.getElementById('qrStatus').innerHTML=`<div class="alert alert-warning">⚠️ QR library failed. Token: <code style="font-size:.72rem">${qrToken}</code></div>`;
-  }
-  // 45-second countdown
-  let remaining=45;
-  document.getElementById('qrCountdown').textContent=`${remaining}s`;
-  qrCountdownInt=setInterval(()=>{
-    remaining--;
-    document.getElementById('qrCountdown').textContent=`${remaining}s`;
-    if(remaining<=0){
-      clearInterval(qrCountdownInt);
-      document.getElementById('qrCountdown').textContent='Expired';
-      document.getElementById('qrStatus').innerHTML=`<div class="alert alert-warning">⏰ QR expired. Click Generate again.</div>`;
-      disp.style.display='none';
-    }
-  },1000);
-  // Poll scanned count
-  qrInterval=setInterval(async()=>{
-    const s=await api(`/api/teacher/attendance/qr-status?token=${encodeURIComponent(qrToken)}`);
-    if(s.success!==false)document.getElementById('qrStats').textContent=`✅ ${s.scanned||0} students scanned so far`;
-  },3000);
+  const d=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjectId),attendanceDate:_attDate,attendance:records})});
+  btn.disabled=false;btn.textContent='💾 Save Attendance';
+  if(d.success){
+    toast(d.message||'Attendance saved!','success');
+    _attLocked=true;
+    // Update timetable cache
+    _attCache[`${_attSubjectId}_${_attDate}`]=true;
+    // Show locked state
+    document.getElementById('attLockedBanner').style.display='block';
+    document.getElementById('attSaveBar').style.display='none';
+    loadAttRoster(); // re-render read-only
+  }else toast(d.error||'Failed to save attendance','error');
 }
 
 /* ══════════════════════════ MARKS ══════════════════════════ */
