@@ -199,21 +199,23 @@ def _to_mysql_sql(sql: str) -> str:
     """
     Translate MSSQL/SQLite-specific SQL syntax to MySQL equivalents.
     Called automatically when backend == 'mysql'.
+    NOTE: % signs in format strings are doubled (%% so pymysql doesn't
+    interpret them as Python string-format placeholders.
     """
     # ISNULL(a, b) → IFNULL(a, b)
     sql = re.sub(r'\bISNULL\s*\(', 'IFNULL(', sql, flags=re.IGNORECASE)
 
-    # CONVERT(VARCHAR(n), col, 23)  → DATE_FORMAT(col, '%Y-%m-%d')
+    # CONVERT(VARCHAR(n), col, 23)  → DATE_FORMAT(col, '%%Y-%%m-%%d')
     sql = re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*23\s*\)",
-        lambda m: f"DATE_FORMAT({m.group(1).strip()}, '%Y-%m-%d')",
+        lambda m: f"DATE_FORMAT({m.group(1).strip()}, '%%Y-%%m-%%d')",
         sql, flags=re.IGNORECASE,
     )
 
-    # CONVERT(VARCHAR(n), col, 108) → TIME_FORMAT(col, '%H:%i')
+    # CONVERT(VARCHAR(n), col, 108) → TIME_FORMAT(col, '%%H:%%i')
     sql = re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*108\s*\)",
-        lambda m: f"TIME_FORMAT({m.group(1).strip()}, '%H:%i')",
+        lambda m: f"TIME_FORMAT({m.group(1).strip()}, '%%H:%%i')",
         sql, flags=re.IGNORECASE,
     )
 
@@ -235,7 +237,7 @@ def _to_mysql_sql(sql: str) -> str:
     sql = re.sub(r'\bCAST\s*\((.+?)\s+AS\s+N?VARCHAR(?:\s*\(\s*\d+\s*\))?\s*\)',
                  lambda m: f'CAST({m.group(1)} AS CHAR)', sql, flags=re.IGNORECASE)
 
-    # SELECT TOP N → SELECT (move LIMIT to end)
+    # SELECT TOP N → SELECT … LIMIT N
     top_match = re.search(r'\bSELECT\s+TOP\s*\(?\s*(\d+)\s*\)?\s+', sql, flags=re.IGNORECASE)
     if top_match:
         n = top_match.group(1)
@@ -243,7 +245,7 @@ def _to_mysql_sql(sql: str) -> str:
         if not re.search(r'\bLIMIT\b', sql, flags=re.IGNORECASE):
             sql = sql.rstrip().rstrip(';') + f' LIMIT {n}'
 
-    # IF NOT EXISTS ... INSERT → INSERT IGNORE (MySQL equivalent)
+    # IF NOT EXISTS ... INSERT → INSERT IGNORE
     sql = re.sub(
         r"IF\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+(\w+)\s+WHERE\s+([^)]+)\)\s+INSERT\s+INTO\s+\1\s*(\([^)]+\))\s*VALUES\s*(\([^)]+\))",
         lambda m: f"INSERT IGNORE INTO {m.group(1)} {m.group(3)} VALUES {m.group(4)}",
@@ -253,21 +255,23 @@ def _to_mysql_sql(sql: str) -> str:
     # INSERT OR IGNORE → INSERT IGNORE
     sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\b', 'INSERT IGNORE', sql, flags=re.IGNORECASE)
 
-    # NULLIF with FLOAT cast — MySQL compatible as-is; just ensure FLOAT→DECIMAL safe
     # CAST(... AS FLOAT) → CAST(... AS DECIMAL(10,4))
     sql = re.sub(r'\bCAST\s*\((.+?)\s+AS\s+FLOAT\s*\)',
                  lambda m: f'CAST({m.group(1)} AS DECIMAL(10,4))', sql, flags=re.IGNORECASE)
 
-    # COALESCE with 3+ args where some columns may not exist — keep as-is (MySQL supports COALESCE natively)
-    # But replace COALESCE(t.RoomNumber, t.Room, '') → COALESCE(t.RoomNumber, '') for safety
-    # since MySQL will error if column doesn't exist, we just use the primary column
+    # COALESCE(t.RoomNumber, t.Room, '') → IFNULL(t.RoomNumber, '') — avoids missing-column errors
     sql = re.sub(
         r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*''\s*\)",
         "IFNULL(t.RoomNumber, '')",
         sql, flags=re.IGNORECASE,
     )
 
-    # ? → %s (parameterized query marker)
+    # Escape any bare % that aren't already %% (e.g. from DATE_FORMAT/TIME_FORMAT above)
+    # so pymysql doesn't interpret them as Python format specifiers.
+    # Strategy: replace single % not followed by another % with %%
+    sql = re.sub(r'%(?!%)', '%%', sql)
+
+    # ? → %s (parameterized query marker — must come AFTER % escaping)
     sql = sql.replace('?', '%s')
 
     return sql

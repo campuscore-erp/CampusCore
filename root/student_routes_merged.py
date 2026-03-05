@@ -998,12 +998,12 @@ def _safe_exams_query(student_id, where_sql, where_params):
     for sql_variant in [
         # MySQL/MSSQL primary: include StartTime + normalize ExamDate to date-only string
         f"""SELECT e.ExamID, e.ExamType,
-               DATE_FORMAT(e.ExamDate, '%Y-%m-%d') AS ExamDate,
+               DATE_FORMAT(e.ExamDate, '%%Y-%%m-%%d') AS ExamDate,
                e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
                IFNULL(e.ExamTitle, e.ExamType) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
-               IFNULL(TIME_FORMAT(e.StartTime, '%H:%i'), '00:00') AS StartTime,
+               IFNULL(TIME_FORMAT(e.StartTime, '%%H:%%i'), '00:00') AS StartTime,
                NULL AS EndTime,
                IFNULL(e.Instructions, '') AS Instructions,
                1 AS IsActive, es.MarksObtained
@@ -1103,7 +1103,7 @@ def get_exam_details(exam_id):
         exam = None
         for exam_sql in [
             # MySQL-compatible primary
-            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate,'%Y-%m-%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, IFNULL(TIME_FORMAT(e.StartTime,'%H:%i'),'00:00') AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate,'%%Y-%%m-%%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, IFNULL(TIME_FORMAT(e.StartTime,'%%H:%%i'),'00:00') AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             # SQLite full columns
             "SELECT e.ExamID, e.ExamName, e.ExamType, e.ExamDate, e.StartTime, e.EndTime, e.Duration, e.TotalMarks, e.Instructions, e.IsActive, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
