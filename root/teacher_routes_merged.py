@@ -400,10 +400,10 @@ def attendance_submit():
 
     timetable_id = None
     tt = _try_queries([
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
     ], fetch_one=True)
-    if tt: timetable_id = tt.get('ClassID') or tt.get('TimetableID')
+    if tt: timetable_id = tt.get('TimetableID')
 
     saved = 0
     for rec in records:
@@ -426,13 +426,13 @@ def attendance_submit():
                 saved += 1
             else:
                 ok, _ = _try_inserts('Attendance', [
-                    # 7 cols — full record with MarkedBy and MarkedAt
-                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedBy,MarkedAt',
+                    # 7 cols — full record with TimetableID, MarkedBy and MarkedAt
+                    ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy,MarkedAt',
                      (student_id, subject_id, timetable_id, attendance_date, status, str(uid), datetime.now())),
                     # 6 cols — without MarkedAt
-                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedBy',
+                    ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy',
                      (student_id, subject_id, timetable_id, attendance_date, status, str(uid))),
-                    # 5 cols — without ClassID
+                    # 5 cols — without TimetableID
                     ('StudentID,SubjectID,AttendanceDate,Status,MarkedBy',
                      (student_id, subject_id, attendance_date, status, str(uid))),
                     # 4 cols — bare minimum
@@ -488,20 +488,21 @@ def generate_qr():
 
     timetable_id = None
     tt = _try_queries([
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
     ], fetch_one=True)
-    if tt: timetable_id = tt.get('ClassID') or tt.get('TimetableID')
+    if tt: timetable_id = tt.get('TimetableID')
 
     qr_token   = secrets.token_urlsafe(24)
     expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
 
     # Store only the raw token (no pipe-suffix) so student lookup works
+    # DB column is TimetableID (not ClassID) — must match schema exactly
     inserted = False
     for cols, vals in [
-        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt,IsActive,CreatedAt',
+        ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive,CreatedAt',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1, datetime.now())),
-        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt,IsActive',
+        ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1)),
         ('SubjectID,TeacherID,QRToken,ExpiresAt,IsActive',
          (subject_id, uid, qr_token, expires_at, 1)),
@@ -607,8 +608,8 @@ def mark_absent_non_scanners():
 
     timetable_id = None
     tt2 = _try_queries([
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
     ], fetch_one=True)
     if tt2: timetable_id = tt2.get('TimetableID')
 
@@ -617,7 +618,7 @@ def mark_absent_non_scanners():
         sid = s['StudentID']
         if sid not in already:
             ok, _ = _try_inserts('Attendance', [
-                ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy',
                  (sid, subject_id, timetable_id, att_date, 'Absent', str(uid))),
                 ('StudentID,SubjectID,AttendanceDate,Status',
                  (sid, subject_id, att_date, 'Absent')),
