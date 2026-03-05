@@ -636,7 +636,11 @@ async function loadTT(){
   }
   const hist=await api('/api/teacher/attendance/history');
   _attCache={};
-  (hist.attendance||[]).forEach(function(a){if(a.SubjectID&&a.AttendanceDate)_attCache[a.SubjectID+'_'+a.AttendanceDate]=true;});
+  // Build a Set of "subjectId_date" strings for fast lookup
+  (hist.attendance||[]).forEach(function(a){
+    if(a.SubjectID && a.AttendanceDate)
+      _attCache[String(a.SubjectID)+'_'+a.AttendanceDate]=true;
+  });
   const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
   const times=[...new Set(d.timetable.map(function(r){return r.StartTime;}))].sort();
   const mp={};d.timetable.forEach(function(r){mp[r.DayOfWeek+'_'+r.StartTime]=r;});
@@ -658,7 +662,7 @@ async function loadTT(){
       if(!c){h+='<div class="tt-cell"></div>';return;}
       const dd=getDayDate(day);
       const isT=day===todayName,isPast=dd<todayStr,isFut=dd>todayStr;
-      const done=!!_attCache[c.SubjectID+'_'+dd];
+      const done=!!_attCache[String(c.SubjectID)+'_'+dd];
       let cs='',tc='',badge='',clickable=false,locked=false;
       if(isFut){
         cs='background:rgba(30,58,95,.5);border:1px solid rgba(59,130,246,.3);cursor:not-allowed;opacity:.75';tc='color:#60a5fa';
@@ -903,10 +907,13 @@ async function submitAttendance(){
   if(d.success){
     toast(d.message || 'Attendance saved!', 'success');
     _attLocked = true;
-    _attCache[_attSubjId + '_' + _attDate] = true;
+    _attCache[String(_attSubjId) + '_' + _attDate] = true;
     loadAttView();
+    loadAttHistory();
+    // Refresh timetable in background so cell turns green
+    loadTT();
   } else {
-    toast(d.error || 'Failed to save', 'error');
+    toast(d.error || 'Failed to save: ' + (d.error||'unknown'), 'error');
   }
 }
 
@@ -1021,9 +1028,10 @@ async function finaliseQRAttendance(){
   if(result.success){
     toast('QR Attendance finalised! ' + records.length + ' records saved.','success');
     _attLocked = true;
-    _attCache[_attSubjId + '_' + _attDate] = true;
+    _attCache[String(_attSubjId) + '_' + _attDate] = true;
     stopQR();
     loadAttView();
+    loadAttHistory();
     switchAttTab('manual');
   } else {
     toast(result.error || 'Failed to finalise','error');

@@ -426,12 +426,16 @@ def attendance_submit():
                 saved += 1
             else:
                 ok, _ = _try_inserts('Attendance', [
-                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedAt',
+                    # 7 cols — full record with MarkedBy and MarkedAt
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedBy,MarkedAt',
                      (student_id, subject_id, timetable_id, attendance_date, status, str(uid), datetime.now())),
-                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                    # 6 cols — without MarkedAt
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status,MarkedBy',
                      (student_id, subject_id, timetable_id, attendance_date, status, str(uid))),
+                    # 5 cols — without ClassID
                     ('StudentID,SubjectID,AttendanceDate,Status,MarkedBy',
                      (student_id, subject_id, attendance_date, status, str(uid))),
+                    # 4 cols — bare minimum
                     ('StudentID,SubjectID,AttendanceDate,Status',
                      (student_id, subject_id, attendance_date, status)),
                 ])
@@ -453,6 +457,7 @@ def attendance_history():
     if err: return err
     rows = db.execute_query(
         """SELECT a.AttendanceID, a.AttendanceDate, a.Status,
+                  a.SubjectID,
                   u.FullName AS StudentName, u.UserCode,
                   s.SubjectName, s.SubjectCode
            FROM Attendance a
@@ -520,22 +525,13 @@ def qr_status():
     parts = token.split('|')
     subject_id = parts[2] if len(parts) >= 3 else None
     att_date   = parts[1] if len(parts) >= 2 else date.today().isoformat()
-    scanned = 0
-    scanned_students = []
     try:
-        rows = db.execute_query(
-            "SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
-            (subject_id, att_date)) or []
-        scanned_students = [r['StudentID'] for r in rows]
-        scanned = len(scanned_students)
+        scanned = db.execute_scalar(
+            "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present' AND MarkedBy=?",
+            (subject_id, att_date, str(uid))) or 0
     except Exception:
-        try:
-            scanned = db.execute_scalar(
-                "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
-                (subject_id, att_date)) or 0
-        except Exception:
-            scanned = 0
-    return _ok({'scanned': scanned, 'scannedStudents': scanned_students, 'token': token})
+        scanned = 0
+    return _ok({'scanned': scanned, 'token': token})
 
 
 @bp_teacher.route('/attendance/session-stats')
