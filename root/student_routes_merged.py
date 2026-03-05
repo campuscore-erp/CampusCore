@@ -8,7 +8,7 @@ FIXES IN THIS VERSION (v3.0 — 403 Forbidden Fix):
        - Checks ALL known JWT claim keys (userType, user_type, role, type, UserType, user_role)
        - DB fallback tries BOTH numeric UserID and string UserCode identities
        - Also checks Students table by RollNumber as final fallback
-       - Handles MySQL (%s) and SQLite/MSSQL (?) placeholders automatically
+       - Handles MySQL (?) and SQLite/MSSQL (?) placeholders automatically
   2. _resolve() completely rewritten:
        - Accepts int UserID OR string UserCode (roll number) identity
        - Tries Users table by UserID first, then by UserCode
@@ -89,7 +89,7 @@ def student_required():
     if str(user_type).strip().lower() == 'student':
         return None  # ✅ authorized
 
-    # ── DB fallback: verify via Users table (MySQL %s placeholder) ────────────
+    # ── DB fallback: verify via Users table (MySQL ? placeholder) ────────────
     try:
         raw_identity = get_jwt_identity()
         # Also check userId claim directly from JWT
@@ -101,7 +101,7 @@ def student_required():
                 uid = int(identity)
                 try:
                     row = db.execute_query(
-                        "SELECT UserType FROM Users WHERE UserID = %s",
+                        "SELECT UserType FROM Users WHERE UserID = ?",
                         (uid,), fetch_one=True)
                     if row and str(row.get('UserType', '')).strip().lower() == 'student':
                         return None  # ✅
@@ -115,7 +115,7 @@ def student_required():
             if ucode:
                 try:
                     row = db.execute_query(
-                        "SELECT UserType FROM Users WHERE UserCode = %s",
+                        "SELECT UserType FROM Users WHERE UserCode = ?",
                         (ucode,), fetch_one=True)
                     if row and str(row.get('UserType', '')).strip().lower() == 'student':
                         return None  # ✅
@@ -147,12 +147,12 @@ def _resolve(user_id_or_code):
         user_id  = None
         raw_code = str(user_id_or_code).strip()
 
-    # Fetch from Users table (works for MySQL %s placeholder automatically)
+    # Fetch from Users table (works for MySQL ? placeholder automatically)
     user = None
     if user_id is not None:
         try:
             user = db.execute_query(
-                "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserID = %s",
+                "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserID = ?",
                 (user_id,), fetch_one=True)
         except Exception:
             try:
@@ -165,7 +165,7 @@ def _resolve(user_id_or_code):
     if user is None and raw_code:
         try:
             user = db.execute_query(
-                "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserCode = %s",
+                "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserCode = ?",
                 (raw_code,), fetch_one=True)
         except Exception:
             try:
@@ -190,7 +190,7 @@ def _resolve(user_id_or_code):
     # Optionally try Students table only if it exists (SQLite fallback)
     try:
         s = db.execute_query(
-            "SELECT StudentID, DepartmentID, CurrentSemester FROM Students WHERE RollNumber = %s",
+            "SELECT StudentID, DepartmentID, CurrentSemester FROM Students WHERE RollNumber = ?",
             (u_code,), fetch_one=True)
         if s:
             student_id = s.get('StudentID', student_id)
@@ -208,22 +208,10 @@ def _enrolled_subj_ids(student_id, dept_id, semester):
     MSSQL schema: StudentEnrollments only has StudentID (no TimetableID/ClassID).
     So we go cohort-first (dept+semester from Users), then fall back to SQLite strategies.
     """
-    # Strategy 1 (MySQL/Railway primary): Timetable has DepartmentID + Semester directly
+    # Strategy 1: Classes JOIN (confirmed working from dashboard logs)
     if dept_id and semester:
         for q in [
-            "SELECT DISTINCT SubjectID FROM Timetable WHERE DepartmentID=%s AND Semester=%s",
-            "SELECT DISTINCT SubjectID FROM Timetable WHERE DepartmentID=? AND Semester=?",
-        ]:
-            try:
-                rows = db.execute_query(q, (dept_id, semester))
-                ids = [r['SubjectID'] for r in (rows or [])]
-                if ids:
-                    return ids
-            except Exception as e:
-                print(f'[enrolled_subj] Timetable direct failed: {e}')
-
-        for q in [
-            "SELECT DISTINCT SubjectID FROM Subjects WHERE DepartmentID=%s AND Semester=%s",
+            "SELECT DISTINCT t.SubjectID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=? AND c.Semester=?",
             "SELECT DISTINCT SubjectID FROM Subjects WHERE DepartmentID=? AND Semester=?",
         ]:
             try:
@@ -232,7 +220,7 @@ def _enrolled_subj_ids(student_id, dept_id, semester):
                 if ids:
                     return ids
             except Exception as e:
-                print(f'[enrolled_subj] Subjects direct failed: {e}')
+                print(f'[enrolled_subj] strategy failed: {e}')
 
     # Strategy 2 (SQLite fallback): StudentEnrollments with TimetableID
     try:
@@ -299,9 +287,9 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
         # Strategy 1: MySQL/Railway — Timetable has DepartmentID+Semester directly, JOIN Users for teacher
         try:
             params = [dept_id, semester]
-            where  = "t.DepartmentID = %s AND t.Semester = %s"
+            where  = "t.DepartmentID = ? AND t.Semester = ?"
             if day:
-                where += " AND t.DayOfWeek = %s"
+                where += " AND t.DayOfWeek = ?"
                 params.append(day)
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
@@ -326,9 +314,9 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
         # Strategy 2: MySQL — no teacher join (teacher table may differ)
         try:
             params = [dept_id, semester]
-            where  = "t.DepartmentID = %s AND t.Semester = %s"
+            where  = "t.DepartmentID = ? AND t.Semester = ?"
             if day:
-                where += " AND t.DayOfWeek = %s"
+                where += " AND t.DayOfWeek = ?"
                 params.append(day)
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
@@ -414,9 +402,9 @@ def get_dashboard():
         try:
             if dept_id and semester:
                 for q in [
-                    "SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=%s AND c.Semester=%s",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=%s AND Semester=%s",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=%s AND Semester=%s",
+                    "SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=? AND c.Semester=?",
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=? AND Semester=?",
                     "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
                     "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=? AND Semester=?",
                 ]:
@@ -573,7 +561,7 @@ def get_profile():
                       d.DepartmentName, d.DepartmentCode
                FROM   Users u
                LEFT JOIN Departments d ON u.DepartmentID = d.DepartmentID
-               WHERE  u.UserID = %s""",
+               WHERE  u.UserID = ?""",
             """SELECT u.UserID, u.UserCode, u.FullName, u.Email, u.Phone,
                       u.DateOfBirth, u.Gender, u.Semester,
                       u.Address, u.JoinDate,
@@ -598,7 +586,7 @@ def get_profile():
                            d.DepartmentName, d.DepartmentCode
                     FROM   Students s
                     JOIN   Departments d ON s.DepartmentID = d.DepartmentID
-                    WHERE  s.StudentID = %s
+                    WHERE  s.StudentID = ?
                 """, (student_id,), fetch_one=True))
             except Exception as e:
                 print(f'[Profile] Students join err: {e}')
@@ -642,91 +630,67 @@ def get_subjects():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip('-').isdigit() else raw_id
         student_id, dept_id, semester, _ = _resolve(user_id)
         subjects = []
-
         if dept_id and semester:
-            # Dashboard timetable response confirms: Classes table exists with ClassID
-            # Timetable joins Classes via ClassID, Classes has DepartmentID+Semester
-            strategies = [
-                # 1. Classes JOIN + Users teacher (confirmed schema from dashboard response)
-                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                        s.Credits, s.IsLab,
-                        tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
-                        tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
-                        tc.Phone AS TeacherPhone,
-                        d.DepartmentName, d.DepartmentCode
-                    FROM Timetable t
-                    JOIN Classes     c  ON t.ClassID     = c.ClassID
-                    JOIN Subjects    s  ON t.SubjectID   = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID   = tc.UserID
-                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
-                    WHERE c.DepartmentID = %s AND c.Semester = %s
-                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 2. Classes JOIN + Teachers table
-                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                        s.Credits, s.IsLab,
-                        tc.TeacherID, tc.TeacherCode,
-                        tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
-                        tc.Phone AS TeacherPhone,
-                        d.DepartmentName, d.DepartmentCode
-                    FROM Timetable t
-                    JOIN Classes     c  ON t.ClassID     = c.ClassID
-                    JOIN Subjects    s  ON t.SubjectID   = s.SubjectID
-                    JOIN Teachers    tc ON t.TeacherID   = tc.TeacherID
-                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
-                    WHERE c.DepartmentID = %s AND c.Semester = %s
-                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 3. Classes JOIN — no teacher join
-                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                        s.Credits, s.IsLab,
-                        t.TeacherID,
-                        NULL AS TeacherCode, NULL AS TeacherName,
-                        NULL AS TeacherEmail, NULL AS TeacherPhone,
-                        d.DepartmentName, d.DepartmentCode
-                    FROM Timetable t
-                    JOIN Classes     c  ON t.ClassID     = c.ClassID
-                    JOIN Subjects    s  ON t.SubjectID   = s.SubjectID
-                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
-                    WHERE c.DepartmentID = %s AND c.Semester = %s
-                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 4. Timetable direct DepartmentID (alternate schema)
-                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                        s.Credits, s.IsLab,
-                        t.TeacherID,
-                        NULL AS TeacherCode, NULL AS TeacherName,
-                        NULL AS TeacherEmail, NULL AS TeacherPhone,
-                        NULL AS DepartmentName, NULL AS DepartmentCode
-                    FROM Timetable t
-                    JOIN Subjects s ON t.SubjectID = s.SubjectID
-                    WHERE t.DepartmentID = %s AND t.Semester = %s
-                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 5. Pure Subjects table — guaranteed to work if data exists
-                ("""SELECT SubjectID, SubjectName, SubjectCode, Credits, IsLab,
-                        NULL AS TeacherID, NULL AS TeacherCode,
-                        NULL AS TeacherName, NULL AS TeacherEmail,
-                        NULL AS TeacherPhone,
-                        NULL AS DepartmentName, NULL AS DepartmentCode
-                    FROM Subjects
-                    WHERE DepartmentID = %s AND Semester = %s
-                    ORDER BY IsLab ASC, SubjectName""", (dept_id, semester)),
-            ]
-
-            for sql, params in strategies:
+            sql1 = ('SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,'
+                    ' s.Credits, 0 AS IsLab,'
+                    ' tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,'
+                    ' tc.FullName AS TeacherName, tc.Email AS TeacherEmail,'
+                    ' tc.Phone AS TeacherPhone,'
+                    ' d.DepartmentName, d.DepartmentCode'
+                    ' FROM Timetable t'
+                    ' JOIN Classes c ON t.ClassID=c.ClassID'
+                    ' JOIN Subjects s ON t.SubjectID=s.SubjectID'
+                    ' JOIN Users tc ON t.TeacherID=tc.UserID'
+                    ' JOIN Departments d ON c.DepartmentID=d.DepartmentID'
+                    ' WHERE c.DepartmentID=? AND c.Semester=?'
+                    ' ORDER BY s.SubjectName')
+            sql2 = ('SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,'
+                    ' s.Credits, 0 AS IsLab,'
+                    ' tc.TeacherID, tc.TeacherCode,'
+                    ' tc.FullName AS TeacherName, tc.Email AS TeacherEmail,'
+                    ' tc.Phone AS TeacherPhone,'
+                    ' d.DepartmentName, d.DepartmentCode'
+                    ' FROM Timetable t'
+                    ' JOIN Classes c ON t.ClassID=c.ClassID'
+                    ' JOIN Subjects s ON t.SubjectID=s.SubjectID'
+                    ' JOIN Teachers tc ON t.TeacherID=tc.TeacherID'
+                    ' JOIN Departments d ON c.DepartmentID=d.DepartmentID'
+                    ' WHERE c.DepartmentID=? AND c.Semester=?'
+                    ' ORDER BY s.SubjectName')
+            sql3 = ('SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,'
+                    ' s.Credits, 0 AS IsLab,'
+                    ' t.TeacherID, NULL AS TeacherCode,'
+                    ' NULL AS TeacherName, NULL AS TeacherEmail,'
+                    ' NULL AS TeacherPhone,'
+                    ' d.DepartmentName, d.DepartmentCode'
+                    ' FROM Timetable t'
+                    ' JOIN Classes c ON t.ClassID=c.ClassID'
+                    ' JOIN Subjects s ON t.SubjectID=s.SubjectID'
+                    ' JOIN Departments d ON c.DepartmentID=d.DepartmentID'
+                    ' WHERE c.DepartmentID=? AND c.Semester=?'
+                    ' ORDER BY s.SubjectName')
+            sql4 = ('SELECT SubjectID, SubjectName, SubjectCode, Credits,'
+                    ' 0 AS IsLab, NULL AS TeacherID, NULL AS TeacherCode,'
+                    ' NULL AS TeacherName, NULL AS TeacherEmail,'
+                    ' NULL AS TeacherPhone,'
+                    ' NULL AS DepartmentName, NULL AS DepartmentCode'
+                    ' FROM Subjects'
+                    ' WHERE DepartmentID=? AND Semester=?'
+                    ' ORDER BY SubjectName')
+            for sql in [sql1, sql2, sql3, sql4]:
                 try:
-                    rows = db.execute_query(sql, params)
+                    rows = db.execute_query(sql, (dept_id, semester))
                     if rows:
                         subjects = serialize_rows(rows)
-                        # Fill teacher names if missing (strategy 3)
                         if subjects and not subjects[0].get('TeacherName'):
                             try:
                                 tids = list({s['TeacherID'] for s in subjects if s.get('TeacherID')})
                                 if tids:
-                                    ph = ','.join(['%s']*len(tids))
-                                    trows = db.execute_query(
-                                        f"SELECT UserID, FullName, UserCode, Email, Phone FROM Users WHERE UserID IN ({ph})",
-                                        tuple(tids)) or []
+                                    ph = ','.join(['?']*len(tids))
+                                    trows = db.execute_query(f'SELECT UserID,FullName,UserCode,Email,Phone FROM Users WHERE UserID IN ({ph})', tuple(tids)) or []
                                     tmap = {t['UserID']: t for t in trows}
                                     for subj in subjects:
                                         tid = subj.get('TeacherID')
@@ -741,39 +705,6 @@ def get_subjects():
                 except Exception as e:
                     print(f'[Subjects] strategy err: {e}')
                     continue
-
-        # SQLite / enrollment-based fallback
-        if not subjects:
-            for sql, params in [
-                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                        s.Credits, COALESCE(s.IsLab,0) AS IsLab,
-                        tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
-                        tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
-                        tc.Phone AS TeacherPhone,
-                        d.DepartmentName, d.DepartmentCode
-                    FROM StudentEnrollments se
-                    JOIN Timetable   t  ON se.TimetableID = t.TimetableID
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID    = tc.UserID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE se.StudentID = ?""", (student_id,)),
-                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                        s.Credits, COALESCE(s.IsLab,0) AS IsLab,
-                        NULL AS TeacherID, NULL AS TeacherCode,
-                        NULL AS TeacherName, NULL AS TeacherEmail,
-                        NULL AS TeacherPhone,
-                        NULL AS DepartmentName, NULL AS DepartmentCode
-                    FROM Subjects s
-                    WHERE s.DepartmentID = ? AND s.Semester = ?""", (dept_id, semester)),
-            ]:
-                try:
-                    rows = db.execute_query(sql, params)
-                    if rows:
-                        subjects = serialize_rows(rows)
-                        break
-                except Exception as e:
-                    print(f'[Subjects] fallback err: {e}')
-
         print(f'[Subjects] Returning {len(subjects)} subjects for dept={dept_id} sem={semester}')
         return jsonify({'success': True, 'subjects': subjects}), 200
     except Exception as e:
@@ -781,10 +712,6 @@ def get_subjects():
         traceback.print_exc()
         return jsonify({'error': str(e), 'success': False}), 500
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# MY TEACHERS
-# ══════════════════════════════════════════════════════════════════════════════
 
 @bp_student.route('/my-teachers', methods=['GET'])
 @jwt_required()
