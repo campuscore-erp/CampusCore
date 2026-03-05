@@ -554,9 +554,29 @@ select.form-input option{background:var(--bg3)}
 const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');return window.location.origin;})();
 let token='',camStream=null,scanInt=null,selectedPayMethod='',feePendingAmt=0;
 
-function getToken(){token=localStorage.getItem('accessToken')||localStorage.getItem('token')||sessionStorage.getItem('accessToken')||'';if(!token){window.location.href='auth.html';return false}return true}
+function getToken(){
+  token=localStorage.getItem('accessToken')||localStorage.getItem('token')||
+        localStorage.getItem('access_token')||localStorage.getItem('jwt')||
+        sessionStorage.getItem('accessToken')||sessionStorage.getItem('token')||'';
+  if(!token){window.location.href='auth.html';return false}
+  return true
+}
 function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+token}}
-async function api(ep,opts={}){const r=await fetch(API+ep,{headers:hdrs(),...opts});const d=await r.json().catch(()=>({}));if(r.status===401){localStorage.clear();sessionStorage.clear();window.location.href='auth.html'}return d}
+async function api(ep,opts={}){
+  try{
+    const r=await fetch(API+ep,{headers:hdrs(),...opts});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401){localStorage.clear();sessionStorage.clear();window.location.href='auth.html';return d}
+    if(r.status===403){
+      console.warn('[403] Student access denied on',ep,'- check JWT userType claim');
+      return{...d,success:false,error:d.error||'Student access required',_status:403}
+    }
+    return d
+  }catch(fetchErr){
+    console.error('[API fetch error]',ep,fetchErr);
+    return{success:false,error:'Network error: '+fetchErr.message}
+  }
+}
 function logout(){api('/api/auth/logout',{method:'POST'}).finally(()=>{localStorage.clear();sessionStorage.clear();window.location.href='auth.html'})}
 function toast(msg,type='info'){
   const c=document.getElementById('toasts');const el=document.createElement('div');
@@ -618,7 +638,14 @@ async function loadDash(){
 
   if(!d.success){
     // Show error in cards instead of blank spinners
-    const errHtml=`<div class="alert alert-error" style="margin:0">⚠️ ${d.error||'Could not load dashboard. Please refresh.'}</div>`;
+    let errMsg=d.error||'Could not load dashboard. Please refresh.';
+    if(d._status===403||errMsg.toLowerCase().includes('student access')){
+      // 403 means token exists but userType mismatch — clear and re-login
+      errMsg='Session error: wrong account type. Please log out and log in again as a student.';
+      console.error('[Dashboard 403] JWT userType claim mismatch. Stored token may be for admin/teacher. Clearing in 3s...');
+      setTimeout(()=>{localStorage.clear();sessionStorage.clear();window.location.href='auth.html';},4000);
+    }
+    const errHtml=`<div class="alert alert-error" style="margin:0">⚠️ ${errMsg}</div>`;
     todayEl.innerHTML=errHtml;
     attEl.innerHTML=errHtml;
     // Keep stat cards showing dashes — don't crash
