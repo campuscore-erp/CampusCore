@@ -1258,6 +1258,7 @@ def submit_exam(exam_id):
 
         # ── Grade answers ──────────────────────────────────────────────────
         total_marks = 0
+        answer_records = []
         for answer in data.get('answers', []):
             q = None
             for _sq in [
@@ -1275,12 +1276,25 @@ def submit_exam(exam_id):
                            str(q.get('CorrectAnswer', '')).strip().lower())
                 marks = float(q.get('Marks', 0) or 0) if correct else 0
                 total_marks += marks
-                try:
-                    db.execute_non_query(
-                        "INSERT INTO ExamAnswers (SubmissionID,QuestionID,StudentAnswer,IsCorrect,MarksAwarded) VALUES (?,?,?,?,?)",
-                        (submission_id, answer['questionId'], answer.get('answer'), 1 if correct else 0, marks))
-                except Exception as e:
-                    print(f'[ExamSubmit] answer insert err: {e}')
+                # Store answer in memory - will be saved as JSON to ExamSubmissions.Answers
+                answer_records.append({
+                    'questionId': answer['questionId'],
+                    'answer': answer.get('answer'),
+                    'correct': correct,
+                    'marks': marks
+                })
+
+        # Save all answers as JSON into ExamSubmissions.Answers column
+        import json as _json
+        answers_json = _json.dumps(answer_records)
+        for ans_sql in [
+            "UPDATE ExamSubmissions SET Answers=? WHERE SubmissionID=?",
+        ]:
+            try:
+                db.execute_non_query(ans_sql, (answers_json, submission_id))
+                break
+            except Exception as _ae:
+                print(f'[ExamSubmit] answers JSON save err: {_ae}')
 
         for upd_sql, upd_params in [
             ("UPDATE ExamSubmissions SET IsSubmitted=1, SubmittedAt=GETDATE(), MarksObtained=? WHERE SubmissionID=?",

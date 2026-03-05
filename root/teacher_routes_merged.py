@@ -130,11 +130,11 @@ def _notify_students(subject_id, title, message, notif_type='General', dept_id=N
 
         for sid in student_ids:
             for ins_sql, vals in [
-                ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
+                ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
                  (sid, title, message, notif_type, datetime.now())),
                 ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
                  (sid, title, message, notif_type, datetime.now())),
-                ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
+                ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
                  (sid, title, message, notif_type)),
                 ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
                  (sid, title, message, notif_type)),
@@ -490,7 +490,7 @@ def generate_qr():
          (subject_id, timetable_id, uid, qr_token, expires_at, 1, datetime.now())),
         ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1)),
-        ('SubjectID,TeacherID,QRToken,ExpiresAt,IsActive',
+        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt',
          (subject_id, uid, qr_token, expires_at, 1)),
     ])
     return _ok({
@@ -691,10 +691,10 @@ def create_exam():
 
     ok, last_err = _try_inserts('Exams', [
         # MSSQL schema: ExamTitle + ExamName + IsActive + Instructions + Duration
-        ('SubjectID,TeacherID,ExamTitle,ExamName,ExamType,TotalMarks,Duration,ExamDate,Instructions,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,ExamTitle,ExamName,ExamType,TotalMarks,Duration,ExamDate,Instructions,IsPublished,CreatedAt',
          (subject_id, uid, exam_name, exam_name, exam_type, total_marks, duration, exam_date, instructions, 1, datetime.now())),
         # Without Instructions
-        ('SubjectID,TeacherID,ExamTitle,ExamName,ExamType,TotalMarks,Duration,ExamDate,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,ExamTitle,ExamName,ExamType,TotalMarks,Duration,ExamDate,IsPublished,CreatedAt',
          (subject_id, uid, exam_name, exam_name, exam_type, total_marks, duration, exam_date, 1, datetime.now())),
         # Without IsActive
         ('SubjectID,TeacherID,ExamTitle,ExamName,ExamType,TotalMarks,Duration,ExamDate,CreatedAt',
@@ -703,18 +703,18 @@ def create_exam():
         ('SubjectID,TeacherID,ExamTitle,ExamName,ExamType,TotalMarks,ExamDate,CreatedAt',
          (subject_id, uid, exam_name, exam_name, exam_type, total_marks, exam_date, datetime.now())),
         # ExamTitle only (no ExamName column in schema)
-        ('SubjectID,TeacherID,ExamTitle,ExamType,TotalMarks,Duration,ExamDate,Instructions,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,ExamTitle,ExamType,TotalMarks,Duration,ExamDate,Instructions,IsPublished,CreatedAt',
          (subject_id, uid, exam_name, exam_type, total_marks, duration, exam_date, instructions, 1, datetime.now())),
-        ('SubjectID,TeacherID,ExamTitle,ExamType,TotalMarks,Duration,ExamDate,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,ExamTitle,ExamType,TotalMarks,Duration,ExamDate,IsPublished,CreatedAt',
          (subject_id, uid, exam_name, exam_type, total_marks, duration, exam_date, 1, datetime.now())),
         ('SubjectID,TeacherID,ExamTitle,ExamType,TotalMarks,Duration,ExamDate,CreatedAt',
          (subject_id, uid, exam_name, exam_type, total_marks, duration, exam_date, datetime.now())),
         ('SubjectID,TeacherID,ExamTitle,ExamType,TotalMarks,ExamDate',
          (subject_id, uid, exam_name, exam_type, total_marks, exam_date)),
         # ExamName only (SQLite schema, no ExamTitle column)
-        ('SubjectID,TeacherID,ExamName,ExamType,TotalMarks,Duration,ExamDate,Instructions,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,ExamName,ExamType,TotalMarks,Duration,ExamDate,Instructions,IsPublished,CreatedAt',
          (subject_id, uid, exam_name, exam_type, total_marks, duration, exam_date, instructions, 1, datetime.now())),
-        ('SubjectID,TeacherID,ExamName,ExamType,TotalMarks,Duration,ExamDate,IsActive,CreatedAt',
+        ('SubjectID,ClassID,TeacherID,ExamName,ExamType,TotalMarks,Duration,ExamDate,IsPublished,CreatedAt',
          (subject_id, uid, exam_name, exam_type, total_marks, duration, exam_date, 1, datetime.now())),
         ('SubjectID,TeacherID,ExamName,ExamType,TotalMarks,Duration,ExamDate,CreatedAt',
          (subject_id, uid, exam_name, exam_type, total_marks, duration, exam_date, datetime.now())),
