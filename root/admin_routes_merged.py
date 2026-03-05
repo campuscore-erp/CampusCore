@@ -272,15 +272,15 @@ def add_student():
             VALUES ('Student', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)
         """, (
             user_code,
-            data['fullName'],
-            data.get('email', ''),
-            data.get('phone', ''),
+            s['fullName'],
+            s.get('email', ''),
+            s.get('phone', ''),
             dob_db,
-            data.get('gender', ''),
+            s.get('gender', ''),
             pw_hash,
-            data.get('departmentId') or None,
-            data.get('semester') or None,
-            data.get('address', ''),
+            s.get('departmentId') or None,
+            s.get('semester') or None,
+            s.get('address', ''),
         ))
         return jsonify({
             'success': True,
@@ -872,9 +872,11 @@ def get_timetable():
         ]:
             try:
                 query = f"""
-                    SELECT t.TimetableID, t.DayOfWeek, t.PeriodNumber,
-                           t.StartTime, t.EndTime, t.RoomNumber,
-                           t.Semester, t.AcademicYear, t.IsLab,
+                    SELECT t.TimetableID, t.DayOfWeek,
+                           0 AS PeriodNumber,
+                           t.StartTime, t.EndTime,
+                           COALESCE(t.RoomNumber, t.Room, 'TBD') AS RoomNumber,
+                           c.Semester, t.AcademicYear, 0 AS IsLab,
                            s.SubjectName, s.SubjectCode,
                            {teacher_cols}, d.DepartmentName,
                            c.Semester, c.DepartmentID, c.ClassName, c.Section
@@ -910,20 +912,31 @@ def create_timetable():
     if err: return err
     try:
         data = request.get_json(silent=True) or {}
+        # SQL Timetable: ClassID, SubjectID, TeacherID, DayOfWeek, StartTime, EndTime, RoomNumber, AcademicYear
+        class_id = data.get('classId')
+        if not class_id:
+            # Derive ClassID from DepartmentID + Semester if classId not provided
+            cls = db.execute_query(
+                "SELECT ClassID FROM Classes WHERE DepartmentID=? AND Semester=? LIMIT 1",
+                (data.get('departmentId'), data.get('semester')), fetch_one=True
+            )
+            class_id = cls['ClassID'] if cls else None
+
+        if not class_id:
+            return jsonify({'error': 'classId is required (or provide departmentId + semester)', 'success': False}), 400
+
         db.execute_non_query("""
             INSERT INTO Timetable
-                (DepartmentID, Semester, SubjectID, TeacherID,
-                 DayOfWeek, PeriodNumber, StartTime, EndTime,
-                 RoomNumber, IsLab, AcademicYear)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (ClassID, SubjectID, TeacherID, DayOfWeek,
+                 StartTime, EndTime, RoomNumber, AcademicYear)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            data['departmentId'], data['semester'],
+            class_id,
             data['subjectId'], data['teacherId'],
-            data['dayOfWeek'], data.get('periodNumber', 1),
+            data['dayOfWeek'],
             data['startTime'], data['endTime'],
             data.get('roomNumber', 'TBD'),
-            int(data.get('isLab', 0)),
-            data.get('academicYear', 2025)
+            data.get('academicYear', '2024-25')
         ))
         return jsonify({'success': True, 'message': 'Timetable entry created'}), 201
     except Exception as e:
@@ -970,15 +983,20 @@ def create_fee_structure():
     if err: return err
     try:
         data = request.get_json(silent=True) or {}
-        t, e, lb, lib, dev, o = (float(data.get(k, 0)) for k in
-            ('tuitionFee', 'examFee', 'labFee', 'libraryFee', 'developmentFee', 'otherCharges'))
+        # SQL FeeStructure: TuitionFee, LibraryFee, LabFee, SportsFee, OtherFees
+        tuition = float(data.get('tuitionFee', 0))
+        library = float(data.get('libraryFee', 0))
+        lab     = float(data.get('labFee', 0))
+        sports  = float(data.get('sportsFee', 0))
+        other   = float(data.get('otherFees', data.get('otherCharges', 0)))
         db.execute_non_query("""
             INSERT INTO FeeStructure
-                (DepartmentID, Semester, AcademicYear, TuitionFee, ExamFee,
-                 LabFee, LibraryFee, DevelopmentFee, OtherCharges, TotalFee)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (data['departmentId'], data['semester'], data.get('academicYear', '2024-25'),
-              t, e, lb, lib, dev, o, t + e + lb + lib + dev + o))
+                (DepartmentID, Semester, AcademicYear,
+                 TuitionFee, LibraryFee, LabFee, SportsFee, OtherFees)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (data['departmentId'], data['semester'],
+              data.get('academicYear', '2024-25'),
+              tuition, library, lab, sports, other))
         return jsonify({'success': True, 'message': 'Fee structure created'}), 201
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
