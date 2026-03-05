@@ -414,9 +414,10 @@ def get_dashboard():
         try:
             if dept_id and semester:
                 for q in [
+                    "SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=%s AND c.Semester=%s",
                     "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=%s AND Semester=%s",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
                     "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=%s AND Semester=%s",
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
                     "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=? AND Semester=?",
                 ]:
                     try:
@@ -646,10 +647,10 @@ def get_subjects():
         subjects = []
 
         if dept_id and semester:
-            # Try every combination until one returns data
-            # Each strategy is tried independently and errors are swallowed
+            # Dashboard timetable response confirms: Classes table exists with ClassID
+            # Timetable joins Classes via ClassID, Classes has DepartmentID+Semester
             strategies = [
-                # 1. Timetable direct + Users teacher join (MySQL unified schema)
+                # 1. Classes JOIN + Users teacher (confirmed schema from dashboard response)
                 ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
                         s.Credits, s.IsLab,
                         tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
@@ -657,12 +658,13 @@ def get_subjects():
                         tc.Phone AS TeacherPhone,
                         d.DepartmentName, d.DepartmentCode
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID    = tc.UserID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE t.DepartmentID = %s AND t.Semester = %s
+                    JOIN Classes     c  ON t.ClassID     = c.ClassID
+                    JOIN Subjects    s  ON t.SubjectID   = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID   = tc.UserID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE c.DepartmentID = %s AND c.Semester = %s
                     ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 2. Timetable direct + Teachers table join
+                # 2. Classes JOIN + Teachers table
                 ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
                         s.Credits, s.IsLab,
                         tc.TeacherID, tc.TeacherCode,
@@ -670,12 +672,13 @@ def get_subjects():
                         tc.Phone AS TeacherPhone,
                         d.DepartmentName, d.DepartmentCode
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Teachers    tc ON t.TeacherID    = tc.TeacherID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE t.DepartmentID = %s AND t.Semester = %s
+                    JOIN Classes     c  ON t.ClassID     = c.ClassID
+                    JOIN Subjects    s  ON t.SubjectID   = s.SubjectID
+                    JOIN Teachers    tc ON t.TeacherID   = tc.TeacherID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE c.DepartmentID = %s AND c.Semester = %s
                     ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 3. Timetable direct — no teacher join at all
+                # 3. Classes JOIN — no teacher join
                 ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
                         s.Credits, s.IsLab,
                         t.TeacherID,
@@ -683,11 +686,23 @@ def get_subjects():
                         NULL AS TeacherEmail, NULL AS TeacherPhone,
                         d.DepartmentName, d.DepartmentCode
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    JOIN Classes     c  ON t.ClassID     = c.ClassID
+                    JOIN Subjects    s  ON t.SubjectID   = s.SubjectID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE c.DepartmentID = %s AND c.Semester = %s
+                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
+                # 4. Timetable direct DepartmentID (alternate schema)
+                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                        s.Credits, s.IsLab,
+                        t.TeacherID,
+                        NULL AS TeacherCode, NULL AS TeacherName,
+                        NULL AS TeacherEmail, NULL AS TeacherPhone,
+                        NULL AS DepartmentName, NULL AS DepartmentCode
+                    FROM Timetable t
+                    JOIN Subjects s ON t.SubjectID = s.SubjectID
                     WHERE t.DepartmentID = %s AND t.Semester = %s
                     ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # 4. Pure Subjects table — no Timetable at all
+                # 5. Pure Subjects table — guaranteed to work if data exists
                 ("""SELECT SubjectID, SubjectName, SubjectCode, Credits, IsLab,
                         NULL AS TeacherID, NULL AS TeacherCode,
                         NULL AS TeacherName, NULL AS TeacherEmail,
