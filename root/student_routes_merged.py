@@ -645,9 +645,11 @@ def get_subjects():
         student_id, dept_id, semester, _ = _resolve(user_id)
         subjects = []
 
-        # Strategy 1: MySQL/Railway — Timetable has DepartmentID+Semester directly, JOIN Users for teacher
         if dept_id and semester:
-            for q, p in [
+            # Try every combination until one returns data
+            # Each strategy is tried independently and errors are swallowed
+            strategies = [
+                # 1. Timetable direct + Users teacher join (MySQL unified schema)
                 ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
                         s.Credits, s.IsLab,
                         tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
@@ -656,23 +658,36 @@ def get_subjects():
                         d.DepartmentName, d.DepartmentCode
                     FROM Timetable t
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID   = tc.UserID
+                    JOIN Users       tc ON t.TeacherID    = tc.UserID
                     JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                     WHERE t.DepartmentID = %s AND t.Semester = %s
                     ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # No teacher join fallback
+                # 2. Timetable direct + Teachers table join
                 ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
                         s.Credits, s.IsLab,
-                        t.TeacherID, NULL AS TeacherCode,
-                        NULL AS TeacherName, NULL AS TeacherEmail,
-                        NULL AS TeacherPhone,
+                        tc.TeacherID, tc.TeacherCode,
+                        tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
+                        tc.Phone AS TeacherPhone,
+                        d.DepartmentName, d.DepartmentCode
+                    FROM Timetable t
+                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                    JOIN Teachers    tc ON t.TeacherID    = tc.TeacherID
+                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    WHERE t.DepartmentID = %s AND t.Semester = %s
+                    ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
+                # 3. Timetable direct — no teacher join at all
+                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                        s.Credits, s.IsLab,
+                        t.TeacherID,
+                        NULL AS TeacherCode, NULL AS TeacherName,
+                        NULL AS TeacherEmail, NULL AS TeacherPhone,
                         d.DepartmentName, d.DepartmentCode
                     FROM Timetable t
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                     JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                     WHERE t.DepartmentID = %s AND t.Semester = %s
                     ORDER BY s.IsLab ASC, s.SubjectName""", (dept_id, semester)),
-                # Subjects table only (no Timetable needed)
+                # 4. Pure Subjects table — no Timetable at all
                 ("""SELECT SubjectID, SubjectName, SubjectCode, Credits, IsLab,
                         NULL AS TeacherID, NULL AS TeacherCode,
                         NULL AS TeacherName, NULL AS TeacherEmail,
@@ -681,20 +696,41 @@ def get_subjects():
                     FROM Subjects
                     WHERE DepartmentID = %s AND Semester = %s
                     ORDER BY IsLab ASC, SubjectName""", (dept_id, semester)),
-            ]:
+            ]
+
+            for sql, params in strategies:
                 try:
-                    rows = db.execute_query(q, p)
+                    rows = db.execute_query(sql, params)
                     if rows:
                         subjects = serialize_rows(rows)
+                        # Fill teacher names if missing (strategy 3)
+                        if subjects and not subjects[0].get('TeacherName'):
+                            try:
+                                tids = list({s['TeacherID'] for s in subjects if s.get('TeacherID')})
+                                if tids:
+                                    ph = ','.join(['%s']*len(tids))
+                                    trows = db.execute_query(
+                                        f"SELECT UserID, FullName, UserCode, Email, Phone FROM Users WHERE UserID IN ({ph})",
+                                        tuple(tids)) or []
+                                    tmap = {t['UserID']: t for t in trows}
+                                    for subj in subjects:
+                                        tid = subj.get('TeacherID')
+                                        if tid and tid in tmap:
+                                            subj['TeacherName']  = tmap[tid].get('FullName')
+                                            subj['TeacherCode']  = tmap[tid].get('UserCode')
+                                            subj['TeacherEmail'] = tmap[tid].get('Email')
+                                            subj['TeacherPhone'] = tmap[tid].get('Phone')
+                            except Exception:
+                                pass
                         break
                 except Exception as e:
                     print(f'[Subjects] strategy err: {e}')
+                    continue
 
-        # Strategy 2: SQLite fallback via StudentEnrollments + Classes
+        # SQLite / enrollment-based fallback
         if not subjects:
-            try:
-                rows = db.execute_query("""
-                    SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+            for sql, params in [
+                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
                         s.Credits, COALESCE(s.IsLab,0) AS IsLab,
                         tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,
                         tc.FullName AS TeacherName, tc.Email AS TeacherEmail,
@@ -705,14 +741,25 @@ def get_subjects():
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                     JOIN Users       tc ON t.TeacherID    = tc.UserID
                     JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE se.StudentID = ?
-                    ORDER BY s.IsLab ASC, s.SubjectName
-                """, (student_id,))
-                if rows:
-                    subjects = serialize_rows(rows)
-            except Exception as e:
-                print(f'[Subjects] SQLite fallback err: {e}')
+                    WHERE se.StudentID = ?""", (student_id,)),
+                ("""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                        s.Credits, COALESCE(s.IsLab,0) AS IsLab,
+                        NULL AS TeacherID, NULL AS TeacherCode,
+                        NULL AS TeacherName, NULL AS TeacherEmail,
+                        NULL AS TeacherPhone,
+                        NULL AS DepartmentName, NULL AS DepartmentCode
+                    FROM Subjects s
+                    WHERE s.DepartmentID = ? AND s.Semester = ?""", (dept_id, semester)),
+            ]:
+                try:
+                    rows = db.execute_query(sql, params)
+                    if rows:
+                        subjects = serialize_rows(rows)
+                        break
+                except Exception as e:
+                    print(f'[Subjects] fallback err: {e}')
 
+        print(f'[Subjects] Returning {len(subjects)} subjects for dept={dept_id} sem={semester}')
         return jsonify({'success': True, 'subjects': subjects}), 200
     except Exception as e:
         print(f'[Subjects] Error: {e}')
