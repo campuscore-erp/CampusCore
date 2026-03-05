@@ -29,8 +29,18 @@ bp_student = Blueprint('student', __name__, url_prefix='/api/student')
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _sv(val):
+    # MySQL returns TIME columns as timedelta — must convert or Flask JSON crashes with 500
+    from datetime import timedelta
+    from decimal import Decimal
+    if isinstance(val, timedelta):
+        total = int(val.total_seconds())
+        h, m = divmod(abs(total), 3600)
+        m, _ = divmod(m, 60)
+        return f'{h:02d}:{m:02d}'
     if isinstance(val, (date, time, datetime)):
         return str(val)
+    if isinstance(val, Decimal):
+        return float(val)
     return val
 
 def serialize_rows(rows):
