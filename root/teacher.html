@@ -334,16 +334,42 @@ textarea.form-input{resize:vertical;min-height:80px}
     <div class="view" id="view-marks">
       <div class="card">
         <div class="card-hdr">
-          <div><div class="card-title">Marks Entry</div><div class="card-sub">CA1–CA5 (max 10 each) · Midterm (max 50) · Endterm (max 100)</div></div>
+          <div><div class="card-title">📝 Marks Entry</div><div class="card-sub">Select subject and exam type, then enter marks for each student</div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:.85rem;margin-bottom:1.25rem;align-items:end">
+        <!-- Step 1: Subject + Exam type selectors -->
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.85rem;margin-bottom:1rem;align-items:end">
           <div class="form-group" style="margin:0">
-            <label class="form-label">Subject</label>
-            <select id="marksSubject" class="form-input" onchange="loadMarksRoster()"><option value="">— Select Subject —</option></select>
+            <label class="form-label">Subject *</label>
+            <select id="marksSubject" class="form-input"><option value="">-- Select Subject --</option></select>
           </div>
-          <button class="btn btn-primary" onclick="saveMarks()">💾 Save All Marks</button>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Exam Type *</label>
+            <select id="marksExamType" class="form-input">
+              <option value="">-- Select Exam Type --</option>
+              <option value="CA1">CA1 (max 10)</option>
+              <option value="CA2">CA2 (max 10)</option>
+              <option value="CA3">CA3 (max 10)</option>
+              <option value="CA4">CA4 (max 10)</option>
+              <option value="CA5">CA5 (max 10)</option>
+              <option value="Midterm">Midterm (max 50)</option>
+              <option value="Endterm">Endterm (max 100)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="loadMarksRoster()">Load Students</button>
         </div>
-        <div id="marksRoster"><div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select a subject to load students</div></div></div>
+        <!-- Lock banner -->
+        <div id="marksLockedBanner" class="alert alert-success" style="display:none;margin-bottom:1rem">
+          ✅ Marks already saved for this subject &amp; exam type — shown in read-only mode below.
+        </div>
+        <!-- Roster -->
+        <div id="marksRoster">
+          <div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select subject and exam type above, then click Load Students</div></div>
+        </div>
+        <!-- Save bar -->
+        <div id="marksSaveBar" style="display:none;margin-top:1rem;justify-content:flex-end;gap:.75rem">
+          <button class="btn btn-ghost" onclick="loadMarksView()">Reset</button>
+          <button class="btn btn-primary" id="marksSaveBtn" onclick="saveMarks()">💾 Save Marks</button>
+        </div>
       </div>
     </div>
 
@@ -528,7 +554,7 @@ function loadView(v){
   else if(v==='classes')loadClasses();
   else if(v==='students')loadStudents();
   else if(v==='attendance')loadAtt();
-  else if(v==='marks'){loadSubjectsIntoSelects().then(function(){loadMarksView();});}
+  else if(v==='marks'){loadSubjectsIntoSelects().then(function(){loadMarksView();document.getElementById('marksSubject').value='';});}
   else if(v==='exams'){loadSubjectsIntoSelects().then(function(){loadExams();});}
   else if(v==='materials'){loadSubjectsIntoSelects().then(function(){loadMats();});}
   else if(v==='online'){loadSubjectsIntoSelects().then(function(){loadOC();});}
@@ -1039,71 +1065,156 @@ async function finaliseQRAttendance(){
 }
 
 /* ══════════════════════════ MARKS ══════════════════════════ */
-let marksRosterData=[];
+let marksRosterData = [], _marksSubjId = null, _marksExamType = null, _marksLocked = false;
+
+// Max marks per exam type
+const MARKS_MAX = {CA1:10,CA2:10,CA3:10,CA4:10,CA5:10,Midterm:50,Endterm:100};
 
 function loadMarksView(){
-  const el=document.getElementById('marksRoster');
-  el.innerHTML=`<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select a subject to load students</div></div>`;
+  _marksSubjId = null; _marksExamType = null; _marksLocked = false;
+  marksRosterData = [];
+  document.getElementById('marksRoster').innerHTML =
+    '<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select subject and exam type, then click Load Students</div></div>';
+  document.getElementById('marksLockedBanner').style.display = 'none';
+  document.getElementById('marksSaveBar').style.display = 'none';
 }
 
 async function loadMarksRoster(){
-  const subjectId=document.getElementById('marksSubject').value;
-  const el=document.getElementById('marksRoster');
-  if(!subjectId){el.innerHTML=`<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select a subject to load students</div></div>`;return}
-  el.innerHTML=`<div class="loading"><div class="spinner"></div> Loading students…</div>`;
-  const d=await api(`/api/teacher/marks/students?subjectId=${subjectId}`);
-  if(!d.success||!d.students?.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found</div></div>`;return
+  const subjectId  = document.getElementById('marksSubject').value;
+  const examType   = document.getElementById('marksExamType').value;
+  const el         = document.getElementById('marksRoster');
+  const lockedBnr  = document.getElementById('marksLockedBanner');
+  const saveBar    = document.getElementById('marksSaveBar');
+
+  if(!subjectId){ toast('Please select a subject','warning'); return; }
+  if(!examType) { toast('Please select an exam type','warning'); return; }
+
+  _marksSubjId  = subjectId;
+  _marksExamType = examType;
+  _marksLocked  = false;
+  lockedBnr.style.display = 'none';
+  saveBar.style.display   = 'none';
+
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
+  const d = await api('/api/teacher/marks/students?subjectId=' + subjectId);
+
+  if(!d.success || !(d.students && d.students.length)){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this subject</div><div class="empty-sub">Check that students are enrolled in this class</div></div>';
+    return;
   }
-  marksRosterData=d.students.map(s=>({
-    studentId:s.UserID||s.StudentID,fullName:s.FullName,rollNumber:s.RollNumber,
-    CA1:s.CA1||'',CA2:s.CA2||'',CA3:s.CA3||'',CA4:s.CA4||'',CA5:s.CA5||'',
-    Midterm:s.Midterm||'',Endterm:s.Endterm||''
-  }));
+
+  marksRosterData = d.students.map(function(s){
+    return {
+      studentId:  s.UserID || s.StudentID,
+      fullName:   s.FullName || '',
+      rollNumber: s.RollNumber || s.UserCode || '',
+      markId:     s.MarkID || null,
+      value:      s[examType] !== null && s[examType] !== undefined ? String(s[examType]) : '',
+      saved:      (s.MarkID != null) && (s[examType] !== null && s[examType] !== undefined && s[examType] !== '')
+    };
+  });
+
+  // Check if ALL students already have marks for this exam type
+  const alreadySaved = marksRosterData.filter(function(s){ return s.saved; }).length;
+  if(alreadySaved > 0 && alreadySaved === marksRosterData.length){
+    _marksLocked = true;
+  }
+
   renderMarksRoster();
 }
 
 function renderMarksRoster(){
-  const el=document.getElementById('marksRoster');
-  let h=`<div style="overflow-x:auto">
-    <div class="marks-row marks-hdr" style="font-size:.65rem">
-      <span>#</span><span>Name</span><span>Roll</span>
-      <span title="Max 10">CA1</span><span title="Max 10">CA2</span><span title="Max 10">CA3</span>
-      <span title="Max 10">CA4</span><span title="Max 10">CA5</span>
-      <span title="Max 50">Mid</span><span title="Max 100">End</span>
-    </div>`;
-  marksRosterData.forEach((s,i)=>{
-    h+=`<div class="marks-row">
-      <span style="color:var(--text3)">${i+1}</span>
-      <span style="font-weight:600;font-size:.8rem">${s.fullName||''}</span>
-      <span style="font-family:var(--mono);color:var(--amber);font-size:.72rem">${s.rollNumber||''}</span>
-      ${['CA1','CA2','CA3','CA4','CA5'].map(k=>`<input class="mk-input" type="number" min="0" max="10" step="0.5" value="${s[k]}" oninput="setMark(${s.studentId},'${k}',this.value)" placeholder="—">`).join('')}
-      <input class="mk-input" type="number" min="0" max="50" step="0.5" value="${s.Midterm}" oninput="setMark(${s.studentId},'Midterm',this.value)" placeholder="—">
-      <input class="mk-input" type="number" min="0" max="100" step="0.5" value="${s.Endterm}" oninput="setMark(${s.studentId},'Endterm',this.value)" placeholder="—">
-    </div>`;
+  const el       = document.getElementById('marksRoster');
+  const lockedBnr = document.getElementById('marksLockedBanner');
+  const saveBar  = document.getElementById('marksSaveBar');
+  const maxVal   = MARKS_MAX[_marksExamType] || 100;
+  const examLabel = _marksExamType + ' (max ' + maxVal + ')';
+
+  if(_marksLocked){
+    lockedBnr.style.display = 'block';
+    saveBar.style.display   = 'none';
+    // Read-only table
+    let rows = '';
+    marksRosterData.forEach(function(s, i){
+      const val = s.value !== '' ? s.value : '—';
+      const pct = s.value !== '' ? Math.round((parseFloat(s.value)/maxVal)*100) : 0;
+      const col = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : s.value !== '' ? 'var(--red)' : 'var(--text3)';
+      rows += '<tr>'
+        + '<td style="color:var(--text3)">' + (i+1) + '</td>'
+        + '<td style="font-weight:600">' + s.fullName + '</td>'
+        + '<td style="font-family:var(--mono);color:var(--amber);font-size:.75rem">' + s.rollNumber + '</td>'
+        + '<td style="font-family:var(--mono);font-weight:800;color:' + col + ';font-size:.9rem">' + val + ' <span style="color:var(--text3);font-size:.7rem">/ ' + maxVal + '</span></td>'
+        + '<td>'
+        + (s.value !== '' ? '<div style="background:var(--bg4);border-radius:100px;height:6px;width:80px;overflow:hidden"><div style="height:100%;border-radius:100px;width:' + pct + '%;background:' + col + '"></div></div>' : '')
+        + '</td>'
+        + '</tr>';
+    });
+    el.innerHTML = '<div class="table-wrap"><table>'
+      + '<thead><tr><th>#</th><th>Name</th><th>Roll No</th><th>' + examLabel + '</th><th>Progress</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table></div>';
+    return;
+  }
+
+  // Editable view
+  lockedBnr.style.display = 'none';
+  saveBar.style.display   = 'flex';
+
+  let rows = '';
+  marksRosterData.forEach(function(s, i){
+    const inputId = 'mk_' + s.studentId;
+    rows += '<div style="display:grid;grid-template-columns:40px 1fr 130px 160px;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--bg3)">'
+      + '<span style="color:var(--text3)">' + (i+1) + '</span>'
+      + '<div>'
+        + '<div style="font-weight:600;font-size:.83rem">' + s.fullName + '</div>'
+        + '<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">' + s.rollNumber + '</div>'
+      + '</div>'
+      + '<div style="font-size:.75rem;color:var(--text3)">' + examLabel + '</div>'
+      + '<input id="' + inputId + '" class="mk-input" type="number" min="0" max="' + maxVal + '" step="0.5"'
+        + ' value="' + s.value + '" placeholder="Enter marks"'
+        + ' oninput="setMarkVal(' + "'" + s.studentId + "'" + ',this.value)"'
+        + ' style="width:100%;padding:.45rem .6rem;font-size:.88rem;font-weight:700">'
+      + '</div>';
   });
-  h+='</div>';
-  el.innerHTML=h;
+
+  el.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden">'
+    + '<div style="display:grid;grid-template-columns:40px 1fr 130px 160px;gap:.75rem;padding:.5rem 1rem;background:var(--bg4);border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase">'
+    + '<span>#</span><span>Student</span><span>Exam</span><span>Marks (0–' + maxVal + ')</span></div>'
+    + rows + '</div>';
 }
 
-function setMark(studentId,key,val){
-  const s=marksRosterData.find(x=>x.studentId===studentId||String(x.studentId)===String(studentId));
-  if(s)s[key]=val;
+function setMarkVal(studentId, val){
+  const s = marksRosterData.find(function(x){ return String(x.studentId) === String(studentId); });
+  if(s) s.value = val;
 }
 
 async function saveMarks(){
-  const subjectId=document.getElementById('marksSubject').value;
-  if(!subjectId){toast('Please select a subject','warning');return}
-  if(!marksRosterData.length){toast('No students loaded','warning');return}
-  const marks=marksRosterData.map(s=>({
-    studentId:s.studentId,
-    CA1:parseFloat(s.CA1)||0,CA2:parseFloat(s.CA2)||0,CA3:parseFloat(s.CA3)||0,
-    CA4:parseFloat(s.CA4)||0,CA5:parseFloat(s.CA5)||0,
-    Midterm:parseFloat(s.Midterm)||0,Endterm:parseFloat(s.Endterm)||0
-  }));
-  const d=await api('/api/teacher/marks',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),marks})});
-  if(d.success)toast(d.message||'Marks saved!','success');
-  else toast(d.error||'Failed to save marks','error');
+  if(_marksLocked){ toast('Marks already saved — read-only','warning'); return; }
+  if(!_marksSubjId){ toast('Please select a subject','warning'); return; }
+  if(!_marksExamType){ toast('Please select an exam type','warning'); return; }
+  if(!marksRosterData.length){ toast('No students loaded','warning'); return; }
+
+  const btn = document.getElementById('marksSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  // Build payload — only the selected exam type column
+  const marks = marksRosterData.map(function(s){
+    const rec = {studentId: s.studentId, CA1:0,CA2:0,CA3:0,CA4:0,CA5:0,Midterm:0,Endterm:0};
+    rec[_marksExamType] = parseFloat(s.value) || 0;
+    return rec;
+  });
+
+  const d = await api('/api/teacher/marks', {method:'POST', body:JSON.stringify({subjectId: parseInt(_marksSubjId), marks: marks})});
+  if(btn){ btn.disabled = false; btn.textContent = '💾 Save Marks'; }
+
+  if(d.success){
+    toast(d.message || 'Marks saved!', 'success');
+    _marksLocked = true;
+    // Update saved flag
+    marksRosterData.forEach(function(s){ s.saved = true; });
+    renderMarksRoster();
+  } else {
+    toast(d.error || 'Failed to save marks', 'error');
+  }
 }
 
 /* ══════════════════════════ EXAMS ══════════════════════════ */
