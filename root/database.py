@@ -298,10 +298,20 @@ class Database:
         )
 
     def _ensure_mysql_schema(self):
-        """Create all tables in Railway MySQL if they don't exist."""
+        """Create all tables in Railway MySQL if they don't exist.
+        If tables already exist (imported via TablePlus), skip creation safely."""
         conn = self._mysql_connect()
         try:
             with conn.cursor() as cursor:
+                # Check if database already has data (imported via TablePlus)
+                cursor.execute("SHOW TABLES")
+                existing_tables = {row[list(row.keys())[0]] for row in cursor.fetchall()}
+                if 'Users' in existing_tables and 'Departments' in existing_tables:
+                    # Tables already exist from SQL import - just seed if empty
+                    print('[DB] Tables already exist (imported schema). Skipping CREATE TABLE.')
+                    conn.close()
+                    self._seed_mysql_safe()
+                    return
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS Departments (
                         DepartmentID   INT PRIMARY KEY,
@@ -598,6 +608,46 @@ class Database:
             self._seed_mysql(conn)
         finally:
             conn.close()
+
+    def _seed_mysql_safe(self):
+        """Safe seed for pre-imported schema - only inserts if tables are truly empty.
+        Uses column names matching the imported SQL schema (no TotalSemesters/IsShared)."""
+        try:
+            conn = self._mysql_connect()
+            with conn.cursor() as cursor:
+                # Only seed Departments if completely empty
+                cursor.execute('SELECT COUNT(*) as cnt FROM Departments')
+                if cursor.fetchone()['cnt'] == 0:
+                    cursor.executemany(
+                        'INSERT IGNORE INTO Departments (DepartmentID, DepartmentName, DepartmentCode) VALUES (%s,%s,%s)',
+                        [
+                            (1, 'Computer Science & Engineering', 'CSE'),
+                            (2, 'Electronics & Communication Engineering', 'ECE'),
+                            (3, 'Electrical & Electronics Engineering', 'EEE'),
+                            (4, 'Mechanical Engineering', 'MECH'),
+                            (5, 'Civil Engineering', 'CIVIL'),
+                        ]
+                    )
+                    conn.commit()
+                    print('✅ [DB] MySQL Departments seeded.')
+
+                # Only seed Users if completely empty
+                cursor.execute('SELECT COUNT(*) as cnt FROM Users')
+                if cursor.fetchone()['cnt'] == 0:
+                    import hashlib
+                    def dob_hash(dob): return hashlib.sha256(dob.encode()).hexdigest()
+                    cursor.executemany(
+                        'INSERT IGNORE INTO Users (UserType, UserCode, FullName, Email, Phone, PasswordHash, DepartmentID, DateOfBirth, Gender, IsActive, IsFirstLogin) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,1,1)',
+                        [
+                            ('Admin',   'ADMIN001', 'System Administrator',  'admin@university.edu',        '9000000001', dob_hash('15-05-1980'), 1, '1980-05-15', 'Male'),
+                            ('Teacher', 'TID001',   'Dr. Rajesh Kumar',       'rajesh.kumar@university.edu', '9876543211', dob_hash('12-03-1975'), 1, '1975-03-12', 'Male'),
+                        ]
+                    )
+                    conn.commit()
+                    print('✅ [DB] MySQL minimal Users seeded.')
+            conn.close()
+        except Exception as e:
+            print(f'[DB] _seed_mysql_safe warning: {e}')
 
     def _seed_mysql(self, conn):
         """Seed essential data into MySQL if tables are empty."""
