@@ -1391,55 +1391,47 @@ def save_marks():
 def my_students():
     uid, err = _get_teacher_user_id()
     if err: return err
-
-    dept_id  = request.args.get('departmentId')
-    semester = request.args.get('semester')
-
-    combos = db.execute_query(
-        """SELECT DISTINCT c.DepartmentID, c.Semester, d.DepartmentName
-           FROM Timetable t
-           JOIN Classes c ON t.ClassID = c.ClassID
-           JOIN Departments d ON d.DepartmentID = c.DepartmentID
-           WHERE t.TeacherID = ?
-           ORDER BY d.DepartmentName, c.Semester""", (uid,)) or []
-
-    classes_list = [{'DepartmentID': r['DepartmentID'], 'Semester': r['Semester'],
-                     'DepartmentName': r['DepartmentName'],
-                     'Label': f"{r['DepartmentName']} — Sem {r['Semester']}"}
-                    for r in _serialize(combos)]
-
-    where_extra = ''
-    params = [uid]
-    if dept_id and semester:
-        where_extra = ' AND u.DepartmentID=? AND u.Semester=?'
-        params += [dept_id, semester]
-    elif dept_id:
-        where_extra = ' AND u.DepartmentID=?'
-        params.append(dept_id)
-    elif semester:
-        where_extra = ' AND u.Semester=?'
-        params.append(semester)
-
     students = db.execute_query(
-        f"""SELECT DISTINCT u.UserID, u.UserCode AS OriginalCode, u.FullName, u.Email,
-               u.Semester, u.DepartmentID, u.Gender, u.IsActive, d.DepartmentName
+        """SELECT DISTINCT u.UserID, u.UserCode, u.FullName, u.Email,
+               u.Semester, u.Gender, u.IsActive, u.DepartmentID,
+               d.DepartmentName, d.DepartmentCode
            FROM Users u
            JOIN Departments d ON u.DepartmentID = d.DepartmentID
            JOIN Timetable t ON t.TeacherID = ?
            JOIN Classes c ON t.ClassID = c.ClassID AND c.DepartmentID = u.DepartmentID AND c.Semester = u.Semester
-           WHERE u.UserType='Student' AND u.IsActive=1{where_extra}
-           ORDER BY d.DepartmentName, u.Semester, u.FullName""", tuple(params)) or []
+           WHERE u.UserType='Student' AND u.IsActive=1
+           ORDER BY d.DepartmentName, u.Semester, u.UserCode""", (uid,)) or []
 
-    result = _serialize(students)
-    group_counters = {}
-    for s in result:
-        key = (s.get('DepartmentID'), s.get('Semester'))
-        if key not in group_counters:
-            group_counters[key] = 1001
-        s['RollNumber'] = str(group_counters[key])
-        group_counters[key] += 1
+    # Strip 'STUID' prefix so ID displays as e.g. 20241CSE1001
+    serialized = _serialize(students)
+    for s in serialized:
+        raw = s.get('UserCode', '') or ''
+        s['RollNumber'] = raw[5:] if raw.startswith('STUID') else raw
 
-    return _ok({'students': result, 'count': len(result), 'classes': classes_list})
+    # Build class list for filter dropdown (Label = "CSE Sem 1 — 45 students")
+    combos = db.execute_query(
+        """SELECT DISTINCT c.DepartmentID, c.Semester, d.DepartmentName, d.DepartmentCode
+           FROM Timetable t
+           JOIN Classes c ON t.ClassID = c.ClassID
+           LEFT JOIN Departments d ON d.DepartmentID = c.DepartmentID
+           WHERE t.TeacherID = ?
+           ORDER BY d.DepartmentName, c.Semester""", (uid,)) or []
+    classes = []
+    for row in combos:
+        dept_id  = row['DepartmentID']
+        semester = row['Semester']
+        cnt = sum(1 for s in students
+                  if s.get('DepartmentID') == dept_id and s.get('Semester') == semester)
+        code = row.get('DepartmentCode') or row.get('DepartmentName', '')
+        classes.append({
+            'DepartmentID': dept_id,
+            'Semester':     semester,
+            'DepartmentName': row.get('DepartmentName', ''),
+            'DepartmentCode': row.get('DepartmentCode', ''),
+            'Label': f"{code} — Sem {semester}  ({cnt} students)",
+        })
+
+    return _ok({'students': serialized, 'count': len(serialized), 'classes': classes})
 
 
 # =============================================================================

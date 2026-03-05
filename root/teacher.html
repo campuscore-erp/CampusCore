@@ -269,23 +269,23 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="card-hdr">
           <div>
             <div class="card-title">My Students</div>
-            <div class="card-sub" id="studentsSubtitle">Select a class to view students</div>
+            <div class="card-sub" id="studentsSubtitle" style="font-size:.8rem;color:var(--text3);margin-top:.15rem">All classes</div>
           </div>
         </div>
-        <!-- Filter bar -->
-        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
-          <select id="studClassFilter" class="form-input" style="flex:1;min-width:200px;max-width:320px" onchange="applyStudentFilter()">
+        <!-- Filter + Search bar -->
+        <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+          <select id="studClassFilter" class="form-input" style="flex:1;min-width:200px;max-width:300px" onchange="renderStudentTable()">
             <option value="">— All Classes —</option>
           </select>
-          <div style="position:relative;flex:1;min-width:180px;max-width:300px">
-            <input id="studSearchBox" class="form-input" type="text" placeholder="🔍  Search name or roll no…" oninput="renderStudentTable()" style="width:100%;padding-right:2.2rem">
+          <div style="position:relative;flex:1;min-width:180px;max-width:280px">
+            <input id="studSearchBox" class="form-input" type="text" placeholder="🔍  Search name or student ID…" oninput="renderStudentTable()" style="width:100%;padding-right:2rem">
             <span id="studSearchClear" onclick="document.getElementById('studSearchBox').value='';renderStudentTable()" style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);display:none">✕</span>
           </div>
           <div style="font-size:.82rem;color:var(--text3);white-space:nowrap">
             Showing <strong id="studCount" style="color:var(--text)">0</strong> students
           </div>
         </div>
-        <div id="studentsList"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Select a class above to load students</div></div></div>
+        <div id="studentsList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
@@ -788,12 +788,11 @@ async function loadClasses(){
 }
 
 /* ══════════════════════════ MY STUDENTS ══════════════════════════ */
-// ── My Students: state ─────────────────────────────────────────
+// ── My Students state ──────────────────────────────────────
 let _allStudentsData = [];
-let _classesData = [];
+let _studClassesData = [];
 
 async function loadStudents() {
-  // Load all students + class list on first open
   const el = document.getElementById('studentsList');
   el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
   const d = await api('/api/teacher/my-students');
@@ -802,41 +801,24 @@ async function loadStudents() {
     return;
   }
   _allStudentsData = d.students || [];
-  _classesData = d.classes || [];
+  _studClassesData = d.classes || [];
 
   // Populate class filter dropdown
   const cf = document.getElementById('studClassFilter');
   cf.innerHTML = '<option value="">— All Classes —</option>'
-    + _classesData.map(c =>
+    + _studClassesData.map(c =>
         `<option value="${c.DepartmentID}|${c.Semester}">${c.Label}</option>`
       ).join('');
 
   renderStudentTable();
 }
 
-function applyStudentFilter() {
-  renderStudentTable();
-}
-
-function buildStudentIdForSearch(s, index) {
-  const year = new Date().getFullYear();
-  const deptName = (s.DepartmentName || '').toUpperCase();
-  let deptCode = 'DEPT';
-  if (deptName.includes('COMPUTER') || deptName.includes('CSE')) deptCode = 'CSE';
-  else if (deptName.includes('ELECTRONICS') || deptName.includes('ECE')) deptCode = 'ECE';
-  else if (deptName.includes('ELECTRICAL') || deptName.includes('EEE')) deptCode = 'EEE';
-  else if (deptName.includes('MECHANICAL') || deptName.includes('MECH')) deptCode = 'MECH';
-  else if (deptName.includes('CIVIL')) deptCode = 'CIVIL';
-  else if (deptName.includes('IT') || deptName.includes('INFORMATION')) deptCode = 'IT';
-  return `${year}${s.Semester || 1}${deptCode}${1000 + index + 1}`;
-}
-
 function renderStudentTable() {
   const el = document.getElementById('studentsList');
-  const filterVal = document.getElementById('studClassFilter').value;
-  const search = (document.getElementById('studSearchBox').value || '').toLowerCase().trim();
+  const filterVal = (document.getElementById('studClassFilter') || {}).value || '';
+  const search = ((document.getElementById('studSearchBox') || {}).value || '').toLowerCase().trim();
   const clearBtn = document.getElementById('studSearchClear');
-  clearBtn.style.display = search ? 'block' : 'none';
+  if (clearBtn) clearBtn.style.display = search ? 'block' : 'none';
 
   // Filter by class
   let filtered = _allStudentsData;
@@ -847,64 +829,48 @@ function renderStudentTable() {
     );
   }
 
-  // Filter by search — matches name, email, or generated student ID pattern
+  // Filter by search — matches name, email, or Student ID (e.g. 20241CSE1001)
   if (search) {
-    filtered = filtered.filter((s, idx) => {
-      const sid = buildStudentIdForSearch(s, idx);
-      return (s.FullName || '').toLowerCase().includes(search) ||
-             sid.toLowerCase().includes(search) ||
-             (s.Email || '').toLowerCase().includes(search);
-    });
+    filtered = filtered.filter(s =>
+      (s.FullName || '').toLowerCase().includes(search) ||
+      (s.RollNumber || '').toLowerCase().includes(search) ||
+      (s.Email || '').toLowerCase().includes(search)
+    );
   }
 
-  // Update subtitle
+  // Update subtitle and count
   let subtitle = 'All classes';
   if (filterVal) {
-    const cls = _classesData.find(c => c.DepartmentID + '|' + c.Semester === filterVal);
+    const cls = _studClassesData.find(c => c.DepartmentID + '|' + c.Semester === filterVal);
     subtitle = cls ? cls.Label : filterVal;
   }
-  document.getElementById('studentsSubtitle').textContent = subtitle;
-  document.getElementById('studCount').textContent = filtered.length;
+  const subtitleEl = document.getElementById('studentsSubtitle');
+  if (subtitleEl) subtitleEl.textContent = subtitle;
+  const countEl = document.getElementById('studCount');
+  if (countEl) countEl.textContent = filtered.length;
 
   if (!filtered.length) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found</div><div class="empty-sub">' + (search ? 'Try a different search term' : 'Select a class above') + '</div></div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found</div>'
+      + '<div class="empty-sub">' + (search ? 'Try a different search term' : 'No students in this class') + '</div></div>';
     return;
   }
 
-  // Build student ID: e.g. 20241CSE1001
-  // Format: YYYY + Semester + DeptCode + 4-digit sequence
-  function buildStudentId(s, index) {
-    const year = new Date().getFullYear();
-    // Extract dept code from DepartmentName or use raw code
-    const deptName = (s.DepartmentName || '').toUpperCase();
-    let deptCode = 'DEPT';
-    if (deptName.includes('COMPUTER') || deptName.includes('CSE')) deptCode = 'CSE';
-    else if (deptName.includes('ELECTRONICS') || deptName.includes('ECE')) deptCode = 'ECE';
-    else if (deptName.includes('ELECTRICAL') || deptName.includes('EEE')) deptCode = 'EEE';
-    else if (deptName.includes('MECHANICAL') || deptName.includes('MECH')) deptCode = 'MECH';
-    else if (deptName.includes('CIVIL')) deptCode = 'CIVIL';
-    else if (deptName.includes('IT') || deptName.includes('INFORMATION')) deptCode = 'IT';
-    const sem = s.Semester || 1;
-    const seq = String(1000 + index + 1);  // 1001, 1002...
-    return `${year}${sem}${deptCode}${seq}`;
-  }
-
   const rows = filtered.map((s, i) => {
-    const studentId = buildStudentId(s, i);
+    const sid = s.RollNumber || '';
     return `<tr>
-    <td style="color:var(--text3);font-size:.8rem">${i + 1}</td>
-    <td><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:.82rem;letter-spacing:.03em">${studentId}</span></td>
-    <td style="font-weight:600">${s.FullName || ''}</td>
-    <td><span style="background:var(--bg4);padding:.15rem .5rem;border-radius:.3rem;font-size:.75rem">Sem ${s.Semester || '—'}</span></td>
-    <td style="color:var(--text2)">${s.Gender || '—'}</td>
-    <td style="color:var(--text3);font-size:.8rem">${s.DepartmentName || '—'}</td>
-    <td style="color:var(--text3);font-size:.73rem">${s.Email || '—'}</td>
-  </tr>`;
+      <td style="color:var(--text3);font-size:.8rem">${i + 1}</td>
+      <td><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:.82rem;letter-spacing:.03em">${sid}</span></td>
+      <td style="font-weight:600">${s.FullName || ''}</td>
+      <td><span style="background:var(--bg4);padding:.15rem .45rem;border-radius:.3rem;font-size:.75rem">Sem ${s.Semester || '—'}</span></td>
+      <td style="color:var(--text2)">${s.Gender || '—'}</td>
+      <td style="color:var(--text3);font-size:.8rem">${s.DepartmentName || '—'}</td>
+      <td style="color:var(--text3);font-size:.73rem">${s.Email || '—'}</td>
+    </tr>`;
   }).join('');
 
   el.innerHTML = `<div class="table-wrap"><table>
     <thead><tr>
-      <th>#</th><th>Roll No</th><th>Name</th><th>Semester</th><th>Gender</th><th>Department</th><th>Email</th>
+      <th>#</th><th>Student ID</th><th>Name</th><th>Semester</th><th>Gender</th><th>Department</th><th>Email</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
