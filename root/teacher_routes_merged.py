@@ -496,14 +496,27 @@ def generate_qr():
     qr_token   = secrets.token_urlsafe(24)
     expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
 
-    _try_inserts('QRCodes', [
-        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt,CreatedAt',
+    # Store only the raw token (no pipe-suffix) so student lookup works
+    inserted = False
+    for cols, vals in [
+        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt,IsActive,CreatedAt',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1, datetime.now())),
-        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt',
+        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt,IsActive',
          (subject_id, timetable_id, uid, qr_token, expires_at, 1)),
-        ('SubjectID,ClassID,TeacherID,QRToken,ExpiresAt',
+        ('SubjectID,TeacherID,QRToken,ExpiresAt,IsActive',
          (subject_id, uid, qr_token, expires_at, 1)),
-    ])
+        ('SubjectID,TeacherID,QRToken,ExpiresAt',
+         (subject_id, uid, qr_token, expires_at)),
+    ]:
+        try:
+            ph = ','.join(['?']*len(vals))
+            db.execute_non_query(f'INSERT INTO QRCodes ({cols}) VALUES ({ph})', vals)
+            inserted = True
+            break
+        except Exception as e:
+            print(f'[QR Insert] cols={cols} err={e}')
+    if not inserted:
+        return _err('Could not save QR code to database')
     return _ok({
         'qrToken': f'{qr_token}|{att_date}|{subject_id}',
         'qrData':  f'{qr_token}|{att_date}|{subject_id}',

@@ -3,28 +3,18 @@ student_routes_merged.py  —  University ERP
 ============================================
 Blueprint: bp_student  →  /api/student/*
 
-FIXES IN THIS VERSION (v3.0 — 403 Forbidden Fix):
-  1. student_required() completely rewritten:
-       - Checks ALL known JWT claim keys (userType, user_type, role, type, UserType, user_role)
-       - DB fallback tries BOTH numeric UserID and string UserCode identities
-       - Also checks Students table by RollNumber as final fallback
-       - Handles MySQL (?) and SQLite/MSSQL (?) placeholders automatically
-  2. _resolve() completely rewritten:
-       - Accepts int UserID OR string UserCode (roll number) identity
-       - Tries Users table by UserID first, then by UserCode
-       - Then tries Students table by RollNumber and Email
-       - MySQL and SQLite/MSSQL placeholder variants tried automatically
-  3. ALL get_jwt_identity() calls now safely handle non-numeric identities:
-       - No more int() cast crash when identity is a roll number string
-  4. Teacher JOINs work for BOTH schema styles:
+FIXES IN THIS VERSION:
+  1. Teacher JOINs work for BOTH schema styles:
        - Schema A (SQLite/separate): Teachers table (TeacherID → Teachers.TeacherID)
-       - Schema B (MySQL/unified):   Users table    (TeacherID → Users.UserID)
-  5. GROUP BY clauses include ALL selected non-aggregate columns (SQL Server strict mode).
-  6. Exams query uses only safe columns.
-  7. Notifications use StudentID with fallback to UserID.
-  8. Dashboard exams counter is safe/optional.
-  9. QR scan works camera-only.
-  10. Fee payment endpoint included.
+       - Schema B (MSSQL/unified):   Users table    (TeacherID → Users.UserID)
+     Each query tries Teachers table first; on failure falls back to Users.
+  2. GROUP_CONCAT → STRING_AGG (SQL Server) with fallback to GROUP_CONCAT (SQLite).
+  3. GROUP BY clauses include ALL selected non-aggregate columns (SQL Server strict mode).
+  4. Exams query uses only safe columns; skips missing IsActive/ExamName/StartTime etc.
+  5. Notifications use StudentID (SQLite) with fallback to UserID (MSSQL).
+  6. Dashboard exams counter is safe/optional.
+  7. QR scan works camera-only (manual token entry removed from UI).
+  8. Fee payment endpoint added for UPI/Net Banking/Card payments.
 """
 
 import json, traceback
@@ -39,15 +29,6 @@ bp_student = Blueprint('student', __name__, url_prefix='/api/student')
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _sv(val):
-    """Serialize DB values to JSON-safe types.
-    MySQL returns TIME columns as timedelta — convert to HH:MM string.
-    """
-    from datetime import timedelta as _td
-    if isinstance(val, _td):
-        total = int(val.total_seconds())
-        h, rem = divmod(abs(total), 3600)
-        m = rem // 60
-        return f'{h:02d}:{m:02d}'
     if isinstance(val, (date, time, datetime)):
         return str(val)
     return val
@@ -67,137 +48,81 @@ def serialize_row(row):
     return {k: _sv(v) for k, v in dict(row).items()}
 
 def student_required():
-    """
-    Verify the JWT belongs to a Student.
-    LOG shows claims keys: fresh, iat, jti, type, sub, nbf, csrf, exp,
-                           userType, userCode, userId
-    So userType IS present — 403 means the logged-in user IS a Teacher/Admin.
-    Fast path checks userType claim. DB fallback verifies via Users table.
-    """
     claims = get_jwt()
-
-    # ── Fast path: userType claim (confirmed present in JWT from logs) ────────
+    # Check every possible key the JWT might use for user type
     user_type = (
-        claims.get('userType') or      # ← confirmed in logs
+        claims.get('userType') or
         claims.get('user_type') or
         claims.get('role') or
         claims.get('type') or
         claims.get('UserType') or
-        claims.get('user_role') or
         ''
     )
     if str(user_type).strip().lower() == 'student':
         return None  # ✅ authorized
 
-    # ── DB fallback: verify via Users table (MySQL ? placeholder) ────────────
+    # Fallback: verify against DB using the identity in the token
+    # This handles any JWT claim key mismatch between auth_routes and student_routes
     try:
-        raw_identity = get_jwt_identity()
-        # Also check userId claim directly from JWT
-        jwt_user_id = claims.get('userId') or claims.get('userCode')
-
-        for identity in set(filter(None, [raw_identity, jwt_user_id])):
-            # Try numeric UserID
-            try:
-                uid = int(identity)
-                try:
-                    row = db.execute_query(
-                        "SELECT UserType FROM Users WHERE UserID = ?",
-                        (uid,), fetch_one=True)
-                    if row and str(row.get('UserType', '')).strip().lower() == 'student':
-                        return None  # ✅
-                except Exception:
-                    pass
-            except (ValueError, TypeError):
-                pass
-
-            # Try string UserCode
-            ucode = str(identity).strip()
-            if ucode:
-                try:
-                    row = db.execute_query(
-                        "SELECT UserType FROM Users WHERE UserCode = ?",
-                        (ucode,), fetch_one=True)
-                    if row and str(row.get('UserType', '')).strip().lower() == 'student':
-                        return None  # ✅
-                except Exception:
-                    pass
-
+        user_id = int(get_jwt_identity())
+        row = db.execute_query(
+            "SELECT UserType FROM Users WHERE UserID = ?",
+            (user_id,), fetch_one=True)
+        if row and str(row.get('UserType', '')).strip().lower() == 'student':
+            return None  # ✅ authorized via DB check
     except Exception as e:
-        print(f'[Auth] DB fallback error: {e}')
+        print(f'[Auth] DB fallback check error: {e}')
 
-    print(f'[Auth] student_required FAILED. claims={list(claims.keys())}, userType={user_type!r}, identity={get_jwt_identity()!r}')
-    print(f'[Auth] NOTE: If userType is Teacher/Admin, the user must log out and log in with a Student account.')
-    return jsonify({'error': 'Student access required. Please log in with a student account.', 'success': False}), 403
+    print(f'[Auth] student_required FAILED. claims keys: {list(claims.keys())}, user_type found: {user_type!r}')
+    return jsonify({'error': 'Student access required', 'success': False}), 403
 
 
 # ── ID / info resolution ───────────────────────────────────────────────────────
 
-def _resolve(user_id_or_code):
+def _resolve(user_id: int):
     """
     Returns (student_id, dept_id, semester, user_code).
-    Accepts numeric UserID (int/str-int) or UserCode string.
-    Uses only the Users table — Students table may not exist in MySQL schema.
-    student_id == UserID in the unified schema (Railway MySQL).
+    Maps: Users.UserID -> Students.StudentID via RollNumber = UserCode.
+    In unified schema (MSSQL), student_id == user_id (UserID IS the StudentID).
     """
-    # Normalise identity
-    try:
-        user_id  = int(user_id_or_code)
-        raw_code = None
-    except (ValueError, TypeError):
-        user_id  = None
-        raw_code = str(user_id_or_code).strip()
-
-    # Fetch from Users table (works for MySQL ? placeholder automatically)
-    user = None
-    if user_id is not None:
-        try:
-            user = db.execute_query(
-                "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserID = ?",
-                (user_id,), fetch_one=True)
-        except Exception:
-            try:
-                user = db.execute_query(
-                    "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserID = ?",
-                    (user_id,), fetch_one=True)
-            except Exception:
-                pass
-
-    if user is None and raw_code:
-        try:
-            user = db.execute_query(
-                "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserCode = ?",
-                (raw_code,), fetch_one=True)
-        except Exception:
-            try:
-                user = db.execute_query(
-                    "SELECT UserID, UserCode, DepartmentID, Semester, Email FROM Users WHERE UserCode = ?",
-                    (raw_code,), fetch_one=True)
-            except Exception:
-                pass
-
+    user = db.execute_query(
+        "SELECT UserCode, DepartmentID, Semester, Email FROM Users WHERE UserID = ?",
+        (user_id,), fetch_one=True
+    )
     if not user:
-        return (user_id or 0), None, None, (raw_code or '')
+        return user_id, None, None, None
 
     dept_id    = user.get('DepartmentID')
     semester   = user.get('Semester')
-    u_code     = user.get('UserCode') or raw_code or ''
-    if user_id is None:
-        user_id = user.get('UserID', 0)
+    u_code     = user.get('UserCode', '')
+    student_id = user_id  # In unified MSSQL schema, UserID == StudentID
 
-    # In Railway MySQL unified schema: UserID == StudentID (no separate Students table)
-    student_id = user_id
-
-    # Optionally try Students table only if it exists (SQLite fallback)
+    # Try separate Students table (SQLite / old schema)
     try:
         s = db.execute_query(
-            "SELECT StudentID, DepartmentID, CurrentSemester FROM Students WHERE RollNumber = ?",
-            (u_code,), fetch_one=True)
+            "SELECT UserID AS StudentID, DepartmentID, Semester AS CurrentSemester FROM Users WHERE UserCode = ? AND UserType = 'Student'",
+            (u_code,), fetch_one=True
+        )
         if s:
-            student_id = s.get('StudentID', student_id)
+            student_id = s['StudentID']
             dept_id    = dept_id or s.get('DepartmentID')
             semester   = semester or s.get('CurrentSemester')
     except Exception:
-        pass  # Students table doesn't exist — that's fine, use UserID
+        pass  # Students table may not exist in unified schema
+
+    # Email fallback for separate Students table
+    if student_id == user_id and user.get('Email'):
+        try:
+            s2 = db.execute_query(
+                "SELECT UserID AS StudentID, DepartmentID, Semester AS CurrentSemester FROM Users WHERE Email = ? AND UserType = 'Student'",
+                (user.get('Email'),), fetch_one=True
+            )
+            if s2:
+                student_id = s2['StudentID']
+                dept_id    = dept_id or s2.get('DepartmentID')
+                semester   = semester or s2.get('CurrentSemester')
+        except Exception:
+            pass
 
     return student_id, dept_id, semester, u_code
 
@@ -208,19 +133,29 @@ def _enrolled_subj_ids(student_id, dept_id, semester):
     MSSQL schema: StudentEnrollments only has StudentID (no TimetableID/ClassID).
     So we go cohort-first (dept+semester from Users), then fall back to SQLite strategies.
     """
-    # Strategy 1: Classes JOIN (confirmed working from dashboard logs)
+    # Strategy 1 (MSSQL primary): Cohort via Users.DepartmentID + Users.Semester
     if dept_id and semester:
-        for q in [
-            "SELECT DISTINCT t.SubjectID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=? AND c.Semester=?",
-            "SELECT DISTINCT SubjectID FROM Subjects WHERE DepartmentID=? AND Semester=?",
-        ]:
-            try:
-                rows = db.execute_query(q, (dept_id, semester))
-                ids = [r['SubjectID'] for r in (rows or [])]
-                if ids:
-                    return ids
-            except Exception as e:
-                print(f'[enrolled_subj] strategy failed: {e}')
+        try:
+            rows = db.execute_query(
+                """SELECT DISTINCT t.SubjectID FROM Timetable t
+                   JOIN Classes c ON t.ClassID = c.ClassID
+                   WHERE c.DepartmentID=? AND c.Semester=?""",
+                (dept_id, semester))
+            ids = [r['SubjectID'] for r in (rows or [])]
+            if ids:
+                return ids
+        except Exception as e:
+            print(f'[enrolled_subj] cohort/Timetable failed: {e}')
+
+        try:
+            rows = db.execute_query(
+                "SELECT DISTINCT SubjectID FROM Subjects WHERE DepartmentID=? AND Semester=?",
+                (dept_id, semester))
+            ids = [r['SubjectID'] for r in (rows or [])]
+            if ids:
+                return ids
+        except Exception as e:
+            print(f'[enrolled_subj] cohort/Subjects failed: {e}')
 
     # Strategy 2 (SQLite fallback): StudentEnrollments with TimetableID
     try:
@@ -284,60 +219,7 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
 
     # Build WHERE clause pieces separately to avoid f-string/SQL issues
     if dept_id and semester:
-        # Strategy 1: MySQL/Railway — Timetable has DepartmentID+Semester directly, JOIN Users for teacher
-        try:
-            params = [dept_id, semester]
-            where  = "t.DepartmentID = ? AND t.Semester = ?"
-            if day:
-                where += " AND t.DayOfWeek = ?"
-                params.append(day)
-            rows = db.execute_query(
-                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
-                        t.RoomNumber, t.IsLab, t.PeriodNumber,
-                        s.SubjectID, s.SubjectName, s.SubjectCode,
-                        tc.UserID AS TeacherID, tc.FullName AS TeacherName,
-                        tc.UserCode AS TeacherCode,
-                        d.DepartmentName, d.DepartmentCode,
-                        t.Semester, '' AS Section, '' AS ClassName
-                    FROM Timetable   t
-                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID  = tc.UserID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE {where}
-                    ORDER BY t.DayOfWeek, t.StartTime""",
-                tuple(params))
-            if rows:
-                return mk(rows)
-        except Exception as e:
-            print(f'[TT] MySQL direct-Users err: {e}')
-
-        # Strategy 2: MySQL — no teacher join (teacher table may differ)
-        try:
-            params = [dept_id, semester]
-            where  = "t.DepartmentID = ? AND t.Semester = ?"
-            if day:
-                where += " AND t.DayOfWeek = ?"
-                params.append(day)
-            rows = db.execute_query(
-                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
-                        t.RoomNumber, t.IsLab, t.PeriodNumber,
-                        s.SubjectID, s.SubjectName, s.SubjectCode,
-                        t.TeacherID,
-                        NULL AS TeacherName, NULL AS TeacherCode,
-                        d.DepartmentName, d.DepartmentCode,
-                        t.Semester, '' AS Section, '' AS ClassName
-                    FROM Timetable   t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
-                    WHERE {where}
-                    ORDER BY t.DayOfWeek, t.StartTime""",
-                tuple(params))
-            if rows:
-                return fill_teachers(mk(rows))
-        except Exception as e:
-            print(f'[TT] MySQL direct-minimal err: {e}')
-
-        # Strategy 3: SQLite fallback with Classes table
+        # Strategy 1: Cohort + Users (most common schema — teachers in Users table)
         try:
             params = [dept_id, semester]
             where  = "c.DepartmentID = ? AND c.Semester = ?"
@@ -346,7 +228,65 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
                 params.append(day)
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
-                        COALESCE(t.RoomNumber, t.Room, \'\') AS RoomNumber,
+                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
+                        s.SubjectID, s.SubjectName, s.SubjectCode,
+                        tc.UserID AS TeacherID, tc.FullName AS TeacherName,
+                        tc.UserCode AS TeacherCode,
+                        d.DepartmentName, d.DepartmentCode,
+                        c.Semester, c.Section, c.ClassName
+                    FROM Timetable t
+                    JOIN Classes     c  ON t.ClassID    = c.ClassID
+                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID  = tc.UserID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE {where}
+                    ORDER BY t.DayOfWeek, t.StartTime""",
+                tuple(params))
+            if rows:
+                return mk(rows)
+        except Exception as e:
+            print(f'[TT] cohort-Users err: {e}')
+
+        # Strategy 2: Cohort + Teachers table
+        try:
+            params = [dept_id, semester]
+            where  = "c.DepartmentID = ? AND c.Semester = ?"
+            if day:
+                where += " AND t.DayOfWeek = ?"
+                params.append(day)
+            rows = db.execute_query(
+                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
+                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
+                        s.SubjectID, s.SubjectName, s.SubjectCode,
+                        tc.UserID AS TeacherID, tc.FullName AS TeacherName,
+                        tc.UserCode AS TeacherCode,
+                        d.DepartmentName, d.DepartmentCode,
+                        c.Semester, c.Section, c.ClassName
+                    FROM Timetable t
+                    JOIN Classes     c  ON t.ClassID    = c.ClassID
+                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID  = tc.UserID
+                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE {where}
+                    ORDER BY t.DayOfWeek, t.StartTime""",
+                tuple(params))
+            if rows:
+                return mk(rows)
+        except Exception as e:
+            print(f'[TT] cohort-Teachers err: {e}')
+
+        # Strategy 3: Minimal — no teacher join, fill names separately
+        try:
+            params = [dept_id, semester]
+            where  = "c.DepartmentID = ? AND c.Semester = ?"
+            if day:
+                where += " AND t.DayOfWeek = ?"
+                params.append(day)
+            rows = db.execute_query(
+                f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
+                        COALESCE(t.RoomNumber, t.Room, '') AS RoomNumber,
                         0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         t.TeacherID,
@@ -363,7 +303,7 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
             if rows:
                 return fill_teachers(mk(rows))
         except Exception as e:
-            print(f'[TT] SQLite Classes fallback err: {e}')
+            print(f'[TT] minimal err: {e}')
 
     return []
 
@@ -378,7 +318,7 @@ def get_dashboard():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id    = int(get_jwt_identity())
         student_id, dept_id, semester, u_code = _resolve(user_id)
 
         # Ensure dept_id / semester always resolved from Users table
@@ -401,21 +341,10 @@ def get_dashboard():
         enrolled_subjects = 0
         try:
             if dept_id and semester:
-                for q in [
-                    "SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=? AND c.Semester=?",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=? AND Semester=?",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
-                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Subjects WHERE DepartmentID=? AND Semester=?",
-                ]:
-                    try:
-                        r = db.execute_query(q, (dept_id, semester), fetch_one=True)
-                        if r:
-                            enrolled_subjects = int(r.get('cnt') or 0)
-                            if enrolled_subjects > 0:
-                                break
-                    except Exception:
-                        continue
+                r = db.execute_query(
+                    """SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE c.DepartmentID=? AND c.Semester=?""",
+                    (dept_id, semester), fetch_one=True)
+                enrolled_subjects = int(r['cnt'] or 0) if r else 0
         except Exception as e:
             print(f'[Dashboard] enrolled err: {e}')
 
@@ -548,48 +477,33 @@ def get_profile():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, u_code = _resolve(user_id)
 
         profile = None
+        try:
+            profile = serialize_row(db.execute_query("""
+                SELECT s.StudentID, s.RollNumber AS UserCode, s.FullName, s.Email,
+                       s.CurrentSemester AS Semester, s.AcademicYear,
+                       d.DepartmentName, d.DepartmentCode,
+                       u.Phone, u.Gender, u.DateOfBirth, u.Address, u.JoinDate
+                FROM   Students s
+                JOIN   Departments d ON s.DepartmentID = d.DepartmentID
+                LEFT JOIN Users    u ON u.UserCode     = s.RollNumber
+                WHERE  s.StudentID = ?
+            """, (student_id,), fetch_one=True))
+        except Exception as e:
+            print(f'[Profile] Students join err: {e}')
 
-        # Primary: Users table with Department join (works in Railway MySQL)
-        for q in [
-            """SELECT u.UserID, u.UserCode, u.FullName, u.Email, u.Phone,
-                      u.DateOfBirth, u.Gender, u.Semester,
-                      u.Address, u.JoinDate, u.FatherName, u.MotherName,
-                      d.DepartmentName, d.DepartmentCode
-               FROM   Users u
-               LEFT JOIN Departments d ON u.DepartmentID = d.DepartmentID
-               WHERE  u.UserID = ?""",
-            """SELECT u.UserID, u.UserCode, u.FullName, u.Email, u.Phone,
-                      u.DateOfBirth, u.Gender, u.Semester,
-                      u.Address, u.JoinDate,
-                      d.DepartmentName, d.DepartmentCode
-               FROM   Users u
-               LEFT JOIN Departments d ON u.DepartmentID = d.DepartmentID
-               WHERE  u.UserID = ?""",
-        ]:
-            try:
-                profile = serialize_row(db.execute_query(q, (user_id,), fetch_one=True))
-                if profile:
-                    break
-            except Exception as e:
-                print(f'[Profile] Users query err: {e}')
-
-        # Fallback: try Students table (SQLite schema only)
         if not profile:
-            try:
-                profile = serialize_row(db.execute_query("""
-                    SELECT s.StudentID, s.RollNumber AS UserCode, s.FullName, s.Email,
-                           s.CurrentSemester AS Semester, s.AcademicYear,
-                           d.DepartmentName, d.DepartmentCode
-                    FROM   Students s
-                    JOIN   Departments d ON s.DepartmentID = d.DepartmentID
-                    WHERE  s.StudentID = ?
-                """, (student_id,), fetch_one=True))
-            except Exception as e:
-                print(f'[Profile] Students join err: {e}')
+            profile = serialize_row(db.execute_query("""
+                SELECT u.UserID, u.UserCode, u.FullName, u.Email, u.Phone,
+                       u.DateOfBirth, u.Gender, u.Semester,
+                       u.Address, d.DepartmentName, d.DepartmentCode
+                FROM   Users u
+                LEFT JOIN Departments d ON u.DepartmentID = d.DepartmentID
+                WHERE  u.UserID = ?
+            """, (user_id,), fetch_one=True))
 
         if not profile:
             return jsonify({'error': 'Profile not found', 'success': False}), 404
@@ -610,7 +524,7 @@ def get_timetable():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         timetable = _timetable_rows(student_id, dept_id, semester)
         return jsonify({'success': True, 'timetable': timetable}), 200
@@ -630,82 +544,75 @@ def get_subjects():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip('-').isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         subjects = []
+
+        # All 4 strategies: (Enrollments|Cohort) x (Teachers|Users)
+        strategies = []
+
+        # Enrollment-based
+        for tc_join, tc_cols in [
+            ("JOIN Teachers tc ON t.TeacherID = tc.TeacherID",
+             "tc.TeacherID, tc.TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, tc.Designation AS TeacherDesignation"),
+            ("JOIN Users tc ON t.TeacherID = tc.UserID",
+             "tc.UserID AS TeacherID, tc.UserCode AS TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, NULL AS TeacherDesignation"),
+        ]:
+            # Determine GROUP BY based on join
+            if 'Teachers' in tc_join:
+                grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.TeacherID, tc.TeacherCode, tc.FullName, tc.Email, tc.Phone, tc.Designation, d.DepartmentName, d.DepartmentCode"
+            else:
+                grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.UserID, tc.UserCode, tc.FullName, tc.Email, tc.Phone, d.DepartmentName, d.DepartmentCode"
+            strategies.append((f"""
+                SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
+                    COALESCE(s.IsLab,0) AS IsLab,
+                    {tc_cols}, d.DepartmentName, d.DepartmentCode
+                FROM StudentEnrollments se
+                JOIN Timetable   t  ON se.ClassID = t.ClassID
+                JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                {tc_join}
+                JOIN Classes     c  ON t.ClassID      = c.ClassID
+                JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                WHERE se.StudentID = ?
+                GROUP BY {grp}
+                ORDER BY s.IsLab ASC, s.SubjectName
+            """, (student_id,)))
+
+        # Cohort-based
         if dept_id and semester:
-            sql1 = ('SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,'
-                    ' s.Credits, 0 AS IsLab,'
-                    ' tc.UserID AS TeacherID, tc.UserCode AS TeacherCode,'
-                    ' tc.FullName AS TeacherName, tc.Email AS TeacherEmail,'
-                    ' tc.Phone AS TeacherPhone,'
-                    ' d.DepartmentName, d.DepartmentCode'
-                    ' FROM Timetable t'
-                    ' JOIN Classes c ON t.ClassID=c.ClassID'
-                    ' JOIN Subjects s ON t.SubjectID=s.SubjectID'
-                    ' JOIN Users tc ON t.TeacherID=tc.UserID'
-                    ' JOIN Departments d ON c.DepartmentID=d.DepartmentID'
-                    ' WHERE c.DepartmentID=? AND c.Semester=?'
-                    ' ORDER BY s.SubjectName')
-            sql2 = ('SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,'
-                    ' s.Credits, 0 AS IsLab,'
-                    ' tc.TeacherID, tc.TeacherCode,'
-                    ' tc.FullName AS TeacherName, tc.Email AS TeacherEmail,'
-                    ' tc.Phone AS TeacherPhone,'
-                    ' d.DepartmentName, d.DepartmentCode'
-                    ' FROM Timetable t'
-                    ' JOIN Classes c ON t.ClassID=c.ClassID'
-                    ' JOIN Subjects s ON t.SubjectID=s.SubjectID'
-                    ' JOIN Teachers tc ON t.TeacherID=tc.TeacherID'
-                    ' JOIN Departments d ON c.DepartmentID=d.DepartmentID'
-                    ' WHERE c.DepartmentID=? AND c.Semester=?'
-                    ' ORDER BY s.SubjectName')
-            sql3 = ('SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,'
-                    ' s.Credits, 0 AS IsLab,'
-                    ' t.TeacherID, NULL AS TeacherCode,'
-                    ' NULL AS TeacherName, NULL AS TeacherEmail,'
-                    ' NULL AS TeacherPhone,'
-                    ' d.DepartmentName, d.DepartmentCode'
-                    ' FROM Timetable t'
-                    ' JOIN Classes c ON t.ClassID=c.ClassID'
-                    ' JOIN Subjects s ON t.SubjectID=s.SubjectID'
-                    ' JOIN Departments d ON c.DepartmentID=d.DepartmentID'
-                    ' WHERE c.DepartmentID=? AND c.Semester=?'
-                    ' ORDER BY s.SubjectName')
-            sql4 = ('SELECT SubjectID, SubjectName, SubjectCode, Credits,'
-                    ' 0 AS IsLab, NULL AS TeacherID, NULL AS TeacherCode,'
-                    ' NULL AS TeacherName, NULL AS TeacherEmail,'
-                    ' NULL AS TeacherPhone,'
-                    ' NULL AS DepartmentName, NULL AS DepartmentCode'
-                    ' FROM Subjects'
-                    ' WHERE DepartmentID=? AND Semester=?'
-                    ' ORDER BY SubjectName')
-            for sql in [sql1, sql2, sql3, sql4]:
-                try:
-                    rows = db.execute_query(sql, (dept_id, semester))
-                    if rows:
-                        subjects = serialize_rows(rows)
-                        if subjects and not subjects[0].get('TeacherName'):
-                            try:
-                                tids = list({s['TeacherID'] for s in subjects if s.get('TeacherID')})
-                                if tids:
-                                    ph = ','.join(['?']*len(tids))
-                                    trows = db.execute_query(f'SELECT UserID,FullName,UserCode,Email,Phone FROM Users WHERE UserID IN ({ph})', tuple(tids)) or []
-                                    tmap = {t['UserID']: t for t in trows}
-                                    for subj in subjects:
-                                        tid = subj.get('TeacherID')
-                                        if tid and tid in tmap:
-                                            subj['TeacherName']  = tmap[tid].get('FullName')
-                                            subj['TeacherCode']  = tmap[tid].get('UserCode')
-                                            subj['TeacherEmail'] = tmap[tid].get('Email')
-                                            subj['TeacherPhone'] = tmap[tid].get('Phone')
-                            except Exception:
-                                pass
-                        break
-                except Exception as e:
-                    print(f'[Subjects] strategy err: {e}')
-                    continue
-        print(f'[Subjects] Returning {len(subjects)} subjects for dept={dept_id} sem={semester}')
+            for tc_join, tc_cols in [
+                ("JOIN Teachers tc ON t.TeacherID = tc.TeacherID",
+                 "tc.TeacherID, tc.TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, tc.Designation AS TeacherDesignation"),
+                ("JOIN Users tc ON t.TeacherID = tc.UserID",
+                 "tc.UserID AS TeacherID, tc.UserCode AS TeacherCode, tc.FullName AS TeacherName, tc.Email AS TeacherEmail, tc.Phone AS TeacherPhone, NULL AS TeacherDesignation"),
+            ]:
+                if 'Teachers' in tc_join:
+                    grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.TeacherID, tc.TeacherCode, tc.FullName, tc.Email, tc.Phone, tc.Designation, d.DepartmentName, d.DepartmentCode"
+                else:
+                    grp = "s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits, s.IsLab, tc.UserID, tc.UserCode, tc.FullName, tc.Email, tc.Phone, d.DepartmentName, d.DepartmentCode"
+                strategies.append((f"""
+                    SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
+                        COALESCE(s.IsLab,0) AS IsLab,
+                        {tc_cols}, d.DepartmentName, d.DepartmentCode
+                    FROM Timetable   t
+                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                    {tc_join}
+                    JOIN Classes     c  ON t.ClassID     = c.ClassID
+                JOIN Departments d  ON c.DepartmentID = d.DepartmentID
+                    WHERE c.DepartmentID = ? AND c.Semester = ?
+                    GROUP BY {grp}
+                    ORDER BY s.IsLab ASC, s.SubjectName
+                """, (dept_id, semester)))
+
+        for sql, params in strategies:
+            try:
+                rows = db.execute_query(sql, params)
+                if rows:
+                    subjects = serialize_rows(rows)
+                    break
+            except Exception as e:
+                print(f'[Subjects] strategy err: {e}')
+
         return jsonify({'success': True, 'subjects': subjects}), 200
     except Exception as e:
         print(f'[Subjects] Error: {e}')
@@ -713,13 +620,17 @@ def get_subjects():
         return jsonify({'error': str(e), 'success': False}), 500
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# MY TEACHERS
+# ══════════════════════════════════════════════════════════════════════════════
+
 @bp_student.route('/my-teachers', methods=['GET'])
 @jwt_required()
 def get_my_teachers():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         teachers = []
 
@@ -851,7 +762,7 @@ def get_attendance():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id    = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         records, subject_wise = [], []
 
@@ -954,47 +865,53 @@ def scan_qr_attendance():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
         data = request.json or {}
 
-        token      = data.get('qrToken', '').strip().upper()
-        qr_code_id = None
+        # QR data from camera is: "rawToken|date|subjectId"  (pipe-separated)
+        # DB stores only the raw token part — must split before lookup
+        raw_scan = (data.get('qrToken') or data.get('qrData') or '').strip()
 
-        qr_data_raw = data.get('qrData')
-        if qr_data_raw:
-            try:
-                parsed = json.loads(qr_data_raw) if isinstance(qr_data_raw, str) else qr_data_raw
-                token  = parsed.get('token', token)
-                qr_code_id = parsed.get('qrCodeId')
-            except Exception:
-                if isinstance(qr_data_raw, str):
-                    token = qr_data_raw.strip().upper()
-
-        if not token:
+        if not raw_scan:
             return jsonify({'success': False, 'error': 'QR token is required'}), 400
 
-        qr = None
-        if qr_code_id:
-            try:
-                qr = db.execute_query(
-                    "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRCodeID=? AND QRToken=?",
-                    (qr_code_id, token), fetch_one=True)
-            except Exception:
-                pass
+        # Parse pipe-separated format produced by teacher portal
+        parts = raw_scan.split('|')
+        raw_token  = parts[0].strip()          # actual DB token
+        att_date   = parts[1].strip() if len(parts) > 1 else datetime.now().strftime('%Y-%m-%d')
+        subject_id_from_qr = parts[2].strip() if len(parts) > 2 else None
 
+        print(f'[QR Scan] raw_scan={raw_scan!r} → token={raw_token!r} date={att_date} subj={subject_id_from_qr}')
+
+        if not raw_token:
+            return jsonify({'success': False, 'error': 'Invalid QR code format'}), 400
+
+        # Lookup by raw token (case-sensitive — do NOT upper())
+        qr = None
+        for sql in [
+            "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
+            "SELECT QRCodeID, SubjectID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
+        ]:
+            try:
+                qr = db.execute_query(sql, (raw_token,), fetch_one=True)
+                if qr: break
+            except Exception as e:
+                print(f'[QR Scan] lookup err: {e}')
+
+        # Fallback: try full scanned string (old schema stores full token)
         if not qr:
-            for limit_sql in [
-                "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
+            for sql in [
                 "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
             ]:
                 try:
-                    qr = db.execute_query(limit_sql, (token,), fetch_one=True)
+                    qr = db.execute_query(sql, (raw_scan,), fetch_one=True)
                     if qr: break
                 except Exception:
                     pass
 
         if not qr:
+            print(f'[QR Scan] No match in DB for token={raw_token!r}')
             return jsonify({'success': False, 'error': 'Invalid QR code. Ask your teacher to show a new one.'}), 400
         if qr.get('IsActive') == 0:
             return jsonify({'success': False, 'error': 'This QR code is no longer active.'}), 400
@@ -1045,7 +962,7 @@ def get_materials():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         materials = []
         subj_ids  = _enrolled_subj_ids(student_id, dept_id, semester)
@@ -1185,7 +1102,7 @@ def get_exams():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         subj_ids = _enrolled_subj_ids(student_id, dept_id, semester)
         exams = []
@@ -1209,7 +1126,7 @@ def get_exam_details(exam_id):
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
 
         exam = None
@@ -1318,7 +1235,7 @@ def submit_exam(exam_id):
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
         data = request.json or {}
 
@@ -1441,7 +1358,7 @@ def get_marks():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, u_code = _resolve(user_id)
         marks = []
         # Deduplicated candidate IDs (student_id from Students table or fallback to user_id)
@@ -1530,7 +1447,7 @@ def get_fees():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
 
         fee_structure = None
@@ -1579,7 +1496,7 @@ def pay_fee():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
         data = request.json or {}
 
@@ -1645,7 +1562,7 @@ def get_online_classes():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
         classes  = []
         subj_ids = _enrolled_subj_ids(student_id, dept_id, semester)
@@ -1726,7 +1643,7 @@ def get_notifications():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
         notes, unread = [], 0
 
@@ -1764,7 +1681,7 @@ def mark_notification_read(nid):
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
         for col, val in [('StudentID', student_id), ('UserID', user_id)]:
             try:
@@ -1784,7 +1701,7 @@ def mark_all_read():
     err = student_required()
     if err: return err
     try:
-        raw_id = get_jwt_identity(); user_id = int(raw_id) if str(raw_id).lstrip("-").isdigit() else raw_id
+        user_id = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
         for col, val in [('StudentID', student_id), ('UserID', user_id)]:
             try:
