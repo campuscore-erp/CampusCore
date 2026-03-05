@@ -205,15 +205,15 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
                         IFNULL(t.RoomNumber, '') AS RoomNumber,
-                        IFNULL(t.IsLab, 0) AS IsLab, IFNULL(t.PeriodNumber, 0) AS PeriodNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         tc.UserID AS TeacherID, tc.FullName AS TeacherName,
                         tc.UserCode AS TeacherCode,
                         d.DepartmentName, d.DepartmentCode,
                         t.Semester, NULL AS Section, NULL AS ClassName
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID    = tc.UserID
+                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID  = tc.UserID
                     JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                     WHERE {where}
                     ORDER BY t.DayOfWeek, t.StartTime""",
@@ -233,15 +233,15 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
                         IFNULL(t.RoomNumber, '') AS RoomNumber,
-                        IFNULL(t.IsLab, 0) AS IsLab, IFNULL(t.PeriodNumber, 0) AS PeriodNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         tc.UserID AS TeacherID, tc.FullName AS TeacherName,
                         tc.UserCode AS TeacherCode,
                         d.DepartmentName, d.DepartmentCode,
                         t.Semester, NULL AS Section, NULL AS ClassName
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    JOIN Users       tc ON t.TeacherID    = tc.UserID
+                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID  = tc.UserID
                     JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                     WHERE {where}
                     ORDER BY t.DayOfWeek, t.StartTime""",
@@ -261,14 +261,14 @@ def _timetable_rows(student_id, dept_id, semester, day=None):
             rows = db.execute_query(
                 f"""SELECT t.TimetableID, t.DayOfWeek, t.StartTime, t.EndTime,
                         IFNULL(t.RoomNumber, '') AS RoomNumber,
-                        IFNULL(t.IsLab, 0) AS IsLab, IFNULL(t.PeriodNumber, 0) AS PeriodNumber,
+                        0 AS IsLab, 0 AS PeriodNumber,
                         s.SubjectID, s.SubjectName, s.SubjectCode,
                         t.TeacherID,
                         NULL AS TeacherName, NULL AS TeacherCode,
                         d.DepartmentName, d.DepartmentCode,
                         t.Semester, NULL AS Section, NULL AS ClassName
                     FROM Timetable t
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                    JOIN Subjects    s  ON t.SubjectID  = s.SubjectID
                     JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                     WHERE {where}
                     ORDER BY t.DayOfWeek, t.StartTime""",
@@ -296,18 +296,20 @@ def get_dashboard():
 
         # Ensure dept_id / semester always resolved from Users table
         if dept_id is None or semester is None:
-            try:
-                u = db.execute_query(
-                    "SELECT DepartmentID, Semester FROM Users WHERE UserID = ?",
-                    (user_id,), fetch_one=True)
-                if u:
-                    dept_id  = dept_id  or u.get('DepartmentID')
-                    semester = semester or u.get('Semester')
-            except Exception:
-                pass
+            for col, val in [('UserID', user_id)]:
+                try:
+                    u = db.execute_query(
+                        "SELECT DepartmentID, Semester FROM Users WHERE UserID = ?",
+                        (val,), fetch_one=True)
+                    if u:
+                        dept_id  = dept_id  or u.get('DepartmentID')
+                        semester = semester or u.get('Semester')
+                        break
+                except Exception:
+                    pass
 
         # Both IDs to handle schema where UserID == StudentID in Attendance
-        all_ids = list({student_id, user_id})
+        all_ids = list({i for i in [student_id, user_id] if i})
         id_ph   = ','.join(['?'] * len(all_ids))
 
         # ── Enrolled subjects ──────────────────────────────────────────────
@@ -315,7 +317,7 @@ def get_dashboard():
         try:
             if dept_id and semester:
                 r = db.execute_query(
-                    """SELECT COUNT(DISTINCT t.SubjectID) AS cnt FROM Timetable t WHERE t.DepartmentID=? AND t.Semester=?""",
+                    "SELECT COUNT(DISTINCT SubjectID) AS cnt FROM Timetable WHERE DepartmentID=? AND Semester=?",
                     (dept_id, semester), fetch_one=True)
                 enrolled_subjects = int(r['cnt'] or 0) if r else 0
         except Exception as e:
@@ -569,7 +571,7 @@ def get_subjects():
                     FROM Timetable   t
                     JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                     {tc_join}
-                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                     WHERE t.DepartmentID = ? AND t.Semester = ?
                     GROUP BY {grp}
                     ORDER BY s.IsLab ASC, s.SubjectName
@@ -649,7 +651,7 @@ def get_my_teachers():
                         FROM   StudentEnrollments se
                         JOIN   Timetable t  ON se.TimetableID = t.TimetableID
                         {tc_join}
-                        JOIN   Subjects  s  ON t.SubjectID    = s.SubjectID
+                        JOIN   Subjects  s  ON t.SubjectID   = s.SubjectID
                         {dept_join}
                         WHERE  se.StudentID = ?
                         GROUP  BY {tc_grp}{dept_grp}
@@ -665,7 +667,7 @@ def get_my_teachers():
                         FROM   StudentEnrollments se
                         JOIN   Timetable t  ON se.TimetableID = t.TimetableID
                         {tc_join}
-                        JOIN   Subjects  s  ON t.SubjectID    = s.SubjectID
+                        JOIN   Subjects  s  ON t.SubjectID   = s.SubjectID
                         {dept_join}
                         WHERE  se.StudentID = ?
                         GROUP  BY {tc_grp}{dept_grp}
@@ -996,7 +998,7 @@ def _safe_exams_query(student_id, where_sql, where_params):
                s.SubjectName, s.SubjectCode,
                IFNULL(e.ExamTitle, e.ExamType) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
-               IFNULL(e.StartTime, '00:00') AS StartTime,
+               CONVERT(VARCHAR(5), IFNULL(e.StartTime, '00:00'), 108) AS StartTime,
                NULL AS EndTime,
                IFNULL(e.Instructions, '') AS Instructions,
                1 AS IsActive, es.MarksObtained
@@ -1096,8 +1098,8 @@ def get_exam_details(exam_id):
         exam = None
         for exam_sql in [
             # MSSQL safe — no StartTime/EndTime
-            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate,'%Y-%m-%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, IFNULL(e.StartTime,'00:00') AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
-            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate, '%Y-%m-%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, CONVERT(VARCHAR(5),IFNULL(e.StartTime,'00:00'),108) AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            "SELECT e.ExamID, e.ExamType AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             # SQLite full columns
             "SELECT e.ExamID, e.ExamName, e.ExamType, e.ExamDate, e.StartTime, e.EndTime, e.Duration, e.TotalMarks, e.Instructions, e.IsActive, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
         ]:

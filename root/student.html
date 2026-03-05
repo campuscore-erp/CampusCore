@@ -591,28 +591,66 @@ async function init(){
   if(!getToken())return;
   document.getElementById('dateBadge').textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
   document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',month:'long',day:'numeric'});
-  const pr=await api('/api/student/profile');
-  if(pr.success&&pr.profile){const p=pr.profile;const n=p.FullName||'Student';document.getElementById('sbName').textContent=n;document.getElementById('sbCode').textContent=p.UserCode||p.RollNumber||'';document.getElementById('av').textContent=n.charAt(0).toUpperCase()}
+  // Load dashboard immediately — don't wait for profile
   loadDash();
+  // Load profile in parallel
+  try{
+    const pr=await api('/api/student/profile');
+    if(pr&&pr.success&&pr.profile){
+      const p=pr.profile;
+      const n=p.FullName||'Student';
+      document.getElementById('sbName').textContent=n;
+      document.getElementById('sbCode').textContent=p.UserCode||p.RollNumber||'';
+      document.getElementById('av').textContent=n.charAt(0).toUpperCase();
+    }
+  }catch(e){console.warn('Profile load error:',e);}
 }
 
 async function loadDash(){
-  const d=await api('/api/student/dashboard');if(!d.success)return;
+  // Show spinners while loading
+  const todayEl=document.getElementById('todayList');
+  const attEl=document.getElementById('attSummary');
+  todayEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  attEl.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+
+  let d={};
+  try{ d=await api('/api/student/dashboard'); }catch(e){ d={success:false,error:String(e)}; }
+
+  if(!d.success){
+    // Show error in cards instead of blank spinners
+    const errHtml=`<div class="alert alert-error" style="margin:0">⚠️ ${d.error||'Could not load dashboard. Please refresh.'}</div>`;
+    todayEl.innerHTML=errHtml;
+    attEl.innerHTML=errHtml;
+    // Keep stat cards showing dashes — don't crash
+    return;
+  }
+
   const s=d.stats||{};
+  // Stat cards
   document.getElementById('ds-subj').textContent=s.enrolledSubjects||0;
-  document.getElementById('ds-att').textContent=(s.attendancePercentage||0).toFixed(1)+'%';
+  document.getElementById('ds-att').textContent=(parseFloat(s.attendancePercentage)||0).toFixed(1)+'%';
   document.getElementById('ds-exm').textContent=s.pendingExams||0;
-  const unread=s.unreadNotifications||0;
+  const unread=parseInt(s.unreadNotifications)||0;
   document.getElementById('ds-notif').textContent=unread>0?unread+' unread':'0';
-  const badge=document.getElementById('notifBadge');if(badge){badge.textContent=unread;badge.style.display=unread>0?'':'none';}
-  const tb=document.getElementById('topbarNotifBadge');if(tb&&unread>0){tb.textContent=unread;tb.style.display='';}else if(tb){tb.style.display='none';}
+  const tb=document.getElementById('topbarNotifBadge');
+  if(tb){tb.textContent=unread>0?unread:'';tb.style.display=unread>0?'':'none';}
   const semEl=document.getElementById('ds-sem');if(semEl)semEl.textContent=s.currentSemester||'—';
-  const sched=s.todaysSchedule||[];const el=document.getElementById('todayList');
-  if(!sched.length){el.innerHTML=`<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">No classes today</div><div class="empty-sub">Enjoy your free day!</div></div>`}
-  else el.innerHTML=sched.map(c=>`<div class="class-row"><div class="class-time-badge">${c.StartTime||''}–${c.EndTime||''}</div><div style="flex:1"><div style="font-size:.84rem;font-weight:700">${c.SubjectName||''}</div><div style="font-size:.72rem;color:var(--text3);margin-top:.2rem">${c.TeacherName||''} · Room ${c.RoomNumber||'TBD'}</div></div>${c.IsLab?'<span class="badge badge-purple">LAB</span>':''}</div>`).join('');
-  const sw=s.subjectAttendance||[];const ea=document.getElementById('attSummary');
-  if(!sw.length){ea.innerHTML='<div class="empty"><div class="empty-sub">No attendance data yet</div></div>'}
-  else ea.innerHTML=sw.slice(0,5).map(a=>`<div class="att-item"><div style="display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.8rem"><span style="font-weight:700">${a.SubjectName||a.SubjectCode||''}</span><span style="color:var(--text3);font-family:var(--mono)">${a.PresentCount||0}/${a.TotalClasses||0}</span></div>${pct(parseFloat(a.Percentage||0))}</div>`).join('');
+
+  // Today's schedule
+  const sched=Array.isArray(s.todaysSchedule)?s.todaysSchedule:[];
+  if(!sched.length){
+    todayEl.innerHTML='<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">No classes today</div><div class="empty-sub">Enjoy your free day!</div></div>';
+  }else{
+    todayEl.innerHTML=sched.map(c=>`<div class="class-row"><div class="class-time-badge">${c.StartTime||''}–${c.EndTime||''}</div><div style="flex:1"><div style="font-size:.84rem;font-weight:700">${c.SubjectName||''}</div><div style="font-size:.72rem;color:var(--text3);margin-top:.2rem">${c.TeacherName||''} · Room ${c.RoomNumber||'TBD'}</div></div>${c.IsLab?'<span class="badge badge-purple">LAB</span>':''}</div>`).join('');
+  }
+
+  // Attendance summary
+  const sw=Array.isArray(s.subjectAttendance)?s.subjectAttendance:[];
+  if(!sw.length){
+    attEl.innerHTML='<div class="empty"><div class="empty-sub">No attendance data yet</div></div>';
+  }else{
+    attEl.innerHTML=sw.slice(0,5).map(a=>`<div class="att-item"><div style="display:flex;justify-content:space-between;margin-bottom:.5rem;font-size:.8rem"><span style="font-weight:700">${a.SubjectName||a.SubjectCode||''}</span><span style="color:var(--text3);font-family:var(--mono)">${a.PresentCount||0}/${a.TotalClasses||0}</span></div>${pct(parseFloat(a.Percentage||0))}</div>`).join('');
+  }
 }
 
 async function loadProfile(){
