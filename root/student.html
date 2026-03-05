@@ -282,6 +282,7 @@ select.form-input option{background:var(--bg3)}
 .ec-footer{display:flex;align-items:center;justify-content:space-between;padding-top:.85rem;border-top:1px solid var(--border)}
 .ec-score{font-size:.83rem;font-weight:800;font-family:var(--mono)}
 .ec-score.good{color:var(--green)}.ec-score.mid{color:var(--amber)}.ec-score.low{color:var(--red)}
+@keyframes scanLine{0%{top:4px;opacity:1}49%{top:calc(100% - 6px);opacity:1}50%{opacity:0}51%{top:4px;opacity:0}52%{opacity:1}100%{top:calc(100% - 6px);opacity:1}}
 </style>
 </head>
 <body>
@@ -403,25 +404,34 @@ select.form-input option{background:var(--bg3)}
 
     <!-- SCAN QR -->
     <div class="view" id="view-scan">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
-        <div class="card">
-          <div class="card-hdr"><div><div class="card-title">📷 Scan QR Code</div><div class="card-sub">Point your camera at the teacher's QR code</div></div></div>
-          <div style="margin-bottom:1rem;position:relative"><video id="qrVideo" autoplay playsinline></video><canvas id="qrCanvas"></canvas></div>
-          <div style="display:flex;gap:.5rem">
-            <button class="btn btn-primary" onclick="startCam()" style="flex:1">📷 Start Camera</button>
-            <button class="btn btn-ghost btn-sm" onclick="stopCam()">■ Stop</button>
+      <div class="card" style="max-width:560px;margin:0 auto">
+        <div class="card-hdr"><div><div class="card-title">📷 Scan QR Code</div><div class="card-sub">Point your camera at the teacher's QR code to mark attendance</div></div></div>
+        <div id="scanCamWrap" style="position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:1/1;margin-bottom:1rem">
+          <video id="qrVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+          <canvas id="qrCanvas" style="display:none"></canvas>
+          <!-- Scanning overlay -->
+          <div id="scanOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+            <div style="position:relative;width:65%;aspect-ratio:1/1">
+              <!-- Corner brackets -->
+              <div style="position:absolute;top:0;left:0;width:28px;height:28px;border-top:3px solid var(--teal);border-left:3px solid var(--teal);border-radius:4px 0 0 0"></div>
+              <div style="position:absolute;top:0;right:0;width:28px;height:28px;border-top:3px solid var(--teal);border-right:3px solid var(--teal);border-radius:0 4px 0 0"></div>
+              <div style="position:absolute;bottom:0;left:0;width:28px;height:28px;border-bottom:3px solid var(--teal);border-left:3px solid var(--teal);border-radius:0 0 0 4px"></div>
+              <div style="position:absolute;bottom:0;right:0;width:28px;height:28px;border-bottom:3px solid var(--teal);border-right:3px solid var(--teal);border-radius:0 0 4px 0"></div>
+              <!-- Scan line animation -->
+              <div id="scanLine" style="position:absolute;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);animation:scanLine 2s linear infinite;top:0"></div>
+            </div>
           </div>
-          <div id="scanStatus" style="margin-top:.85rem"></div>
+          <!-- Idle state (camera off) -->
+          <div id="scanIdle" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(10,12,18,.95)">
+            <div style="font-size:3.5rem">📷</div>
+            <div style="color:var(--text2);font-size:.9rem;font-weight:600">Camera is off</div>
+            <div style="color:var(--text3);font-size:.75rem">Press Start to begin scanning</div>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-hdr"><div class="card-title">How to Mark Attendance</div></div>
-          <div style="display:flex;flex-direction:column;gap:1rem">
-            <div style="display:flex;gap:.9rem;align-items:flex-start"><div class="step-dot" style="background:var(--blue-bg);color:var(--blue2)">1</div><div><div style="font-weight:700;font-size:.85rem">Teacher shows QR Code</div><div style="font-size:.77rem;color:var(--text3);margin-top:.25rem;line-height:1.5">Your teacher will display a QR code on their screen during class.</div></div></div>
-            <div style="display:flex;gap:.9rem;align-items:flex-start"><div class="step-dot" style="background:var(--blue-bg);color:var(--blue2)">2</div><div><div style="font-weight:700;font-size:.85rem">Click "Start Camera"</div><div style="font-size:.77rem;color:var(--text3);margin-top:.25rem;line-height:1.5">Allow browser camera access when prompted.</div></div></div>
-            <div style="display:flex;gap:.9rem;align-items:flex-start"><div class="step-dot" style="background:var(--blue-bg);color:var(--blue2)">3</div><div><div style="font-weight:700;font-size:.85rem">Point at the QR Code</div><div style="font-size:.77rem;color:var(--text3);margin-top:.25rem;line-height:1.5">Hold steady until the QR code is detected automatically.</div></div></div>
-            <div style="display:flex;gap:.9rem;align-items:flex-start"><div class="step-dot" style="background:var(--green-bg);color:var(--green)">✓</div><div><div style="font-weight:700;font-size:.85rem;color:var(--green)">Attendance Marked!</div><div style="font-size:.77rem;color:var(--text3);margin-top:.25rem;line-height:1.5">You'll see a confirmation message when recorded.</div></div></div>
-            <div class="alert alert-warning" style="margin:0">⏰ QR codes expire quickly — scan within the time shown by your teacher.</div>
-          </div>
+        <div id="scanStatus" style="margin-bottom:.85rem"></div>
+        <div style="display:flex;gap:.6rem">
+          <button class="btn btn-primary" id="btnStart" onclick="startCam()" style="flex:1;font-size:.9rem;padding:.7rem">📷 Start Camera</button>
+          <button class="btn btn-ghost" id="btnStop" onclick="stopCam()" style="padding:.7rem 1.1rem" disabled>■ Stop</button>
         </div>
       </div>
     </div>
@@ -845,14 +855,41 @@ async function loadAtt(){
 }
 
 async function startCam(){
-  try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-    const v=document.getElementById('qrVideo');v.srcObject=camStream;v.play();
-    const c=document.getElementById('qrCanvas');const ctx=c.getContext('2d');
-    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-info">📷 Camera active — point steadily at the QR code</div>`;
-    scanInt=setInterval(()=>{if(v.readyState===v.HAVE_ENOUGH_DATA){c.height=v.videoHeight;c.width=v.videoWidth;ctx.drawImage(v,0,0,c.width,c.height);const img=ctx.getImageData(0,0,c.width,c.height);const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});if(code){stopCam();handleQR(code.data)}}},250);
-  }catch(e){document.getElementById('scanStatus').innerHTML=`<div class="alert alert-error">📵 Camera error: ${e.message}<br><small>Please allow camera access in your browser settings.</small></div>`;}
+  const idle=document.getElementById('scanIdle');
+  const bs=document.getElementById('btnStart'),bx=document.getElementById('btnStop');
+  document.getElementById('scanStatus').innerHTML='';
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:1280}}});
+    const v=document.getElementById('qrVideo');const c=document.getElementById('qrCanvas');const ctx=c.getContext('2d');
+    v.srcObject=camStream;await v.play();
+    if(idle)idle.style.display='none';
+    if(bs){bs.disabled=true;bs.innerHTML='🟢 Scanning…';}
+    if(bx)bx.disabled=false;
+    scanInt=setInterval(()=>{
+      if(v.readyState===v.HAVE_ENOUGH_DATA){
+        c.height=v.videoHeight;c.width=v.videoWidth;
+        ctx.drawImage(v,0,0,c.width,c.height);
+        const img=ctx.getImageData(0,0,c.width,c.height);
+        const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+        if(code){stopCam();handleQR(code.data);}
+      }
+    },200);
+  }catch(e){
+    if(idle)idle.style.display='flex';
+    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-error">📵 Camera error: ${e.message}<br><small>Allow camera access in browser settings.</small></div>`;
+    if(bs){bs.disabled=false;bs.innerHTML='📷 Start Camera';}
+    if(bx)bx.disabled=true;
+  }
 }
-function stopCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}if(scanInt){clearInterval(scanInt);scanInt=null}}
+function stopCam(){
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  if(scanInt){clearInterval(scanInt);scanInt=null;}
+  const idle=document.getElementById('scanIdle');
+  const bs=document.getElementById('btnStart'),bx=document.getElementById('btnStop');
+  if(idle)idle.style.display='flex';
+  if(bs){bs.disabled=false;bs.innerHTML='📷 Start Camera';}
+  if(bx)bx.disabled=true;
+}
 async function handleQR(data){
   document.getElementById('scanStatus').innerHTML=`<div class="alert alert-info">🔍 Processing QR code…</div>`;
   const d=await api('/api/student/attendance/scan-qr',{method:'POST',body:JSON.stringify({qrToken:data})});
