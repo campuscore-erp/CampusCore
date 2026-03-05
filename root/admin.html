@@ -151,7 +151,22 @@ tr:hover td{background:#fafcff}
 .empty-state .ei{font-size:2.5rem;margin-bottom:.5rem}
 
 @media(max-width:960px){.stat-grid{grid-template-columns:1fr 1fr}.section-grid{grid-template-columns:1fr}}
-@media(max-width:640px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.stat-grid{grid-template-columns:1fr}}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);transition:transform .3s ease;z-index:200}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .stat-grid{grid-template-columns:1fr 1fr}
+  .hamburger{display:flex!important}
+  .mobile-overlay{display:block}
+  .mobile-overlay.active{display:block;opacity:1;pointer-events:all}
+}
+@media(max-width:480px){.stat-grid{grid-template-columns:1fr}.section-grid{grid-template-columns:1fr}}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.6rem;border-radius:8px;background:var(--glass);border:1px solid var(--border);position:fixed;top:1rem;left:1rem;z-index:300}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px;transition:all .3s}
+.hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.open span:nth-child(2){opacity:0}
+.hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;opacity:0;pointer-events:none;transition:opacity .3s}
 </style>
 </head>
 <body>
@@ -159,7 +174,11 @@ tr:hover td{background:#fafcff}
 <div class="loader-overlay" id="loader"><div class="spinner"></div></div>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <svg class="logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
       <defs>
@@ -193,14 +212,14 @@ tr:hover td{background:#fafcff}
     <div class="user-row">
       <div class="u-avatar" id="sideAvatar">A</div>
       <div style="flex:1;min-width:0"><div class="u-name" id="sideName">Admin</div><div class="u-role">Administrator</div></div>
-      <button class="btn-logout" onclick="logout()" title="Logout">⬅️</button>
+      <button class="btn-logout" onclick="logout()" title="Logout">⬅️ Logout</button>
     </div>
   </div>
 </aside>
 
 <!-- MAIN -->
 <main class="main">
-  <div class="topbar">
+  <div class="topbar" id="topbar">
     <div><div class="page-title" id="pageTitle">Dashboard</div><div class="page-sub" id="pageSub">University overview &amp; statistics</div></div>
     <div class="topbar-right"><span>👋 Welcome, <b id="topName">Admin</b></span></div>
   </div>
@@ -1201,6 +1220,32 @@ document.querySelectorAll('.modal-backdrop').forEach(m =>
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 init();
+</script>
+<script>
+function toggleSidebar(){
+  const sb = document.getElementById('sidebar');
+  const hb = document.getElementById('hamburger');
+  const ov = document.getElementById('mobileOverlay');
+  sb.classList.toggle('open');
+  hb.classList.toggle('open');
+  ov.classList.toggle('active');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+  document.getElementById('mobileOverlay').classList.remove('active');
+}
+// Close sidebar when nav item clicked on mobile
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click', ()=>{ if(window.innerWidth<=768) closeSidebar(); });
+});
+// Adjust topbar padding on mobile
+function adjustTopbar(){
+  const tb = document.getElementById('topbar');
+  if(tb) tb.style.paddingLeft = window.innerWidth<=768 ? '4.5rem' : '1.5rem';
+}
+window.addEventListener('resize', adjustTopbar);
+adjustTopbar();
 </script>
 </body>
 </html>

@@ -110,11 +110,27 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .form-input::placeholder{color:var(--text3)}
 select.form-input option{background:var(--bg3)}
 @media(max-width:900px){.stats-grid{grid-template-columns:1fr 1fr}.tt-grid{grid-template-columns:65px repeat(5,1fr)}}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);transition:transform .3s ease;z-index:200}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0!important}
+  .hamburger{display:flex!important}
+  .mobile-overlay.active{opacity:1;pointer-events:all}
+}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.6rem;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:fixed;top:1rem;left:1rem;z-index:300}
+.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all .3s}
+.hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.open span:nth-child(2){opacity:0}
+.hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;opacity:0;pointer-events:none;transition:opacity .3s}
 </style>
 </head>
 <body>
 
-<aside class="sidebar">
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
   <div class="sb-brand">
     <svg width="38" height="38" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><defs><linearGradient id="sgl1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#2563eb"/></linearGradient><linearGradient id="sgl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient></defs><path d="M24 2 L41 9 L41 27 Q41 39 24 46 Q7 39 7 27 L7 9 Z" fill="url(#sgl1)"/><path d="M24 2 L41 9 L41 15 L24 8 L7 15 L7 9 Z" fill="url(#sgl2)"/><rect x="13" y="20" width="9" height="13" rx="2" fill="white" opacity="0.92"/><rect x="26" y="20" width="9" height="13" rx="2" fill="white" opacity="0.65"/><polygon points="24,11 33,16 24,21 15,16" fill="url(#sgl2)"/><line x1="33" y1="16" x2="33" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/><circle cx="33" cy="23" r="2" fill="#f97316"/></svg>
     <div><div class="brand-name">CampusCore</div><div class="brand-role">Student Portal</div></div>
@@ -147,7 +163,7 @@ select.form-input option{background:var(--bg3)}
   <div class="sb-footer"><button class="btn-logout" onclick="logout()">⏻ Sign Out</button></div>
 </aside>
 
-<main class="main">
+<main class="main" id="mainContent">
   <div class="topbar">
     <div><h2 id="pageTitle">Dashboard</h2><p id="pageSub">Your academic overview</p></div>
     <div style="display:flex;align-items:center;gap:.75rem">
@@ -1040,6 +1056,31 @@ async function submitPayment(){
 }
 
 init();
+</script>
+<script>
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
+  const ov=document.getElementById('mobileOverlay');
+  ov.style.display='block';
+  ov.classList.toggle('active');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+  const ov=document.getElementById('mobileOverlay');
+  ov.classList.remove('active');
+  setTimeout(()=>{if(!ov.classList.contains('active'))ov.style.display='none';},300);
+}
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>{ if(window.innerWidth<=768) closeSidebar(); });
+});
+function adjustLayout(){
+  const tb=document.querySelector('.topbar');
+  if(tb) tb.style.paddingLeft=window.innerWidth<=768?'4.5rem':'1.5rem';
+}
+window.addEventListener('resize',adjustLayout);
+adjustLayout();
 </script>
 </body>
 </html>

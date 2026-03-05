@@ -51,9 +51,11 @@ MYSQL_USER     = os.environ.get('MYSQLUSER',     'root')
 MYSQL_PASSWORD = os.environ.get('MYSQLPASSWORD', '')
 MYSQL_DB       = os.environ.get('MYSQLDATABASE', 'railway')
 
-# If Railway MySQL variables are set, log detection (do NOT force sqlite — let _detect_backend try MySQL first)
+# If Railway MySQL variables are set, force DB_BACKEND=mysql immediately
 if MYSQL_HOST:
     print(f'✅ [DB] Railway MySQL detected: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
+    os.environ['DB_BACKEND'] = 'mysql'
+    print(f'✅ [DB] DB_BACKEND forced to mysql')
 
 try:
     import pymysql
@@ -223,6 +225,18 @@ class Database:
         self.username = os.getenv('DB_USER',      '')
         self.password = os.getenv('DB_PASSWORD',  '')
         self.driver   = os.getenv('DB_DRIVER',    '{ODBC Driver 17 for SQL Server}')
+        self._backend = None
+        # Eagerly connect at startup when Railway MySQL is available
+        if MYSQL_HOST and PYMYSQL_AVAILABLE:
+            try:
+                conn = self._mysql_connect()
+                conn.close()
+                self._backend = 'mysql'
+                print(f'✅ [DB] Railway MySQL connected at startup: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
+                self._ensure_mysql_schema()
+            except Exception as e:
+                print(f'❌ [DB] Railway MySQL startup FAILED: {e}')
+                self._backend = None
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.sqlite_path = os.getenv(
@@ -235,6 +249,17 @@ class Database:
     def _detect_backend(self) -> str:
         if self._backend:
             return self._backend
+        # If MySQL host available, always use MySQL (don't fall to SQLite)
+        if MYSQL_HOST and PYMYSQL_AVAILABLE:
+            try:
+                conn = self._mysql_connect()
+                conn.close()
+                self._backend = 'mysql'
+                print(f'✅ [DB] Railway MySQL connected.')
+                self._ensure_mysql_schema()
+                return self._backend
+            except Exception as e:
+                print(f'❌ [DB] MySQL connection failed: {e}')
 
         forced = os.getenv('DB_BACKEND', '').lower()
         if forced in ('mssql', 'sqlserver'):
@@ -245,6 +270,17 @@ class Database:
             self._ensure_sqlite_schema()
             return self._backend
         if forced == 'mysql':
+            # DB_BACKEND=mysql set explicitly - connect directly to MySQL
+            if PYMYSQL_AVAILABLE and MYSQL_HOST:
+                try:
+                    c = self._mysql_connect()
+                    c.close()
+                    self._backend = 'mysql'
+                    print(f'✅ [DB] Forced MySQL connected: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
+                    self._ensure_mysql_schema()
+                    return self._backend
+                except Exception as e:
+                    print(f'❌ [DB] Forced MySQL FAILED: {e}')
             self._backend = 'mysql'
             return self._backend
 

@@ -240,6 +240,20 @@ select.form-input option{background:var(--bg3)}
 .notif-count-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;border-radius:999px;font-size:.62rem;font-weight:800;padding:.1rem .45rem;margin-left:.35rem;min-width:18px}
 
 @media(max-width:960px){.stats-grid{grid-template-columns:1fr 1fr 1fr}.tt-grid{grid-template-columns:55px repeat(5,1fr)}}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);transition:transform .3s ease;z-index:200}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0!important}
+  .hamburger{display:flex!important}
+  .mobile-overlay.active{opacity:1;pointer-events:all}
+}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.6rem;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:fixed;top:1rem;left:1rem;z-index:300}
+.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all .3s}
+.hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.open span:nth-child(2){opacity:0}
+.hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;opacity:0;pointer-events:none;transition:opacity .3s}
 
 /* ── EXAM CARDS ── */
 .exam-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.1rem}
@@ -263,7 +277,9 @@ select.form-input option{background:var(--bg3)}
 </head>
 <body>
 
-<aside class="sidebar">
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+<div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
   <div class="sb-brand">
     <div class="brand-icon">
       <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><path d="M24 3L42 10V28Q42 40 24 47Q6 40 6 28V10Z" fill="rgba(255,255,255,0.15)"/><path d="M24 3L42 10L42 16L24 9L6 16L6 10Z" fill="white" opacity="0.9"/><rect x="13" y="22" width="9" height="12" rx="2" fill="white" opacity="0.95"/><rect x="26" y="22" width="9" height="12" rx="2" fill="white" opacity="0.6"/><polygon points="24,13 33,18 24,23 15,18" fill="white" opacity="0.9"/></svg>
@@ -298,7 +314,7 @@ select.form-input option{background:var(--bg3)}
   <div class="sb-footer"><button class="btn-logout" onclick="logout()">↪ Sign Out</button></div>
 </aside>
 
-<main class="main">
+<main class="main" id="mainContent">
   <div class="topbar">
     <div class="topbar-left"><h2 id="pageTitle">Dashboard</h2><p id="pageSub">Your academic overview</p></div>
     <div style="display:flex;align-items:center;gap:.85rem">
@@ -844,6 +860,30 @@ async function submitPayment(){
 }
 
 init();
+</script>
+<script>
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
+  document.getElementById('mobileOverlay').classList.toggle('active');
+  document.getElementById('mobileOverlay').style.display='block';
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+  const ov=document.getElementById('mobileOverlay');
+  ov.classList.remove('active');
+  setTimeout(()=>{if(!ov.classList.contains('active'))ov.style.display='none';},300);
+}
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>{ if(window.innerWidth<=768) closeSidebar(); });
+});
+function adjustLayout(){
+  const tb=document.querySelector('.topbar');
+  if(tb) tb.style.paddingLeft=window.innerWidth<=768?'4.5rem':'1.5rem';
+}
+window.addEventListener('resize',adjustLayout);
+adjustLayout();
 </script>
 </body>
 </html>
