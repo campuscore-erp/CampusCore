@@ -1098,8 +1098,14 @@ async function loadMarksRoster(){
   el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
   const d = await api('/api/teacher/marks/students?subjectId=' + subjectId);
 
-  if(!d.success || !(d.students && d.students.length)){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this subject</div><div class="empty-sub">Check that students are enrolled in this class</div></div>';
+  if(!d.success){
+    const errMsg = d.error || 'Unknown error';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load students</div><div class="empty-sub">' + errMsg + '</div></div>';
+    toast('Error: ' + errMsg, 'error');
+    return;
+  }
+  if(!(d.students && d.students.length)){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this subject</div><div class="empty-sub">Check that students are enrolled in this class (Dept: ' + (d.departmentId||'?') + ', Sem: ' + (d.semester||'?') + ')</div></div>';
     return;
   }
 

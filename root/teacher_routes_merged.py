@@ -1254,35 +1254,97 @@ def get_students_for_marks():
     subject_id = request.args.get('subjectId')
     if not subject_id: return _err('subjectId required')
 
+    # ── Resolve DepartmentID + Semester via multiple fallbacks ────────────────
+    # Fallback 1: Timetable (MSSQL + SQLite, teacher directly assigned)
     tt = _try_queries([
         ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
         ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
-    if not tt: return _err('You do not teach this subject', 403)
+
+    # Fallback 2: TeacherSubjects table (teacher assigned via subjects, not timetable)
+    if not tt:
+        tt = _try_queries([
+            ('SELECT TOP 1 DepartmentID, Semester FROM TeacherSubjects WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
+            ('SELECT DepartmentID, Semester FROM TeacherSubjects WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ], fetch_one=True)
+
+    # Fallback 3: Timetable without TeacherID filter (any teacher for this subject — permissive)
+    if not tt:
+        tt = _try_queries([
+            ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE SubjectID=?', (subject_id,)),
+            ('SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? LIMIT 1', (subject_id,)),
+        ], fetch_one=True)
+
+    # Fallback 4: resolve via Subjects table itself (DepartmentID) + Classes for Semester
+    if not tt:
+        sub_info = _try_queries([
+            ('SELECT TOP 1 DepartmentID FROM Subjects WHERE SubjectID=?', (subject_id,)),
+            ('SELECT DepartmentID FROM Subjects WHERE SubjectID=? LIMIT 1', (subject_id,)),
+        ], fetch_one=True)
+        if sub_info and sub_info.get('DepartmentID'):
+            dept_id_from_sub = sub_info['DepartmentID']
+            # Try to get the semester from Classes linked to this subject via Timetable
+            sem_row = _try_queries([
+                ('SELECT TOP 1 c.Semester FROM Classes c JOIN Timetable t ON t.ClassID=c.ClassID WHERE t.SubjectID=?', (subject_id,)),
+                ('SELECT c.Semester FROM Classes c JOIN Timetable t ON t.ClassID=c.ClassID WHERE t.SubjectID=? LIMIT 1', (subject_id,)),
+            ], fetch_one=True)
+            # Also try getting semester from Users who have marks for this subject
+            if not sem_row:
+                sem_row = _try_queries([
+                    ('SELECT TOP 1 u.Semester FROM Users u JOIN Marks m ON m.StudentID=u.UserID WHERE m.SubjectID=? AND u.DepartmentID=?', (subject_id, dept_id_from_sub)),
+                    ('SELECT u.Semester FROM Users u JOIN Marks m ON m.StudentID=u.UserID WHERE m.SubjectID=? AND u.DepartmentID=? LIMIT 1', (subject_id, dept_id_from_sub)),
+                ], fetch_one=True)
+            if sem_row:
+                tt = {'DepartmentID': dept_id_from_sub, 'Semester': sem_row['Semester']}
+
+    if not tt:
+        print(f'[get_students_for_marks] Cannot resolve dept/semester for subjectId={subject_id} teacherId={uid}')
+        return _err('Could not find class for this subject. Ensure the timetable or subject assignments are configured.', 403)
+
     dept_id  = tt['DepartmentID']
     semester = tt['Semester']
+    print(f'[get_students_for_marks] subjectId={subject_id} dept={dept_id} sem={semester}')
 
     students = None
-    for sql in [
-        # Primary: join Marks on StudentID = Users.UserID directly
-        """SELECT DISTINCT u.UserID, u.FullName, u.UserCode AS RollNumber, u.Email,
+    for sql, params in [
+        # Primary: with existing marks joined
+        ("""SELECT DISTINCT u.UserID, u.FullName, u.UserCode AS RollNumber, u.Email,
                   m.MarkID, m.CA1, m.CA2, m.CA3, m.CA4, m.CA5, m.Midterm, m.Endterm
            FROM Users u
            LEFT JOIN Marks m ON m.StudentID = u.UserID AND m.SubjectID = ?
            WHERE u.UserType='Student' AND u.IsActive=1
              AND u.DepartmentID=? AND u.Semester=?
-           ORDER BY u.FullName""",
+           ORDER BY u.FullName""", (subject_id, dept_id, semester)),
+        # Fallback: without CA4/CA5 columns (older schema)
+        ("""SELECT DISTINCT u.UserID, u.FullName, u.UserCode AS RollNumber, u.Email,
+                  m.MarkID, m.CA1, m.CA2, m.CA3,
+                  NULL AS CA4, NULL AS CA5, m.Midterm, m.Endterm
+           FROM Users u
+           LEFT JOIN Marks m ON m.StudentID = u.UserID AND m.SubjectID = ?
+           WHERE u.UserType='Student' AND u.IsActive=1
+             AND u.DepartmentID=? AND u.Semester=?
+           ORDER BY u.FullName""", (subject_id, dept_id, semester)),
+        # Last resort: just students, no marks join
+        ("""SELECT DISTINCT u.UserID, u.FullName, u.UserCode AS RollNumber, u.Email,
+                  NULL AS MarkID, NULL AS CA1, NULL AS CA2, NULL AS CA3,
+                  NULL AS CA4, NULL AS CA5, NULL AS Midterm, NULL AS Endterm
+           FROM Users u
+           WHERE u.UserType='Student' AND u.IsActive=1
+             AND u.DepartmentID=? AND u.Semester=?
+           ORDER BY u.FullName""", (dept_id, semester)),
     ]:
         try:
-            students = db.execute_query(sql, (subject_id, dept_id, semester))
-            if students is not None: break
+            students = db.execute_query(sql, params)
+            if students is not None:
+                break
         except Exception as e:
-            print(f'[get_students_for_marks] err: {e}')
+            print(f'[get_students_for_marks] query err: {e}')
 
     result = _serialize(students or [])
     for i, s in enumerate(result, 1):
         s['SerialNo'] = i
-    return _ok({'students': result, 'subjectId': subject_id})
+    return _ok({'students': result, 'subjectId': subject_id,
+                'departmentId': dept_id, 'semester': semester, 'count': len(result)})
 
 
 # =============================================================================
