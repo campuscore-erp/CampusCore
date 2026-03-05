@@ -45,6 +45,27 @@ def _get_teacher_user_id():
     return None, (jsonify({'error': 'Cannot resolve teacher identity', 'success': False}), 401)
 
 
+def _get_teacher_db_id(user_id):
+    """
+    QRCodes.TeacherID and Timetable.TeacherID both reference Teachers(TeacherID),
+    NOT Users(UserID). These IDs differ by 1 (Users.UserID=2 => Teachers.TeacherID=1).
+    This resolves the correct Teachers.TeacherID from a Users.UserID via UserCode/TeacherCode.
+    Falls back to user_id if Teachers table lookup fails.
+    """
+    try:
+        user = db.execute_query(
+            "SELECT UserCode FROM Users WHERE UserID=?", (user_id,), fetch_one=True)
+        if user and user.get('UserCode'):
+            row = db.execute_query(
+                "SELECT TeacherID FROM Teachers WHERE TeacherCode=? AND IsActive=1",
+                (user['UserCode'],), fetch_one=True)
+            if row and row.get('TeacherID'):
+                return row['TeacherID']
+    except Exception as e:
+        print(f'[_get_teacher_db_id] err: {e}')
+    return user_id
+
+
 def _sv(val):
     if isinstance(val, timedelta):
         # MySQL returns TIME columns as timedelta — convert to HH:MM string
@@ -486,28 +507,37 @@ def generate_qr():
     att_date   = data.get('attendanceDate', date.today().isoformat())
     if not subject_id: return _err('subjectId required')
 
+    # QRCodes.TeacherID is a FK to Teachers(TeacherID), NOT Users(UserID).
+    # Users.UserID and Teachers.TeacherID differ — must resolve via TeacherCode match.
+    teacher_db_id = _get_teacher_db_id(uid)
+    print(f'[generate_qr] uid(UserID)={uid} => teacher_db_id(TeacherID)={teacher_db_id}')
+
+    # Timetable.TeacherID also references Teachers(TeacherID) — use teacher_db_id
     timetable_id = None
     tt = _try_queries([
+        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
         ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
     ], fetch_one=True)
     if tt: timetable_id = tt.get('TimetableID')
 
     qr_token   = secrets.token_urlsafe(24)
     expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
 
-    # Store only the raw token (no pipe-suffix) so student lookup works
-    # DB column is TimetableID (not ClassID) — must match schema exactly
+    # QRCodes INSERT — TeacherID must be Teachers.TeacherID not Users.UserID
     inserted = False
     for cols, vals in [
         ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive,CreatedAt',
-         (subject_id, timetable_id, uid, qr_token, expires_at, 1, datetime.now())),
+         (subject_id, timetable_id, teacher_db_id, qr_token, expires_at, 1, datetime.now())),
         ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive',
-         (subject_id, timetable_id, uid, qr_token, expires_at, 1)),
+         (subject_id, timetable_id, teacher_db_id, qr_token, expires_at, 1)),
         ('SubjectID,TeacherID,QRToken,ExpiresAt,IsActive',
-         (subject_id, uid, qr_token, expires_at, 1)),
+         (subject_id, teacher_db_id, qr_token, expires_at, 1)),
         ('SubjectID,TeacherID,QRToken,ExpiresAt',
-         (subject_id, uid, qr_token, expires_at)),
+         (subject_id, teacher_db_id, qr_token, expires_at)),
+        ('SubjectID,QRToken,ExpiresAt,IsActive',
+         (subject_id, qr_token, expires_at, 1)),
+        ('SubjectID,QRToken,ExpiresAt',
+         (subject_id, qr_token, expires_at)),
     ]:
         try:
             ph = ','.join(['?']*len(vals))
