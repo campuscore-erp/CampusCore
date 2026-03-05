@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CampusCore — Teacher Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#080d18;--bg2:#0f1623;--bg3:#161f2e;--bg4:#1b2438;--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.11);--text:#dce8f5;--text2:#8fa5bf;--text3:#5a7290;--blue:#3b82f6;--blue2:#60a5fa;--blue-bg:rgba(59,130,246,.09);--green:#22c55e;--green-bg:rgba(34,197,94,.09);--amber:#f59e0b;--amber-bg:rgba(245,158,11,.09);--red:#ef4444;--red-bg:rgba(239,68,68,.09);--purple:#a855f7;--purple-bg:rgba(168,85,247,.09);--orange:#f97316;--orange-bg:rgba(249,115,22,.09);--teal:#14b8a6;--teal-bg:rgba(20,184,166,.09);--r:10px;--r-sm:7px;--r-lg:14px;--font:'Sora',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--sw:260px}
@@ -187,8 +187,6 @@ textarea.form-input{resize:vertical;min-height:80px}
     </div>
     <div class="nav-sec">
       <div class="nav-sec-title">Academics</div>
-      <div class="nav-item" id="nav-attendance" onclick="go('attendance')"><span class="ic">📋</span> Attendance</div>
-      <div class="nav-item" id="nav-qr" onclick="go('qr')"><span class="ic">📷</span> Generate QR</div>
       <div class="nav-item" id="nav-marks" onclick="go('marks')"><span class="ic">📝</span> Marks Entry</div>
       <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="ic">📄</span> Exams</div>
       <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="ic">📁</span> Study Materials</div>
@@ -223,8 +221,7 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="card">
           <div class="card-hdr"><div class="card-title">Quick Actions</div></div>
           <div style="display:grid;gap:.75rem">
-            <button class="btn btn-primary" style="justify-content:center" onclick="go('attendance')">📋 Take Attendance</button>
-            <button class="btn btn-teal" style="justify-content:center" onclick="go('qr')">📷 Generate QR Code</button>
+            <button class="btn btn-primary" style="justify-content:center" onclick="go('timetable')">📅 Timetable &amp; Attendance</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('marks')">📝 Enter Marks</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('exams')">📄 Create Exam</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('materials')">📁 Upload Material</button>
@@ -274,64 +271,62 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
 
-    <!-- ═══════════════════════════════ ATTENDANCE ═══════════════════════════════ -->
+    <!-- ═══════════════════════════════ ATTENDANCE + QR (opened from timetable) ═══════════════════════════════ -->
     <div class="view" id="view-attendance">
       <div class="card" style="margin-bottom:1.25rem">
-        <div class="card-hdr">
-          <div><div class="card-title">📋 Take Attendance</div><div class="card-sub" id="attContextSub">Select subject and date, or click a timetable cell</div></div>
-          <button class="btn btn-ghost btn-sm" onclick="go('timetable')">← Timetable</button>
-        </div>
-        <!-- Manual select (also usable directly) -->
-        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.85rem;margin-bottom:1rem;align-items:end">
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Subject</label>
-            <select id="attSubject" class="form-input" onchange="loadAttRoster()"><option value="">— Select Subject —</option></select>
+        <div class="card-hdr" style="flex-wrap:nowrap;gap:.5rem">
+          <div style="min-width:0">
+            <div class="card-title" id="attTitle">&#x1F4CB; Attendance</div>
+            <div class="card-sub" id="attContextSub">Click a class on the timetable to begin</div>
           </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Date</label>
-            <input id="attDate" class="form-input" type="date" onchange="loadAttRoster()">
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="loadAttRoster()">Load</button>
+          <button class="btn btn-ghost btn-sm" onclick="go('timetable')" style="white-space:nowrap;flex-shrink:0">&#x2190; Timetable</button>
         </div>
-        <div id="attLockedBanner" class="alert alert-warning" style="display:none">🔒 Attendance already saved for this session — read-only.</div>
-        <div id="attRoster"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Select subject &amp; date above, or click a timetable cell</div></div></div>
-        <div id="attSaveBar" style="display:none;margin-top:1rem;justify-content:flex-end;gap:.75rem">
-          <button class="btn btn-ghost" onclick="go('timetable')">Cancel</button>
-          <button class="btn btn-primary" id="attSaveBtn" onclick="submitAttendance()">💾 Save Attendance</button>
+
+        <!-- Already-saved banner -->
+        <div id="attLockedBanner" class="alert alert-success" style="display:none;margin-bottom:1rem">
+          &#x2705; Attendance already saved for this session. Shown below in read-only mode.
+        </div>
+
+        <!-- Tab switcher — hidden when locked or not yet loaded -->
+        <div id="attTabBar" style="display:none;margin-bottom:1.25rem">
+          <div style="display:inline-flex;gap:.3rem;background:var(--bg3);border-radius:var(--r-sm);padding:.3rem">
+            <button id="tabManualBtn" onclick="switchAttTab('manual')" style="padding:.4rem .9rem;border-radius:5px;font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--orange);color:#fff">&#x1F4CB; Manual</button>
+            <button id="tabQRBtn"     onclick="switchAttTab('qr')"     style="padding:.4rem .9rem;border-radius:5px;font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--text2)">&#x1F4F7; QR Code</button>
+          </div>
+        </div>
+
+        <!-- MANUAL TAB -->
+        <div id="tabManual">
+          <div id="attRoster">
+            <div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class cell on the timetable to load students</div></div>
+          </div>
+          <div id="attSaveBar" style="display:none;margin-top:1rem;justify-content:flex-end;gap:.75rem">
+            <button class="btn btn-ghost" onclick="go('timetable')">Cancel</button>
+            <button class="btn btn-primary" id="attSaveBtn" onclick="submitAttendance()">&#x1F4BE; Save Attendance</button>
+          </div>
+        </div>
+
+        <!-- QR TAB -->
+        <div id="tabQR" style="display:none;text-align:center">
+          <div id="qrStatus" style="margin-bottom:.75rem;text-align:left"></div>
+          <div id="qrBox" style="display:inline-block;background:#fff;padding:14px;border-radius:var(--r);margin-bottom:.85rem"></div>
+          <div style="font-size:.8rem;color:var(--text3);margin-bottom:.4rem">Students scan this QR from their student portal &#x2192; auto-marked <strong style="color:var(--green)">Present</strong></div>
+          <div id="qrCountdown" style="font-size:1.6rem;font-weight:800;color:var(--orange);margin-bottom:.4rem"></div>
+          <div id="qrStats" style="font-size:.82rem;color:var(--text2);margin-bottom:.75rem"></div>
+          <button class="btn btn-ghost btn-sm" onclick="genQR()" style="margin-bottom:1.25rem">&#x1F504; Regenerate QR</button>
+          <div style="border-top:1px solid var(--border);padding-top:1rem;text-align:left">
+            <div class="alert alert-info" style="margin-bottom:.75rem">
+              &#x2139;&#xFE0F; When class ends, click <strong>Finalise</strong>. Scanned students = <strong style="color:var(--green)">Present</strong>, unscanned = <strong style="color:var(--red)">Absent</strong>.
+            </div>
+            <button class="btn btn-success" style="width:100%;justify-content:center" onclick="finaliseQRAttendance()">&#x2705; Finalise QR Attendance (Mark Unscanned as Absent)</button>
+          </div>
         </div>
       </div>
+
+      <!-- History -->
       <div class="card">
         <div class="card-hdr"><div class="card-title">Attendance History</div></div>
         <div id="attHistory"><div class="loading"><div class="spinner"></div></div></div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════ QR GENERATE ═══════════════════════════════ -->
-    <div class="view" id="view-qr">
-      <div class="card" style="max-width:560px">
-        <div class="card-hdr"><div><div class="card-title">📷 QR Attendance</div><div class="card-sub">Students scan QR from their portal → auto-marked Present · Unscanned = Absent on Finalise</div></div></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:1.25rem">
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Subject</label>
-            <select id="qrSubject" class="form-input"><option value="">— Select Subject —</option></select>
-          </div>
-          <div class="form-group" style="margin:0">
-            <label class="form-label">Date</label>
-            <input id="qrDate" class="form-input" type="date">
-          </div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:1rem" onclick="genQR()">📷 Generate QR Code</button>
-        <div id="qrStatus"></div>
-        <div id="qrDisplay" style="text-align:center;display:none">
-          <canvas id="qrCanvas" width="220" height="220"></canvas>
-          <div style="margin-top:.85rem;font-size:.78rem;color:var(--text3)">Students scan this from their portal to mark attendance</div>
-          <div id="qrCountdown" style="font-size:1.5rem;font-weight:800;color:var(--orange);margin-top:.5rem"></div>
-          <div id="qrStats" style="margin-top:.75rem;font-size:.82rem;color:var(--text2)"></div>
-          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
-            <div class="alert alert-info" style="margin-bottom:.75rem;text-align:left">ℹ️ Click <strong>Finalise Attendance</strong> when class ends. Scanned students = Present, rest = Absent.</div>
-            <button class="btn btn-success" style="width:100%;justify-content:center" onclick="finaliseQRAttendance()">✅ Finalise Attendance (Mark Unscanned as Absent)</button>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -521,7 +516,7 @@ function go(v){
   const[t,s]=TITLES[v]||[v,''];
   document.getElementById('pageTitle').textContent=t;
   document.getElementById('pageSub').textContent=s;
-  if(v!=='qr'){stopQR();}
+  stopQR();
   loadView(v);
 }
 
@@ -532,8 +527,7 @@ function loadView(v){
   else if(v==='subjects')loadSubjs();
   else if(v==='classes')loadClasses();
   else if(v==='students')loadStudents();
-  else if(v==='attendance'){loadAtt();loadAttHistory();}
-  else if(v==='qr'){stopQR();document.getElementById('qrDisplay').style.display='none';}
+  else if(v==='attendance')loadAtt();
   else if(v==='marks')loadMarksView();
   else if(v==='exams')loadExams();
   else if(v==='materials')loadMats();
@@ -765,222 +759,256 @@ async function loadStudents(){
   </tbody></table></div>`;
 }
 
-/* ═══════════════════════ ATTENDANCE ═══════════════════════ */
+/* ═══════════════════════ ATTENDANCE + QR ═══════════════════════ */
 let attRosterData=[], _attSubjId=null, _attDate=null, _attDeptId=null, _attSem=null, _attLocked=false;
+let qrToken=null, qrInterval=null, qrCountdownInt=null;
 
-function openAttFromTT(subjectId,subjectName,date,deptId,semester,alreadyDone){
-  _attSubjId=subjectId; _attDate=date; _attDeptId=deptId; _attSem=semester; _attLocked=alreadyDone;
-  const dateLabel=new Date(date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('attContextSub').textContent=subjectName+' · '+dateLabel;
-  document.getElementById('pageTitle').textContent='Take Attendance';
-  document.getElementById('pageSub').textContent=subjectName+' · '+dateLabel;
+/* ── Tab switcher ── */
+function switchAttTab(tab){
+  const isManual = tab === 'manual';
+  document.getElementById('tabManual').style.display = isManual ? 'block' : 'none';
+  document.getElementById('tabQR').style.display     = isManual ? 'none'  : 'block';
+  const mb = document.getElementById('tabManualBtn');
+  const qb = document.getElementById('tabQRBtn');
+  mb.style.background = isManual ? 'var(--orange)' : 'transparent';
+  mb.style.color      = isManual ? '#fff' : 'var(--text2)';
+  qb.style.background = isManual ? 'transparent' : 'var(--orange)';
+  qb.style.color      = isManual ? 'var(--text2)' : '#fff';
+  if(!isManual && _attSubjId && _attDate && !_attLocked) genQR();
+}
+
+/* ── Called when teacher clicks a timetable cell ── */
+function openAttFromTT(subjectId, subjectName, date, deptId, semester, alreadyDone){
+  _attSubjId  = subjectId;
+  _attDate    = date;
+  _attDeptId  = deptId;
+  _attSem     = semester;
+  _attLocked  = alreadyDone;
+  stopQR();
+
+  const fmt = new Date(date + 'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('attContextSub').textContent = subjectName + '  ·  ' + fmt;
+
+  // Switch to attendance view
   document.querySelectorAll('.view').forEach(function(e){e.classList.remove('active');});
   document.getElementById('view-attendance').classList.add('active');
   document.querySelectorAll('.nav-item').forEach(function(e){e.classList.remove('active');});
-  const nav=document.getElementById('nav-attendance');if(nav)nav.classList.add('active');
-  loadAttView();
-}
+  document.getElementById('pageTitle').textContent = 'Attendance';
+  document.getElementById('pageSub').textContent   = subjectName + ' · ' + date;
 
-async function loadAtt(){
-  _attSubjId=null;_attDate=null;_attDeptId=null;_attSem=null;_attLocked=false;
-  document.getElementById('attContextSub').textContent='Select subject and date';
-  const di=document.getElementById('attDate');
-  if(!di.value)di.value=new Date().toISOString().split('T')[0];
-  document.getElementById('attRoster').innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Select a subject and date above</div></div>';
-  document.getElementById('attLockedBanner').style.display='none';
-  document.getElementById('attSaveBar').style.display='none';
+  // Reset tabs to manual
+  switchAttTab('manual');
+  loadAttView();
   loadAttHistory();
 }
 
-async function loadAttHistory(){
-  const h=await api('/api/teacher/attendance/history');
-  const el=document.getElementById('attHistory');
-  if(!el)return;
-  if(!(h.attendance&&h.attendance.length)){
-    el.innerHTML='<div class="empty"><div class="empty-sub">No attendance records yet</div></div>';return;
-  }
-  let rows='';
-  h.attendance.slice(0,100).forEach(function(a){
-    const cls=a.Status==='Present'?'badge-green':a.Status==='Late'?'badge-amber':'badge-red';
-    rows+='<tr><td style="font-family:var(--mono);font-size:.78rem">'+(a.AttendanceDate||'')+'</td>'+
-      '<td>'+(a.StudentName||'')+' <span style="color:var(--text3);font-size:.72rem">'+(a.UserCode||'')+'</span></td>'+
-      '<td>'+(a.SubjectName||'')+' <span style="color:var(--text3)">('+( a.SubjectCode||'')+')</span></td>'+
-      '<td><span class="badge '+cls+'">'+(a.Status||'')+'</span></td></tr>';
-  });
-  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Subject</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-}
-
+/* ── Load the roster or read-only view ── */
 async function loadAttView(){
-  const el=document.getElementById('attRoster');
-  const lb=document.getElementById('attLockedBanner');
-  const sb=document.getElementById('attSaveBar');
-  if(!_attSubjId||!_attDate||!_attDeptId||!_attSem){
-    el.innerHTML='<div class="alert alert-error">Missing context — please click a timetable cell.</div>';return;
-  }
-  el.innerHTML='<div class="loading"><div class="spinner"></div> Loading students...</div>';
-  const d=await api('/api/teacher/students/by-class/'+_attDeptId+'/'+_attSem);
-  if(!d.success||!(d.students&&d.students.length)){
-    el.innerHTML='<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this class</div></div>';return;
-  }
-  if(_attLocked){
-    lb.style.display='block';sb.style.display='none';
-    // show read-only view
-    const hist=await api('/api/teacher/attendance/history');
-    const dayRecs=(hist.attendance||[]).filter(function(a){return String(a.SubjectID)===String(_attSubjId)&&a.AttendanceDate===_attDate;});
-    let rows='';
-    d.students.forEach(function(s,i){
-      const rec=dayRecs.find(function(a){return a.UserCode===s.RollNumber;})||{};
-      const st=rec.Status||'--';
-      const cls=st==='Present'?'badge-green':st==='Absent'?'badge-red':st==='Late'?'badge-amber':'';
-      rows+='<div class="roster-row" style="grid-template-columns:40px 1.5fr 1.2fr auto">'+
-        '<span style="color:var(--text3)">'+(i+1)+'</span>'+
-        '<span style="font-weight:600">'+(s.FullName||'')+'</span>'+
-        '<span style="font-family:var(--mono);color:var(--amber);font-size:.75rem">'+(s.RollNumber||'')+'</span>'+
-        '<span class="badge '+cls+'">'+st+'</span></div>';
-    });
-    el.innerHTML='<div class="alert alert-success" style="margin-bottom:1rem">✅ Attendance saved — read-only view.</div>'+
-      '<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">'+
-      '<div class="roster-row marks-hdr" style="grid-template-columns:40px 1.5fr 1.2fr auto"># Name Roll Status</div>'+rows+'</div>';
+  const roster  = document.getElementById('attRoster');
+  const locked  = document.getElementById('attLockedBanner');
+  const saveBar = document.getElementById('attSaveBar');
+  const tabBar  = document.getElementById('attTabBar');
+
+  if(!_attSubjId || !_attDate){
+    roster.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable</div></div>';
+    locked.style.display = 'none'; saveBar.style.display = 'none'; tabBar.style.display = 'none';
     return;
   }
-  lb.style.display='none';sb.style.display='flex';
-  attRosterData=d.students.map(function(s){return Object.assign({},s,{status:'Present'});});
+
+  roster.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
+
+  const d = await api('/api/teacher/students/by-class/' + _attDeptId + '/' + _attSem);
+  if(!d.success || !(d.students && d.students.length)){
+    roster.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F465;</div><div class="empty-text">No students found for this class</div></div>';
+    return;
+  }
+
+  if(_attLocked){
+    locked.style.display  = 'block';
+    saveBar.style.display = 'none';
+    tabBar.style.display  = 'none';
+    // Show read-only list with saved statuses
+    const hist = await api('/api/teacher/attendance/history');
+    const dayRecs = (hist.attendance || []).filter(function(a){
+      return String(a.SubjectID) === String(_attSubjId) && a.AttendanceDate === _attDate;
+    });
+    let rows = '';
+    d.students.forEach(function(s, i){
+      const rec = dayRecs.find(function(a){return a.UserCode === s.RollNumber;}) || {};
+      const st  = rec.Status || '—';
+      const cls = st === 'Present' ? 'badge-green' : st === 'Absent' ? 'badge-red' : 'badge-amber';
+      rows += '<div style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.6rem 1rem;border-bottom:1px solid var(--border)">'
+            + '<span style="color:var(--text3)">' + (i+1) + '</span>'
+            + '<div><div style="font-weight:600;font-size:.83rem">' + (s.FullName||'') + '</div>'
+            + '<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">' + (s.RollNumber||'') + '</div></div>'
+            + '<span class="badge ' + cls + '">' + st + '</span></div>';
+    });
+    roster.innerHTML = '<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">' + rows + '</div>';
+    return;
+  }
+
+  // Not locked — show tabs + manual roster
+  locked.style.display  = 'none';
+  tabBar.style.display  = 'block';
+  saveBar.style.display = 'flex';
+  attRosterData = d.students.map(function(s){ return Object.assign({}, s, {status:'Present'}); });
   renderAttRoster();
 }
 
 function renderAttRoster(){
-  if(_attLocked)return;
-  const el=document.getElementById('attRoster');
-  const present=attRosterData.filter(function(s){return s.status==='Present';}).length;
-  const absent=attRosterData.filter(function(s){return s.status==='Absent';}).length;
-  let h='<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;padding:.6rem 1rem;background:var(--bg3);border-radius:var(--r-sm);flex-wrap:wrap">'+
-    '<span style="font-size:.8rem;color:var(--text3)">'+attRosterData.length+' students</span>'+
-    '<span class="badge badge-green">✅ Present: '+present+'</span>'+
-    '<span class="badge badge-red">❌ Absent: '+absent+'</span>'+
-    '<div style="margin-left:auto;display:flex;gap:.5rem">'+
-    '<button class="btn btn-success btn-sm" onclick="markAllPresent()">All Present</button>'+
-    '<button class="btn btn-danger btn-sm" onclick="markAllAbsent()">All Absent</button></div>'+
-    '</div>'+
-    '<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden;margin-bottom:.5rem">'+
-    '<div style="padding:.5rem 1rem;font-size:.72rem;color:var(--text3);background:var(--bg4);border-bottom:1px solid var(--border)">'+
-    '<strong>Tap a student to toggle Present ↔ Absent</strong> · Green = Present, Red = Absent</div>';
-  attRosterData.forEach(function(s,i){
-    const isPresent=s.status==='Present';
-    const bg=isPresent?'rgba(20,60,35,.4)':'rgba(80,15,15,.4)';
-    const border=isPresent?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)';
-    const dot=isPresent?'🟢':'🔴';
-    h+='<div onclick="toggleAtt('+s.StudentID+')" style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;background:'+bg+';border-left:3px solid '+border+';transition:background .15s">'+
-      '<span style="color:var(--text3);font-size:.8rem">'+(i+1)+'</span>'+
-      '<div><div style="font-weight:600;font-size:.83rem">'+(s.FullName||'')+'</div>'+
-      '<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'+
-      '<span style="font-size:1.1rem">'+dot+'</span>'+
-      '</div>';
+  const el = document.getElementById('attRoster');
+  const present = attRosterData.filter(function(s){return s.status==='Present';}).length;
+  const absent  = attRosterData.filter(function(s){return s.status==='Absent';}).length;
+  let h = '<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;padding:.6rem 1rem;background:var(--bg3);border-radius:var(--r-sm);flex-wrap:wrap">'
+        + '<span style="font-size:.8rem;color:var(--text3)">' + attRosterData.length + ' students</span>'
+        + '<span class="badge badge-green">&#x2705; Present: ' + present + '</span>'
+        + '<span class="badge badge-red">&#x274C; Absent: ' + absent + '</span>'
+        + '<div style="margin-left:auto;display:flex;gap:.5rem">'
+        + '<button onclick="markAllPresent()" style="padding:.3rem .7rem;border-radius:5px;font-size:.75rem;font-weight:700;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);cursor:pointer">All Present</button>'
+        + '<button onclick="markAllAbsent()"  style="padding:.3rem .7rem;border-radius:5px;font-size:.75rem;font-weight:700;background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);cursor:pointer">All Absent</button>'
+        + '</div></div>'
+        + '<div style="font-size:.73rem;color:var(--text3);margin-bottom:.5rem;padding:.4rem .75rem;background:var(--bg4);border-radius:var(--r-sm)">&#x1F446; Tap a student to toggle Present &#x2194; Absent</div>'
+        + '<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">';
+  attRosterData.forEach(function(s, i){
+    const isP = s.status === 'Present';
+    h += '<div onclick="toggleAtt(' + s.StudentID + ')" style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;'
+       + 'background:' + (isP ? 'rgba(20,60,35,.4)' : 'rgba(80,15,15,.35)') + ';'
+       + 'border-left:3px solid ' + (isP ? 'rgba(34,197,94,.5)' : 'rgba(239,68,68,.4)') + ';transition:background .12s">'
+       + '<span style="color:var(--text3);font-size:.8rem">' + (i+1) + '</span>'
+       + '<div><div style="font-weight:600;font-size:.83rem">' + (s.FullName||'') + '</div>'
+       + '<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">' + (s.RollNumber||'') + '</div></div>'
+       + '<span style="font-size:1.15rem">' + (isP ? '&#x1F7E2;' : '&#x1F534;') + '</span></div>';
   });
-  h+='</div>';
-  el.innerHTML=h;
+  h += '</div>';
+  el.innerHTML = h;
 }
 
-function toggleAtt(studentId){
-  const s=attRosterData.find(function(x){return x.StudentID===studentId||String(x.StudentID)===String(studentId);});
-  if(s){s.status=s.status==='Present'?'Absent':'Present';renderAttRoster();}
+function toggleAtt(sid){
+  const s = attRosterData.find(function(x){return x.StudentID===sid || String(x.StudentID)===String(sid);});
+  if(s){ s.status = s.status==='Present' ? 'Absent' : 'Present'; renderAttRoster(); }
 }
-function markAllPresent(){attRosterData.forEach(function(s){s.status='Present';});renderAttRoster();}
-function markAllAbsent(){attRosterData.forEach(function(s){s.status='Absent';});renderAttRoster();}
+function markAllPresent(){ attRosterData.forEach(function(s){s.status='Present';}); renderAttRoster(); }
+function markAllAbsent(){  attRosterData.forEach(function(s){s.status='Absent';});  renderAttRoster(); }
 
 async function submitAttendance(){
-  if(_attLocked){toast('Attendance already saved — cannot change','warning');return;}
-  if(!_attSubjId||!_attDate){toast('No class selected','warning');return;}
-  if(!attRosterData.length){toast('No students loaded','warning');return;}
-  const btn=document.getElementById('attSaveBtn');
-  if(btn){btn.disabled=true;btn.textContent='Saving...';}
-  const records=attRosterData.map(function(s){return {studentId:s.StudentID,status:s.status};});
-  const d=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate,attendance:records})});
-  if(btn){btn.disabled=false;btn.textContent='💾 Save Attendance';}
+  if(_attLocked){ toast('Already saved — cannot change','warning'); return; }
+  if(!_attSubjId || !_attDate){ toast('No class selected','warning'); return; }
+  if(!attRosterData.length){ toast('No students loaded','warning'); return; }
+  const btn = document.getElementById('attSaveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
+  const records = attRosterData.map(function(s){ return {studentId:s.StudentID, status:s.status}; });
+  const d = await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate,attendance:records})});
+  if(btn){ btn.disabled=false; btn.textContent='&#x1F4BE; Save Attendance'; }
   if(d.success){
-    toast(d.message||'Attendance saved!','success');
-    _attLocked=true;_attCache[_attSubjId+'_'+_attDate]=true;
-    document.getElementById('attLockedBanner').style.display='block';
-    document.getElementById('attSaveBar').style.display='none';
+    toast(d.message || 'Attendance saved!', 'success');
+    _attLocked = true;
+    _attCache[_attSubjId + '_' + _attDate] = true;
     loadAttView();
-  } else toast(d.error||'Failed to save attendance','error');
+  } else {
+    toast(d.error || 'Failed to save', 'error');
+  }
 }
 
-async function loadAttRoster(){
-  const subjectId=document.getElementById('attSubject').value;
-  const attDate=document.getElementById('attDate').value;
-  if(!subjectId||!attDate)return;
-  const subj=mySubjects.find(function(s){return String(s.SubjectID)===String(subjectId);});
-  if(!subj){toast('Subject not found in your list','error');return;}
-  _attSubjId=subjectId;_attDate=attDate;_attDeptId=subj.DepartmentID;_attSem=subj.Semester;_attLocked=false;
-  document.getElementById('attLockedBanner').style.display='none';
-  document.getElementById('attSaveBar').style.display='flex';
-  loadAttView();
+async function loadAtt(){
+  document.getElementById('attRoster').innerHTML = '<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable to begin</div></div>';
+  document.getElementById('attLockedBanner').style.display = 'none';
+  document.getElementById('attSaveBar').style.display = 'none';
+  document.getElementById('attTabBar').style.display  = 'none';
+  loadAttHistory();
 }
 
-/* ═══════════════════════ QR GENERATE ═══════════════════════ */
-let qrToken=null,qrInterval=null,qrCountdownInt=null;
+async function loadAttHistory(){
+  const el = document.getElementById('attHistory');
+  if(!el) return;
+  const h = await api('/api/teacher/attendance/history');
+  if(!(h.attendance && h.attendance.length)){
+    el.innerHTML = '<div class="empty"><div class="empty-sub">No attendance records yet</div></div>'; return;
+  }
+  let rows = '';
+  h.attendance.slice(0,100).forEach(function(a){
+    const cls = a.Status==='Present' ? 'badge-green' : a.Status==='Late' ? 'badge-amber' : 'badge-red';
+    rows += '<tr><td style="font-family:var(--mono);font-size:.78rem">' + (a.AttendanceDate||'') + '</td>'
+          + '<td>' + (a.StudentName||'') + ' <span style="color:var(--text3);font-size:.72rem">' + (a.UserCode||'') + '</span></td>'
+          + '<td>' + (a.SubjectName||'') + '</td>'
+          + '<td><span class="badge ' + cls + '">' + (a.Status||'') + '</span></td></tr>';
+  });
+  el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Subject</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
 
+/* ── QR CODE (pure canvas, no library needed) ── */
 function stopQR(){
-  if(qrInterval){clearInterval(qrInterval);qrInterval=null;}
-  if(qrCountdownInt){clearInterval(qrCountdownInt);qrCountdownInt=null;}
+  if(qrInterval){ clearInterval(qrInterval); qrInterval=null; }
+  if(qrCountdownInt){ clearInterval(qrCountdownInt); qrCountdownInt=null; }
+}
+
+function drawQRFallback(text){
+  // Use Google Charts QR API as image (reliable fallback — no JS library)
+  const box = document.getElementById('qrBox');
+  const encoded = encodeURIComponent(text);
+  box.innerHTML = '<img src="https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl=' + encoded + '&choe=UTF-8" width="220" height="220" style="border-radius:4px" alt="QR Code">';
 }
 
 async function genQR(){
-  const subjectId=document.getElementById('qrSubject').value;
-  const attDate=document.getElementById('qrDate').value||new Date().toISOString().split('T')[0];
-  if(!subjectId){toast('Please select a subject','warning');return;}
+  if(!_attSubjId || !_attDate){ toast('No class selected — click a timetable cell first','warning'); return; }
   stopQR();
-  document.getElementById('qrStatus').innerHTML='<div class="alert alert-info">⏳ Generating QR code...</div>';
-  const d=await api('/api/teacher/attendance/generate-qr',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),attendanceDate:attDate})});
+  document.getElementById('qrStatus').innerHTML = '<div class="alert alert-info">&#x23F3; Generating QR...</div>';
+  document.getElementById('qrCountdown').textContent = '';
+  document.getElementById('qrBox').innerHTML = '';
+
+  const d = await api('/api/teacher/attendance/generate-qr',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId), attendanceDate:_attDate})});
   if(!d.success){
-    document.getElementById('qrStatus').innerHTML='<div class="alert alert-error">❌ '+(d.error||'Failed to generate QR')+'</div>';return;
+    document.getElementById('qrStatus').innerHTML = '<div class="alert alert-error">&#x274C; ' + (d.error||'Failed to generate QR') + '</div>';
+    return;
   }
-  qrToken=d.qrToken||d.qrData;
-  document.getElementById('qrStatus').innerHTML='';
-  const disp=document.getElementById('qrDisplay');disp.style.display='block';
-  try{
-    const canvas=document.getElementById('qrCanvas');
-    QRCode.toCanvas(canvas,qrToken,{width:220,margin:2,color:{dark:'#000',light:'#fff'}});
-  }catch(e){
-    document.getElementById('qrStatus').innerHTML='<div class="alert alert-warning">⚠️ QR library error. Token: <code style="font-size:.72rem">'+qrToken+'</code></div>';
-  }
-  let remaining=45;
-  document.getElementById('qrCountdown').textContent=remaining+'s';
-  qrCountdownInt=setInterval(function(){
+  qrToken = d.qrToken || d.qrData;
+  document.getElementById('qrStatus').innerHTML = '';
+  drawQRFallback(qrToken);
+
+  let remaining = 45;
+  document.getElementById('qrCountdown').textContent = remaining + 's';
+  qrCountdownInt = setInterval(function(){
     remaining--;
-    document.getElementById('qrCountdown').textContent=remaining+'s';
-    if(remaining<=0){
+    document.getElementById('qrCountdown').textContent = remaining + 's';
+    if(remaining <= 0){
       clearInterval(qrCountdownInt);
-      document.getElementById('qrCountdown').textContent='Expired';
-      document.getElementById('qrStatus').innerHTML='<div class="alert alert-warning">⏰ QR expired. Click Generate again.</div>';
-      disp.style.display='none';
+      document.getElementById('qrCountdown').textContent = 'Expired';
+      document.getElementById('qrStatus').innerHTML = '<div class="alert alert-warning">&#x23F0; QR expired. Click Regenerate.</div>';
+      document.getElementById('qrBox').innerHTML = '';
     }
-  },1000);
-  qrInterval=setInterval(async function(){
-    const s=await api('/api/teacher/attendance/qr-status?token='+encodeURIComponent(qrToken));
-    if(s.success!==false)document.getElementById('qrStats').textContent='✅ '+( s.scanned||0)+' students scanned so far';
-  },3000);
+  }, 1000);
+
+  qrInterval = setInterval(async function(){
+    const s = await api('/api/teacher/attendance/qr-status?token=' + encodeURIComponent(qrToken));
+    if(s.success !== false) document.getElementById('qrStats').textContent = '&#x2705; ' + (s.scanned||0) + ' students scanned so far';
+  }, 3000);
 }
 
 async function finaliseQRAttendance(){
-  // Mark scanned=Present, rest=Absent for the QR session
-  const subjectId=document.getElementById('qrSubject').value;
-  const attDate=document.getElementById('qrDate').value||new Date().toISOString().split('T')[0];
-  if(!subjectId){toast('Select a subject first','warning');return;}
-  const subj=mySubjects.find(function(s){return String(s.SubjectID)===String(subjectId);});
-  if(!subj){toast('Subject not found','error');return;}
-  // Load all students
-  const sd=await api('/api/teacher/students/by-class/'+subj.DepartmentID+'/'+subj.Semester);
-  if(!sd.success||!(sd.students&&sd.students.length)){toast('No students found','error');return;}
-  // Load who scanned
-  const qs=await api('/api/teacher/attendance/qr-status?token='+encodeURIComponent(qrToken||''));
-  const scannedIds=new Set((qs.scannedStudents||[]).map(function(id){return String(id);}));
-  const records=sd.students.map(function(s){
-    return {studentId:s.StudentID,status:scannedIds.has(String(s.StudentID))?'Present':'Absent'};
+  if(!_attSubjId || !_attDate){ toast('No class selected','warning'); return; }
+  const subj = mySubjects.find(function(s){ return String(s.SubjectID)===String(_attSubjId); });
+  let deptId = _attDeptId, sem = _attSem;
+  if(subj){ deptId = subj.DepartmentID; sem = subj.Semester; }
+  const sd = await api('/api/teacher/students/by-class/' + deptId + '/' + sem);
+  if(!sd.success || !(sd.students && sd.students.length)){ toast('No students found','error'); return; }
+  const qs = await api('/api/teacher/attendance/qr-status?token=' + encodeURIComponent(qrToken||''));
+  const scannedSet = new Set((qs.scannedStudents||[]).map(function(id){ return String(id); }));
+  const records = sd.students.map(function(s){
+    return {studentId:s.StudentID, status: scannedSet.has(String(s.StudentID)) ? 'Present' : 'Absent'};
   });
-  const d=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),attendanceDate:attDate,attendance:records})});
-  if(d.success){toast('QR Attendance finalised! '+d.saved+' records saved.','success');stopQR();document.getElementById('qrDisplay').style.display='none';}
-  else toast(d.error||'Failed to finalise','error');
+  const btn = document.querySelector('#tabQR button.btn-success');
+  if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
+  const result = await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate,attendance:records})});
+  if(btn){ btn.disabled=false; btn.textContent='&#x2705; Finalise QR Attendance'; }
+  if(result.success){
+    toast('QR Attendance finalised! ' + records.length + ' records saved.','success');
+    _attLocked = true;
+    _attCache[_attSubjId + '_' + _attDate] = true;
+    stopQR();
+    loadAttView();
+    switchAttTab('manual');
+  } else {
+    toast(result.error || 'Failed to finalise','error');
+  }
 }
 
 /* ══════════════════════════ MARKS ══════════════════════════ */
