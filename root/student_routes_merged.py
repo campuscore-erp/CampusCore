@@ -887,11 +887,11 @@ def scan_qr_attendance():
         if not raw_token:
             return jsonify({'success': False, 'error': 'Invalid QR code format'}), 400
 
-        # Lookup by raw token — fetch IsActive and TimetableID (not ClassID) to match schema
+        # MySQL QRCodes columns: QRCodeID, TeacherID, SubjectID, ClassID, QRToken, ExpiresAt, IsUsed, CreatedAt
+        # NO TimetableID, NO IsActive — use IsUsed and ClassID instead
         qr = None
         for sql in [
-            "SELECT QRCodeID, SubjectID, TimetableID, ExpiresAt, IsActive FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
-            "SELECT QRCodeID, SubjectID, ExpiresAt, IsActive FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
+            "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt, IsUsed FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
             "SELECT QRCodeID, SubjectID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
         ]:
             try:
@@ -900,10 +900,10 @@ def scan_qr_attendance():
             except Exception as e:
                 print(f'[QR Scan] lookup err: {e}')
 
-        # Fallback: try full scanned string (old schema stores full token with pipe suffix)
+        # Fallback: try full pipe-separated string as token
         if not qr:
             for sql in [
-                "SELECT QRCodeID, SubjectID, TimetableID, ExpiresAt, IsActive FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
+                "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt, IsUsed FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
                 "SELECT QRCodeID, SubjectID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
             ]:
                 try:
@@ -915,8 +915,8 @@ def scan_qr_attendance():
         if not qr:
             print(f'[QR Scan] No match in DB for token={raw_token!r}')
             return jsonify({'success': False, 'error': 'Invalid QR code. Ask your teacher to show a new one.'}), 400
-        if int(qr.get('IsActive') or 1) == 0:
-            return jsonify({'success': False, 'error': 'This QR code is no longer active.'}), 400
+        if int(qr.get('IsUsed') or 0) == 1:
+            return jsonify({'success': False, 'error': 'This QR code has already been used.'}), 400
 
         try:
             expires = datetime.fromisoformat(str(qr['ExpiresAt']))
@@ -935,13 +935,14 @@ def scan_qr_attendance():
         except Exception:
             pass
 
-        # Use TimetableID column (not ClassID — that column does not exist in Attendance table)
-        timetable_id = qr.get('TimetableID')
+        # MySQL Attendance exact cols: StudentID, SubjectID, ClassID (nullable), QRCodeID (nullable), AttendanceDate, Status
+        # NO TimetableID, NO MarkedBy in MySQL schema
+        class_id = qr.get('ClassID')
         inserted = False
         for ins_sql, ins_vals in [
-            ("INSERT INTO Attendance (StudentID,SubjectID,TimetableID,QRCodeID,AttendanceDate,Status,MarkedBy) VALUES (?,?,?,?,?,'Present','QR')",
-             (student_id, qr['SubjectID'], timetable_id, qr['QRCodeID'], today)),
-            ("INSERT INTO Attendance (StudentID,SubjectID,QRCodeID,AttendanceDate,Status,MarkedBy) VALUES (?,?,?,?,'Present','QR')",
+            ("INSERT INTO Attendance (StudentID,SubjectID,ClassID,QRCodeID,AttendanceDate,Status) VALUES (?,?,?,?,?,'Present')",
+             (student_id, qr['SubjectID'], class_id, qr['QRCodeID'], today)),
+            ("INSERT INTO Attendance (StudentID,SubjectID,QRCodeID,AttendanceDate,Status) VALUES (?,?,?,?,'Present')",
              (student_id, qr['SubjectID'], qr['QRCodeID'], today)),
             ("INSERT INTO Attendance (StudentID,SubjectID,AttendanceDate,Status) VALUES (?,?,?,'Present')",
              (student_id, qr['SubjectID'], today)),

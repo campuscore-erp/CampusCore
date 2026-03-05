@@ -419,12 +419,13 @@ def attendance_submit():
     records         = data.get('attendance', [])
     if not subject_id or not records: return _err('subjectId and attendance list required')
 
-    timetable_id = None
+    # MySQL Attendance: ClassID nullable FK to Classes, NO TimetableID, NO MarkedBy
+    class_id = None
     tt = _try_queries([
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
-    if tt: timetable_id = tt.get('TimetableID')
+    if tt: class_id = tt.get('ClassID')
 
     saved = 0
     for rec in records:
@@ -447,16 +448,10 @@ def attendance_submit():
                 saved += 1
             else:
                 ok, _ = _try_inserts('Attendance', [
-                    # 7 cols — full record with TimetableID, MarkedBy and MarkedAt
-                    ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy,MarkedAt',
-                     (student_id, subject_id, timetable_id, attendance_date, status, str(uid), datetime.now())),
-                    # 6 cols — without MarkedAt
-                    ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy',
-                     (student_id, subject_id, timetable_id, attendance_date, status, str(uid))),
-                    # 5 cols — without TimetableID
-                    ('StudentID,SubjectID,AttendanceDate,Status,MarkedBy',
-                     (student_id, subject_id, attendance_date, status, str(uid))),
-                    # 4 cols — bare minimum
+                    # MySQL exact cols: StudentID, SubjectID, ClassID, AttendanceDate, Status
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                     (student_id, subject_id, class_id, attendance_date, status)),
+                    # Without ClassID (nullable so safe to omit)
                     ('StudentID,SubjectID,AttendanceDate,Status',
                      (student_id, subject_id, attendance_date, status)),
                 ])
@@ -507,37 +502,32 @@ def generate_qr():
     att_date   = data.get('attendanceDate', date.today().isoformat())
     if not subject_id: return _err('subjectId required')
 
-    # QRCodes.TeacherID is a FK to Teachers(TeacherID), NOT Users(UserID).
-    # Users.UserID and Teachers.TeacherID differ — must resolve via TeacherCode match.
-    teacher_db_id = _get_teacher_db_id(uid)
-    print(f'[generate_qr] uid(UserID)={uid} => teacher_db_id(TeacherID)={teacher_db_id}')
-
-    # Timetable.TeacherID also references Teachers(TeacherID) — use teacher_db_id
-    timetable_id = None
+    # MySQL schema: QRCodes.TeacherID -> FK to Users(UserID)  => uid is correct, no translation needed
+    # MySQL schema: QRCodes.ClassID   -> NOT NULL FK to Classes(ClassID) => must fetch from Timetable
+    # MySQL schema: NO TimetableID column, NO IsActive column in QRCodes
+    class_id = None
     tt = _try_queries([
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
-    if tt: timetable_id = tt.get('TimetableID')
+    if tt: class_id = tt.get('ClassID')
+    print(f'[generate_qr] uid={uid} subject_id={subject_id} class_id={class_id}')
+
+    if not class_id:
+        return _err('Could not find class for this subject. Check timetable setup.')
 
     qr_token   = secrets.token_urlsafe(24)
     expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
 
-    # QRCodes INSERT — TeacherID must be Teachers.TeacherID not Users.UserID
+    # QRCodes exact MySQL columns: TeacherID, SubjectID, ClassID, QRToken, ExpiresAt, IsUsed, CreatedAt
     inserted = False
     for cols, vals in [
-        ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive,CreatedAt',
-         (subject_id, timetable_id, teacher_db_id, qr_token, expires_at, 1, datetime.now())),
-        ('SubjectID,TimetableID,TeacherID,QRToken,ExpiresAt,IsActive',
-         (subject_id, timetable_id, teacher_db_id, qr_token, expires_at, 1)),
-        ('SubjectID,TeacherID,QRToken,ExpiresAt,IsActive',
-         (subject_id, teacher_db_id, qr_token, expires_at, 1)),
-        ('SubjectID,TeacherID,QRToken,ExpiresAt',
-         (subject_id, teacher_db_id, qr_token, expires_at)),
-        ('SubjectID,QRToken,ExpiresAt,IsActive',
-         (subject_id, qr_token, expires_at, 1)),
-        ('SubjectID,QRToken,ExpiresAt',
-         (subject_id, qr_token, expires_at)),
+        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt,IsUsed,CreatedAt',
+         (uid, subject_id, class_id, qr_token, expires_at, 0, datetime.now())),
+        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt,CreatedAt',
+         (uid, subject_id, class_id, qr_token, expires_at, datetime.now())),
+        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt',
+         (uid, subject_id, class_id, qr_token, expires_at)),
     ]:
         try:
             ph = ','.join(['?']*len(vals))
@@ -636,20 +626,21 @@ def mark_absent_non_scanners():
     already = {r['StudentID'] for r in (db.execute_query(
         'SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=?', (subject_id, att_date)) or [])}
 
-    timetable_id = None
+    # MySQL Attendance: ClassID nullable, NO TimetableID, NO MarkedBy
+    class_id = None
     tt2 = _try_queries([
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
-    if tt2: timetable_id = tt2.get('TimetableID')
+    if tt2: class_id = tt2.get('ClassID')
 
     absent_count = 0
     for s in all_students:
         sid = s['StudentID']
         if sid not in already:
             ok, _ = _try_inserts('Attendance', [
-                ('StudentID,SubjectID,TimetableID,AttendanceDate,Status,MarkedBy',
-                 (sid, subject_id, timetable_id, att_date, 'Absent', str(uid))),
+                ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                 (sid, subject_id, class_id, att_date, 'Absent')),
                 ('StudentID,SubjectID,AttendanceDate,Status',
                  (sid, subject_id, att_date, 'Absent')),
             ])
