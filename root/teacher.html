@@ -266,8 +266,26 @@ textarea.form-input{resize:vertical;min-height:80px}
     <!-- ═══════════════════════════════ MY STUDENTS ═══════════════════════════════ -->
     <div class="view" id="view-students">
       <div class="card">
-        <div class="card-hdr"><div class="card-title">My Students</div></div>
-        <div id="studentsList"><div class="loading"><div class="spinner"></div></div></div>
+        <div class="card-hdr">
+          <div>
+            <div class="card-title">My Students</div>
+            <div class="card-sub" id="studentsSubtitle">Select a class to view students</div>
+          </div>
+        </div>
+        <!-- Filter bar -->
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+          <select id="studClassFilter" class="form-input" style="flex:1;min-width:200px;max-width:320px" onchange="applyStudentFilter()">
+            <option value="">— All Classes —</option>
+          </select>
+          <div style="position:relative;flex:1;min-width:180px;max-width:300px">
+            <input id="studSearchBox" class="form-input" type="text" placeholder="🔍  Search name or roll no…" oninput="renderStudentTable()" style="width:100%;padding-right:2.2rem">
+            <span id="studSearchClear" onclick="document.getElementById('studSearchBox').value='';renderStudentTable()" style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);display:none">✕</span>
+          </div>
+          <div style="font-size:.82rem;color:var(--text3);white-space:nowrap">
+            Showing <strong id="studCount" style="color:var(--text)">0</strong> students
+          </div>
+        </div>
+        <div id="studentsList"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">Select a class above to load students</div></div></div>
       </div>
     </div>
 
@@ -770,24 +788,92 @@ async function loadClasses(){
 }
 
 /* ══════════════════════════ MY STUDENTS ══════════════════════════ */
-async function loadStudents(){
-  const d=await api('/api/teacher/my-students');
-  const el=document.getElementById('studentsList');
-  if(!d.success||!d.students?.length){
-    el.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found</div></div>`;return
+// ── My Students: state ─────────────────────────────────────────
+let _allStudentsData = [];
+let _classesData = [];
+
+async function loadStudents() {
+  // Load all students + class list on first open
+  const el = document.getElementById('studentsList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  const d = await api('/api/teacher/my-students');
+  if (!d.success) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load students</div></div>';
+    return;
   }
-  el.innerHTML=`<div style="margin-bottom:.75rem;font-size:.82rem;color:var(--text3)">Total: <strong style="color:var(--text)">${d.count||d.students.length}</strong> students</div>
-  <div class="table-wrap"><table><thead><tr><th>#</th><th>Roll No</th><th>Name</th><th>Semester</th><th>Gender</th><th>Department</th><th>Email</th></tr></thead><tbody>
-    ${d.students.map((s,i)=>`<tr>
-      <td style="color:var(--text3)">${i+1}</td>
-      <td><span style="font-family:var(--mono);color:var(--amber)">${s.RollNumber||''}</span></td>
-      <td style="font-weight:600">${s.FullName||''}</td>
-      <td>Sem ${s.Semester||'—'}</td>
-      <td>${s.Gender||'—'}</td>
-      <td style="color:var(--text3)">${s.DepartmentName||'—'}</td>
-      <td style="color:var(--text3);font-size:.75rem">${s.Email||'—'}</td>
-    </tr>`).join('')}
-  </tbody></table></div>`;
+  _allStudentsData = d.students || [];
+  _classesData = d.classes || [];
+
+  // Populate class filter dropdown
+  const cf = document.getElementById('studClassFilter');
+  cf.innerHTML = '<option value="">— All Classes —</option>'
+    + _classesData.map(c =>
+        `<option value="${c.DepartmentID}|${c.Semester}">${c.Label}</option>`
+      ).join('');
+
+  renderStudentTable();
+}
+
+function applyStudentFilter() {
+  renderStudentTable();
+}
+
+function renderStudentTable() {
+  const el = document.getElementById('studentsList');
+  const filterVal = document.getElementById('studClassFilter').value;
+  const search = (document.getElementById('studSearchBox').value || '').toLowerCase().trim();
+  const clearBtn = document.getElementById('studSearchClear');
+  clearBtn.style.display = search ? 'block' : 'none';
+
+  // Filter by class
+  let filtered = _allStudentsData;
+  if (filterVal) {
+    const [deptId, sem] = filterVal.split('|');
+    filtered = filtered.filter(s =>
+      String(s.DepartmentID) === deptId && String(s.Semester) === sem
+    );
+  }
+
+  // Filter by search
+  if (search) {
+    filtered = filtered.filter(s =>
+      (s.FullName || '').toLowerCase().includes(search) ||
+      (s.RollNumber || '').toLowerCase().includes(search) ||
+      (s.Email || '').toLowerCase().includes(search)
+    );
+  }
+
+  // Update subtitle
+  let subtitle = 'All classes';
+  if (filterVal) {
+    const cls = _classesData.find(c => c.DepartmentID + '|' + c.Semester === filterVal);
+    subtitle = cls ? cls.Label : filterVal;
+  }
+  document.getElementById('studentsSubtitle').textContent = subtitle;
+  document.getElementById('studCount').textContent = filtered.length;
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found</div><div class="empty-sub">' + (search ? 'Try a different search term' : 'Select a class above') + '</div></div>';
+    return;
+  }
+
+  // Re-number sequentially 1001, 1002… within the filtered view
+  const rows = filtered.map((s, i) => `<tr>
+    <td style="color:var(--text3);font-size:.8rem">${i + 1}</td>
+    <td><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:.85rem">${1000 + i + 1}</span></td>
+    <td style="font-weight:600">${s.FullName || ''}</td>
+    <td><span style="background:var(--bg4);padding:.15rem .5rem;border-radius:.3rem;font-size:.75rem">Sem ${s.Semester || '—'}</span></td>
+    <td style="color:var(--text2)">${s.Gender || '—'}</td>
+    <td style="color:var(--text3);font-size:.8rem">${s.DepartmentName || '—'}</td>
+    <td style="color:var(--text3);font-size:.73rem">${s.Email || '—'}</td>
+  </tr>`).join('');
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>#</th><th>Roll No</th><th>Name</th><th>Semester</th><th>Gender</th><th>Department</th><th>Email</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 
 /* ═══════════════════════ ATTENDANCE + QR ═══════════════════════ */
@@ -1098,14 +1184,8 @@ async function loadMarksRoster(){
   el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
   const d = await api('/api/teacher/marks/students?subjectId=' + subjectId);
 
-  if(!d.success){
-    const errMsg = d.error || 'Unknown error';
-    el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load students</div><div class="empty-sub">' + errMsg + '</div></div>';
-    toast('Error: ' + errMsg, 'error');
-    return;
-  }
-  if(!(d.students && d.students.length)){
-    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this subject</div><div class="empty-sub">Check that students are enrolled in this class (Dept: ' + (d.departmentId||'?') + ', Sem: ' + (d.semester||'?') + ')</div></div>';
+  if(!d.success || !(d.students && d.students.length)){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this subject</div><div class="empty-sub">Check that students are enrolled in this class</div></div>';
     return;
   }
 
