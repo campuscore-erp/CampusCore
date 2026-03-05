@@ -528,10 +528,10 @@ function loadView(v){
   else if(v==='classes')loadClasses();
   else if(v==='students')loadStudents();
   else if(v==='attendance')loadAtt();
-  else if(v==='marks')loadMarksView();
-  else if(v==='exams')loadExams();
-  else if(v==='materials')loadMats();
-  else if(v==='online')loadOC();
+  else if(v==='marks'){loadSubjectsIntoSelects().then(function(){loadMarksView();});}
+  else if(v==='exams'){loadSubjectsIntoSelects().then(function(){loadExams();});}
+  else if(v==='materials'){loadSubjectsIntoSelects().then(function(){loadMats();});}
+  else if(v==='online'){loadSubjectsIntoSelects().then(function(){loadOC();});}
 }
 
 /* ══════════════════════════ INIT ══════════════════════════ */
@@ -560,7 +560,7 @@ async function loadSubjectsIntoSelects(){
     const tt=await api('/api/teacher/timetable');
     if(tt.timetable&&tt.timetable.length){
       const seen=new Set();
-      tt.timetable.forEach(r=>{
+      tt.timetable.forEach(function(r){
         if(!seen.has(r.SubjectID)){
           seen.add(r.SubjectID);
           mySubjects.push({SubjectID:r.SubjectID,SubjectName:r.SubjectName,SubjectCode:r.SubjectCode,
@@ -570,10 +570,11 @@ async function loadSubjectsIntoSelects(){
     }
   }
   const opts='<option value="">-- Select Subject --</option>'+
-    mySubjects.map(s=>'<option value="'+s.SubjectID+'">'+s.SubjectName+' ('+( s.SubjectCode||'')+') - Sem '+(s.Semester||'?')+'</option>').join('');
-  ['attSubject','qrSubject','marksSubject','examSubject','matSubject','ocSubject'].forEach(function(id){
+    mySubjects.map(function(s){return '<option value="'+s.SubjectID+'">'+s.SubjectName+' ('+( s.SubjectCode||'')+') - Sem '+(s.Semester||'?')+'</option>';}).join('');
+  // Only populate selects that actually exist in the DOM
+  ['marksSubject','examSubject','matSubject','ocSubject'].forEach(function(id){
     const sel=document.getElementById(id);
-    if(sel)sel.innerHTML=opts;
+    if(sel) sel.innerHTML=opts;
   });
 }
 
@@ -942,10 +943,28 @@ function stopQR(){
 }
 
 function drawQRFallback(text){
-  // Use Google Charts QR API as image (reliable fallback — no JS library)
   const box = document.getElementById('qrBox');
+  // Primary: api.qrserver.com (reliable, no CORS issues)
   const encoded = encodeURIComponent(text);
-  box.innerHTML = '<img src="https://chart.googleapis.com/chart?chs=220x220&cht=qr&chl=' + encoded + '&choe=UTF-8" width="220" height="220" style="border-radius:4px" alt="QR Code">';
+  const img = new Image();
+  img.width = 220; img.height = 220; img.style.borderRadius = '4px';
+  img.alt = 'QR Code';
+  img.onerror = function(){
+    // Fallback: quickchart.io
+    const img2 = new Image();
+    img2.width = 220; img2.height = 220; img2.style.borderRadius = '4px';
+    img2.alt = 'QR Code';
+    img2.onerror = function(){
+      // Last resort: show token text for manual display
+      box.innerHTML = '<div style="width:220px;height:220px;background:#fff;display:flex;align-items:center;justify-content:center;border-radius:4px;padding:1rem;box-sizing:border-box">'
+        + '<div style="color:#111;font-size:.62rem;word-break:break-all;text-align:center;font-family:monospace">'
+        + '<div style="font-weight:bold;margin-bottom:.5rem">QR Token:</div>' + text + '</div></div>';
+    };
+    img2.src = 'https://quickchart.io/qr?text=' + encoded + '&size=220';
+    box.innerHTML = ''; box.appendChild(img2);
+  };
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encoded;
+  box.innerHTML = ''; box.appendChild(img);
 }
 
 async function genQR(){
@@ -979,7 +998,7 @@ async function genQR(){
 
   qrInterval = setInterval(async function(){
     const s = await api('/api/teacher/attendance/qr-status?token=' + encodeURIComponent(qrToken));
-    if(s.success !== false) document.getElementById('qrStats').textContent = '&#x2705; ' + (s.scanned||0) + ' students scanned so far';
+    if(s.success !== false) document.getElementById('qrStats').textContent = '✅ ' + (s.scanned||0) + ' students scanned so far';
   }, 3000);
 }
 
