@@ -818,6 +818,19 @@ function applyStudentFilter() {
   renderStudentTable();
 }
 
+function buildStudentIdForSearch(s, index) {
+  const year = new Date().getFullYear();
+  const deptName = (s.DepartmentName || '').toUpperCase();
+  let deptCode = 'DEPT';
+  if (deptName.includes('COMPUTER') || deptName.includes('CSE')) deptCode = 'CSE';
+  else if (deptName.includes('ELECTRONICS') || deptName.includes('ECE')) deptCode = 'ECE';
+  else if (deptName.includes('ELECTRICAL') || deptName.includes('EEE')) deptCode = 'EEE';
+  else if (deptName.includes('MECHANICAL') || deptName.includes('MECH')) deptCode = 'MECH';
+  else if (deptName.includes('CIVIL')) deptCode = 'CIVIL';
+  else if (deptName.includes('IT') || deptName.includes('INFORMATION')) deptCode = 'IT';
+  return `${year}${s.Semester || 1}${deptCode}${1000 + index + 1}`;
+}
+
 function renderStudentTable() {
   const el = document.getElementById('studentsList');
   const filterVal = document.getElementById('studClassFilter').value;
@@ -834,13 +847,14 @@ function renderStudentTable() {
     );
   }
 
-  // Filter by search
+  // Filter by search — matches name, email, or generated student ID pattern
   if (search) {
-    filtered = filtered.filter(s =>
-      (s.FullName || '').toLowerCase().includes(search) ||
-      (s.RollNumber || '').toLowerCase().includes(search) ||
-      (s.Email || '').toLowerCase().includes(search)
-    );
+    filtered = filtered.filter((s, idx) => {
+      const sid = buildStudentIdForSearch(s, idx);
+      return (s.FullName || '').toLowerCase().includes(search) ||
+             sid.toLowerCase().includes(search) ||
+             (s.Email || '').toLowerCase().includes(search);
+    });
   }
 
   // Update subtitle
@@ -857,16 +871,36 @@ function renderStudentTable() {
     return;
   }
 
-  // Re-number sequentially 1001, 1002… within the filtered view
-  const rows = filtered.map((s, i) => `<tr>
+  // Build student ID: e.g. 20241CSE1001
+  // Format: YYYY + Semester + DeptCode + 4-digit sequence
+  function buildStudentId(s, index) {
+    const year = new Date().getFullYear();
+    // Extract dept code from DepartmentName or use raw code
+    const deptName = (s.DepartmentName || '').toUpperCase();
+    let deptCode = 'DEPT';
+    if (deptName.includes('COMPUTER') || deptName.includes('CSE')) deptCode = 'CSE';
+    else if (deptName.includes('ELECTRONICS') || deptName.includes('ECE')) deptCode = 'ECE';
+    else if (deptName.includes('ELECTRICAL') || deptName.includes('EEE')) deptCode = 'EEE';
+    else if (deptName.includes('MECHANICAL') || deptName.includes('MECH')) deptCode = 'MECH';
+    else if (deptName.includes('CIVIL')) deptCode = 'CIVIL';
+    else if (deptName.includes('IT') || deptName.includes('INFORMATION')) deptCode = 'IT';
+    const sem = s.Semester || 1;
+    const seq = String(1000 + index + 1);  // 1001, 1002...
+    return `${year}${sem}${deptCode}${seq}`;
+  }
+
+  const rows = filtered.map((s, i) => {
+    const studentId = buildStudentId(s, i);
+    return `<tr>
     <td style="color:var(--text3);font-size:.8rem">${i + 1}</td>
-    <td><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:.85rem">${1000 + i + 1}</span></td>
+    <td><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:.82rem;letter-spacing:.03em">${studentId}</span></td>
     <td style="font-weight:600">${s.FullName || ''}</td>
     <td><span style="background:var(--bg4);padding:.15rem .5rem;border-radius:.3rem;font-size:.75rem">Sem ${s.Semester || '—'}</span></td>
     <td style="color:var(--text2)">${s.Gender || '—'}</td>
     <td style="color:var(--text3);font-size:.8rem">${s.DepartmentName || '—'}</td>
     <td style="color:var(--text3);font-size:.73rem">${s.Email || '—'}</td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 
   el.innerHTML = `<div class="table-wrap"><table>
     <thead><tr>
