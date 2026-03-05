@@ -197,67 +197,45 @@ def _to_mssql_sql(sql: str) -> str:
 
 
 def _to_mysql_sql(sql: str) -> str:
-    """
-    Translate MSSQL/SQLite SQL syntax to MySQL.
-    Key rules:
-      - ISNULL -> IFNULL
-      - CONVERT(VARCHAR(n),col,23) -> DATE_FORMAT(col,'%Y-%m-%d')   (% already escaped below)
-      - CONVERT(VARCHAR(n),col,108)-> TIME_FORMAT(col,'%H:%i')
-      - CONVERT(VARCHAR(n),col)    -> CAST(col AS CHAR)
-      - STRING_AGG -> GROUP_CONCAT ... SEPARATOR
-      - CAST(x AS VARCHAR/NVARCHAR) -> CAST(x AS CHAR)
-      - CAST(x AS FLOAT) -> CAST(x AS DECIMAL(10,4))
-      - SELECT TOP N -> SELECT ... LIMIT N
-      - INSERT OR IGNORE -> INSERT IGNORE
-      - IF NOT EXISTS(...) INSERT -> INSERT IGNORE
-      - COALESCE(t.RoomNumber, t.Room, '') -> IFNULL(t.RoomNumber,'')
-      - ? -> %s  (done LAST, after all % in format strings are escaped to %%)
-    """
+    """Translate MSSQL/SQLite SQL to MySQL. Called for every MySQL query."""
     import re as _re
 
+    # ISNULL -> IFNULL
     sql = _re.sub(r'\bISNULL\s*\(', 'IFNULL(', sql, flags=_re.IGNORECASE)
 
-    # CONVERT with style 23 -> DATE_FORMAT
+    # CONVERT(VARCHAR(n), col, 23) -> DATE_FORMAT(col, '%Y-%m-%d')
     sql = _re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*23\s*\)",
         lambda m: f"DATE_FORMAT({m.group(1).strip()}, '%Y-%m-%d')",
-        sql, flags=_re.IGNORECASE,
-    )
+        sql, flags=_re.IGNORECASE)
 
-    # CONVERT with style 108 -> TIME_FORMAT
+    # CONVERT(VARCHAR(n), col, 108) -> TIME_FORMAT(col, '%H:%i')
     sql = _re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*108\s*\)",
         lambda m: f"TIME_FORMAT({m.group(1).strip()}, '%H:%i')",
-        sql, flags=_re.IGNORECASE,
-    )
+        sql, flags=_re.IGNORECASE)
 
     # CONVERT(VARCHAR(n), expr) -> CAST(expr AS CHAR)
     sql = _re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^)]+?)\s*\)",
         lambda m: f"CAST({m.group(1).strip()} AS CHAR)",
-        sql, flags=_re.IGNORECASE,
-    )
+        sql, flags=_re.IGNORECASE)
 
-    # STRING_AGG -> GROUP_CONCAT ... SEPARATOR
+    # STRING_AGG -> GROUP_CONCAT SEPARATOR
     sql = _re.sub(
-        r"STRING_AGG\s*\(\s*([^,]+?)\s*,\s*\'([^\']*)\'\s*\)",
-        lambda m: f"GROUP_CONCAT({m.group(1).strip()} SEPARATOR \'{m.group(2)}\')",
-        sql, flags=_re.IGNORECASE,
-    )
+        r"STRING_AGG\s*\(\s*([^,]+?)\s*,\s*'([^']*)'\s*\)",
+        lambda m: f"GROUP_CONCAT({m.group(1).strip()} SEPARATOR '{m.group(2)}')",
+        sql, flags=_re.IGNORECASE)
 
-    # CAST(x AS VARCHAR/NVARCHAR) -> CAST(x AS CHAR)
+    # CAST AS VARCHAR/NVARCHAR -> CHAR
     sql = _re.sub(
         r'\bCAST\s*\((.+?)\s+AS\s+N?VARCHAR(?:\s*\(\s*\d+\s*\))?\s*\)',
-        lambda m: f'CAST({m.group(1)} AS CHAR)',
-        sql, flags=_re.IGNORECASE,
-    )
+        lambda m: f'CAST({m.group(1)} AS CHAR)', sql, flags=_re.IGNORECASE)
 
-    # CAST(x AS FLOAT) -> CAST(x AS DECIMAL(10,4))
+    # CAST AS FLOAT -> DECIMAL
     sql = _re.sub(
         r'\bCAST\s*\((.+?)\s+AS\s+FLOAT\s*\)',
-        lambda m: f'CAST({m.group(1)} AS DECIMAL(10,4))',
-        sql, flags=_re.IGNORECASE,
-    )
+        lambda m: f'CAST({m.group(1)} AS DECIMAL(10,4))', sql, flags=_re.IGNORECASE)
 
     # SELECT TOP N -> SELECT ... LIMIT N
     top_m = _re.search(r'\bSELECT\s+TOP\s*\(?\s*(\d+)\s*\)?\s+', sql, flags=_re.IGNORECASE)
@@ -267,28 +245,25 @@ def _to_mysql_sql(sql: str) -> str:
         if not _re.search(r'\bLIMIT\b', sql, flags=_re.IGNORECASE):
             sql = sql.rstrip().rstrip(';') + f' LIMIT {n}'
 
-    # IF NOT EXISTS(...) INSERT -> INSERT IGNORE
+    # IF NOT EXISTS INSERT -> INSERT IGNORE
     sql = _re.sub(
         r"IF\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+(\w+)\s+WHERE\s+([^)]+)\)\s+INSERT\s+INTO\s+\1\s*(\([^)]+\))\s*VALUES\s*(\([^)]+\))",
         lambda m: f"INSERT IGNORE INTO {m.group(1)} {m.group(3)} VALUES {m.group(4)}",
-        sql, flags=_re.IGNORECASE | _re.DOTALL,
-    )
+        sql, flags=_re.IGNORECASE | _re.DOTALL)
 
     # INSERT OR IGNORE -> INSERT IGNORE
     sql = _re.sub(r'\bINSERT\s+OR\s+IGNORE\b', 'INSERT IGNORE', sql, flags=_re.IGNORECASE)
 
     # COALESCE(t.RoomNumber, t.Room, '') -> IFNULL(t.RoomNumber, '')
     sql = _re.sub(
-        r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*\'\s*\'\s*\)",
-        "IFNULL(t.RoomNumber, '')",
-        sql, flags=_re.IGNORECASE,
-    )
+        r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*''\s*\)",
+        "IFNULL(t.RoomNumber, '')", sql, flags=_re.IGNORECASE)
 
-    # Escape % in format strings so pymysql doesn't treat them as Python str format
-    # e.g. %Y -> %%Y so pymysql sees literal %Y in the SQL
+    # Escape % in format strings so pymysql doesn't treat as Python format specifiers
+    # Must happen BEFORE replacing ? with %s
     sql = sql.replace('%', '%%')
 
-    # ? -> %s  (MUST be last, after % escaping above)
+    # ? -> %s  (LAST step)
     sql = sql.replace('?', '%s')
 
     return sql
@@ -825,7 +800,7 @@ class Database:
         conn = None
         try:
             conn = self._mysql_connect()
-            query = _to_mysql_sql(query)  # translate MSSQL/SQLite -> MySQL
+            query = _to_mysql_sql(query)
             with conn.cursor() as cursor:
                 cursor.execute(query, params if params is not None else ())
                 if fetch_one:
@@ -843,7 +818,7 @@ class Database:
         conn = None
         try:
             conn = self._mysql_connect()
-            query = _to_mysql_sql(query)  # translate MSSQL/SQLite -> MySQL
+            query = _to_mysql_sql(query)
             with conn.cursor() as cursor:
                 cursor.execute(query, params if params is not None else ())
                 conn.commit()
