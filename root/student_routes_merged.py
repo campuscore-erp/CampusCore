@@ -996,14 +996,14 @@ def get_materials():
 def _safe_exams_query(student_id, where_sql, where_params):
     """Try full Exams query, fall back to minimal column sets for MSSQL compatibility."""
     for sql_variant in [
-        # MySQL/MSSQL primary: include StartTime + normalize ExamDate to date-only string
+        # MSSQL primary: include StartTime + normalize ExamDate to date-only string
         f"""SELECT e.ExamID, e.ExamType,
-               DATE_FORMAT(e.ExamDate, '%%Y-%%m-%%d') AS ExamDate,
+               DATE_FORMAT(e.ExamDate, '%Y-%m-%d') AS ExamDate,
                e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
                IFNULL(e.ExamTitle, e.ExamType) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
-               IFNULL(TIME_FORMAT(e.StartTime, '%%H:%%i'), '00:00') AS StartTime,
+               IFNULL(e.StartTime, '00:00') AS StartTime,
                NULL AS EndTime,
                IFNULL(e.Instructions, '') AS Instructions,
                1 AS IsActive, es.MarksObtained
@@ -1011,7 +1011,7 @@ def _safe_exams_query(student_id, where_sql, where_params):
             LEFT JOIN ExamSubmissions es ON e.ExamID = es.ExamID AND es.StudentID = ?
             WHERE {where_sql}
             ORDER BY e.ExamDate DESC""",
-        # Fallback: ExamDate raw, StartTime null
+        # MSSQL fallback: ExamDate raw (no CONVERT), StartTime null
         f"""SELECT e.ExamID, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
                IFNULL(e.ExamTitle, e.ExamType) AS ExamName,
@@ -1023,7 +1023,7 @@ def _safe_exams_query(student_id, where_sql, where_params):
             LEFT JOIN ExamSubmissions es ON e.ExamID = es.ExamID AND es.StudentID = ?
             WHERE {where_sql}
             ORDER BY e.ExamDate DESC""",
-        # Fallback: no ExamTitle either
+        # MSSQL fallback: no ExamTitle either
         f"""SELECT e.ExamID, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks,
                s.SubjectName, s.SubjectCode,
                CAST(e.ExamID AS CHAR) AS ExamName,
@@ -1102,8 +1102,8 @@ def get_exam_details(exam_id):
 
         exam = None
         for exam_sql in [
-            # MySQL-compatible primary
-            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate,'%%Y-%%m-%%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, IFNULL(TIME_FORMAT(e.StartTime,'%%H:%%i'),'00:00') AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            # MSSQL safe — no StartTime/EndTime
+            "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, DATE_FORMAT(e.ExamDate,'%Y-%m-%d') AS ExamDate, e.Duration, e.TotalMarks, IFNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, IFNULL(e.StartTime,'00:00') AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             "SELECT e.ExamID, IFNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             # SQLite full columns
             "SELECT e.ExamID, e.ExamName, e.ExamType, e.ExamDate, e.StartTime, e.EndTime, e.Duration, e.TotalMarks, e.Instructions, e.IsActive, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
@@ -1556,7 +1556,7 @@ def get_online_classes():
             # No ScheduledDate column (older schema)
             (f"""SELECT oc.OnlineClassID, oc.Title, oc.Title AS Topic, '' AS Description,
                         oc.MeetingLink,
-                        CONVERT(VARCHAR(10), oc.CreatedAt, 23) AS ScheduledDate,
+                        DATE_FORMAT(oc.CreatedAt, '%Y-%m-%d') AS ScheduledDate,
                         '' AS StartTime, '' AS EndTime,
                         s.SubjectName, s.SubjectCode, tc.FullName AS TeacherName
                  FROM OnlineClasses oc
@@ -1576,7 +1576,7 @@ def get_online_classes():
             # No teacher join fallback
             (f"""SELECT oc.OnlineClassID, oc.Title, oc.Title AS Topic, '' AS Description,
                         oc.MeetingLink,
-                        CONVERT(VARCHAR(10), oc.CreatedAt, 23) AS ScheduledDate,
+                        DATE_FORMAT(oc.CreatedAt, '%Y-%m-%d') AS ScheduledDate,
                         '' AS StartTime, '' AS EndTime,
                         s.SubjectName, s.SubjectCode, '' AS TeacherName
                  FROM OnlineClasses oc

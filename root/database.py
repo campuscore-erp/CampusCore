@@ -195,87 +195,103 @@ def _to_mssql_sql(sql: str) -> str:
     return without_limit
 
 
+
 def _to_mysql_sql(sql: str) -> str:
     """
-    Translate MSSQL/SQLite-specific SQL syntax to MySQL equivalents.
-    Called automatically when backend == 'mysql'.
-    NOTE: % signs in format strings are doubled (%% so pymysql doesn't
-    interpret them as Python string-format placeholders.
+    Translate MSSQL/SQLite SQL syntax to MySQL.
+    Key rules:
+      - ISNULL -> IFNULL
+      - CONVERT(VARCHAR(n),col,23) -> DATE_FORMAT(col,'%Y-%m-%d')   (% already escaped below)
+      - CONVERT(VARCHAR(n),col,108)-> TIME_FORMAT(col,'%H:%i')
+      - CONVERT(VARCHAR(n),col)    -> CAST(col AS CHAR)
+      - STRING_AGG -> GROUP_CONCAT ... SEPARATOR
+      - CAST(x AS VARCHAR/NVARCHAR) -> CAST(x AS CHAR)
+      - CAST(x AS FLOAT) -> CAST(x AS DECIMAL(10,4))
+      - SELECT TOP N -> SELECT ... LIMIT N
+      - INSERT OR IGNORE -> INSERT IGNORE
+      - IF NOT EXISTS(...) INSERT -> INSERT IGNORE
+      - COALESCE(t.RoomNumber, t.Room, '') -> IFNULL(t.RoomNumber,'')
+      - ? -> %s  (done LAST, after all % in format strings are escaped to %%)
     """
-    # ISNULL(a, b) → IFNULL(a, b)
-    sql = re.sub(r'\bISNULL\s*\(', 'IFNULL(', sql, flags=re.IGNORECASE)
+    import re as _re
 
-    # CONVERT(VARCHAR(n), col, 23)  → DATE_FORMAT(col, '%%Y-%%m-%%d')
-    sql = re.sub(
+    sql = _re.sub(r'\bISNULL\s*\(', 'IFNULL(', sql, flags=_re.IGNORECASE)
+
+    # CONVERT with style 23 -> DATE_FORMAT
+    sql = _re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*23\s*\)",
-        lambda m: f"DATE_FORMAT({m.group(1).strip()}, '%%Y-%%m-%%d')",
-        sql, flags=re.IGNORECASE,
+        lambda m: f"DATE_FORMAT({m.group(1).strip()}, '%Y-%m-%d')",
+        sql, flags=_re.IGNORECASE,
     )
 
-    # CONVERT(VARCHAR(n), col, 108) → TIME_FORMAT(col, '%%H:%%i')
-    sql = re.sub(
+    # CONVERT with style 108 -> TIME_FORMAT
+    sql = _re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^,]+?)\s*,\s*108\s*\)",
-        lambda m: f"TIME_FORMAT({m.group(1).strip()}, '%%H:%%i')",
-        sql, flags=re.IGNORECASE,
+        lambda m: f"TIME_FORMAT({m.group(1).strip()}, '%H:%i')",
+        sql, flags=_re.IGNORECASE,
     )
 
-    # CONVERT(VARCHAR(n), expr) → CAST(expr AS CHAR)
-    sql = re.sub(
+    # CONVERT(VARCHAR(n), expr) -> CAST(expr AS CHAR)
+    sql = _re.sub(
         r"CONVERT\s*\(\s*VARCHAR\s*\(\s*\d+\s*\)\s*,\s*([^)]+?)\s*\)",
         lambda m: f"CAST({m.group(1).strip()} AS CHAR)",
-        sql, flags=re.IGNORECASE,
+        sql, flags=_re.IGNORECASE,
     )
 
-    # STRING_AGG(col, ', ') → GROUP_CONCAT(col SEPARATOR ', ')
-    sql = re.sub(
-        r"STRING_AGG\s*\(\s*([^,]+?)\s*,\s*'([^']*)'\s*\)",
-        lambda m: f"GROUP_CONCAT({m.group(1).strip()} SEPARATOR '{m.group(2)}')",
-        sql, flags=re.IGNORECASE,
+    # STRING_AGG -> GROUP_CONCAT ... SEPARATOR
+    sql = _re.sub(
+        r"STRING_AGG\s*\(\s*([^,]+?)\s*,\s*\'([^\']*)\'\s*\)",
+        lambda m: f"GROUP_CONCAT({m.group(1).strip()} SEPARATOR \'{m.group(2)}\')",
+        sql, flags=_re.IGNORECASE,
     )
 
-    # CAST(x AS VARCHAR) / CAST(x AS NVARCHAR) → CAST(x AS CHAR)
-    sql = re.sub(r'\bCAST\s*\((.+?)\s+AS\s+N?VARCHAR(?:\s*\(\s*\d+\s*\))?\s*\)',
-                 lambda m: f'CAST({m.group(1)} AS CHAR)', sql, flags=re.IGNORECASE)
+    # CAST(x AS VARCHAR/NVARCHAR) -> CAST(x AS CHAR)
+    sql = _re.sub(
+        r'\bCAST\s*\((.+?)\s+AS\s+N?VARCHAR(?:\s*\(\s*\d+\s*\))?\s*\)',
+        lambda m: f'CAST({m.group(1)} AS CHAR)',
+        sql, flags=_re.IGNORECASE,
+    )
 
-    # SELECT TOP N → SELECT … LIMIT N
-    top_match = re.search(r'\bSELECT\s+TOP\s*\(?\s*(\d+)\s*\)?\s+', sql, flags=re.IGNORECASE)
-    if top_match:
-        n = top_match.group(1)
-        sql = re.sub(r'\bSELECT\s+TOP\s*\(?\s*\d+\s*\)?\s+', 'SELECT ', sql, flags=re.IGNORECASE)
-        if not re.search(r'\bLIMIT\b', sql, flags=re.IGNORECASE):
+    # CAST(x AS FLOAT) -> CAST(x AS DECIMAL(10,4))
+    sql = _re.sub(
+        r'\bCAST\s*\((.+?)\s+AS\s+FLOAT\s*\)',
+        lambda m: f'CAST({m.group(1)} AS DECIMAL(10,4))',
+        sql, flags=_re.IGNORECASE,
+    )
+
+    # SELECT TOP N -> SELECT ... LIMIT N
+    top_m = _re.search(r'\bSELECT\s+TOP\s*\(?\s*(\d+)\s*\)?\s+', sql, flags=_re.IGNORECASE)
+    if top_m:
+        n = top_m.group(1)
+        sql = _re.sub(r'\bSELECT\s+TOP\s*\(?\s*\d+\s*\)?\s+', 'SELECT ', sql, flags=_re.IGNORECASE)
+        if not _re.search(r'\bLIMIT\b', sql, flags=_re.IGNORECASE):
             sql = sql.rstrip().rstrip(';') + f' LIMIT {n}'
 
-    # IF NOT EXISTS ... INSERT → INSERT IGNORE
-    sql = re.sub(
+    # IF NOT EXISTS(...) INSERT -> INSERT IGNORE
+    sql = _re.sub(
         r"IF\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+(\w+)\s+WHERE\s+([^)]+)\)\s+INSERT\s+INTO\s+\1\s*(\([^)]+\))\s*VALUES\s*(\([^)]+\))",
         lambda m: f"INSERT IGNORE INTO {m.group(1)} {m.group(3)} VALUES {m.group(4)}",
-        sql, flags=re.IGNORECASE | re.DOTALL,
+        sql, flags=_re.IGNORECASE | _re.DOTALL,
     )
 
-    # INSERT OR IGNORE → INSERT IGNORE
-    sql = re.sub(r'\bINSERT\s+OR\s+IGNORE\b', 'INSERT IGNORE', sql, flags=re.IGNORECASE)
+    # INSERT OR IGNORE -> INSERT IGNORE
+    sql = _re.sub(r'\bINSERT\s+OR\s+IGNORE\b', 'INSERT IGNORE', sql, flags=_re.IGNORECASE)
 
-    # CAST(... AS FLOAT) → CAST(... AS DECIMAL(10,4))
-    sql = re.sub(r'\bCAST\s*\((.+?)\s+AS\s+FLOAT\s*\)',
-                 lambda m: f'CAST({m.group(1)} AS DECIMAL(10,4))', sql, flags=re.IGNORECASE)
-
-    # COALESCE(t.RoomNumber, t.Room, '') → IFNULL(t.RoomNumber, '') — avoids missing-column errors
-    sql = re.sub(
-        r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*''\s*\)",
+    # COALESCE(t.RoomNumber, t.Room, '') -> IFNULL(t.RoomNumber, '')
+    sql = _re.sub(
+        r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*\'\s*\'\s*\)",
         "IFNULL(t.RoomNumber, '')",
-        sql, flags=re.IGNORECASE,
+        sql, flags=_re.IGNORECASE,
     )
 
-    # Escape any bare % that aren't already %% (e.g. from DATE_FORMAT/TIME_FORMAT above)
-    # so pymysql doesn't interpret them as Python format specifiers.
-    # Strategy: replace single % not followed by another % with %%
-    sql = re.sub(r'%(?!%)', '%%', sql)
+    # Escape % in format strings so pymysql doesn't treat them as Python str format
+    # e.g. %Y -> %%Y so pymysql sees literal %Y in the SQL
+    sql = sql.replace('%', '%%')
 
-    # ? → %s (parameterized query marker — must come AFTER % escaping)
+    # ? -> %s  (MUST be last, after % escaping above)
     sql = sql.replace('?', '%s')
 
     return sql
-
 
 def _serialize_db_value(v: Any) -> Any:
     """Convert DB-specific scalar types to JSON-safe primitives."""
@@ -809,7 +825,7 @@ class Database:
         conn = None
         try:
             conn = self._mysql_connect()
-            query = _to_mysql_sql(query)  # translate MSSQL→MySQL syntax
+            query = _to_mysql_sql(query)  # translate MSSQL/SQLite -> MySQL
             with conn.cursor() as cursor:
                 cursor.execute(query, params if params is not None else ())
                 if fetch_one:
@@ -827,7 +843,7 @@ class Database:
         conn = None
         try:
             conn = self._mysql_connect()
-            query = _to_mysql_sql(query)  # translate MSSQL→MySQL syntax
+            query = _to_mysql_sql(query)  # translate MSSQL/SQLite -> MySQL
             with conn.cursor() as cursor:
                 cursor.execute(query, params if params is not None else ())
                 conn.commit()
