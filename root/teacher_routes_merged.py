@@ -10,14 +10,6 @@ FIXED:
   6. students_by_class — ordered by FullName with SerialNo field
   7. add_question — MSSQL-safe multi-fallback INSERT
   8. upload_material_file — accepts device file uploads (multipart/form-data)
-
-FACE RECOGNITION UPDATE (replaces QR attendance):
-  - Removed: /attendance/generate-qr, /attendance/qr-status endpoints
-  - Added:   /attendance/face-recognition  — identifies faces in classroom frame
-             /attendance/face-check-registered — check how many enrolled students have face data
-  - Teacher attendance card now shows: Manual Attendance | Face Recognition Attendance
-  - Face Recognition scans classroom webcam, matches faces, marks Present in Attendance table
-  - Unrecognised/unscanned students can be marked Absent via existing mark-absent endpoint
 """
 
 import os, uuid, secrets
@@ -497,276 +489,88 @@ def attendance_history():
 
 
 # =============================================================================
-# ATTENDANCE — FACE RECOGNITION  (REPLACES QR CODE SYSTEM)
-# =============================================================================
-#
-# REMOVED ENDPOINTS:
-#   /attendance/generate-qr  — QR generation (deleted, replaced by face recognition)
-#   /attendance/qr-status    — QR polling    (deleted, replaced by face recognition)
-#
-# NEW ENDPOINTS:
-#   POST /attendance/face-recognition      — Process classroom frame, identify faces,
-#                                            mark recognised students Present
-#   GET  /attendance/face-check-registered — Check how many students in the class
-#                                            have face data registered
-#   GET  /attendance/session-stats         — Kept: shows present/absent counts
+# ATTENDANCE — GENERATE QR
 # =============================================================================
 
-@bp_teacher.route('/attendance/face-recognition', methods=['POST'])
+@bp_teacher.route('/attendance/generate-qr', methods=['POST'])
 @jwt_required()
-def face_recognition_attendance():
-    """
-    FACE RECOGNITION ATTENDANCE — Teacher Portal
-    =============================================
-    Receives one or more classroom webcam frames (base64), detects all faces,
-    matches against stored encodings in student_face_data table, and marks
-    recognised students as Present in the Attendance table (MySQL syntax only).
-
-    Unrecognised students remain unmarked — teacher can use 'Mark Absent'
-    (existing endpoint) to finalise the session afterwards.
-
-    Request JSON:
-        {
-          "subjectId":      int,
-          "attendanceDate": "YYYY-MM-DD",   // optional, defaults to today
-          "frames":         [base64_str, ...]  // 1–5 webcam frames
-        }
-
-    Response:
-        {
-          "success":          true,
-          "recognised":       [{ "studentId": int, "studentName": str }, ...],
-          "markedPresent":    int,   // newly marked (skips already-present)
-          "alreadyPresent":   int,
-          "noFaceData":       int,   // enrolled students without face registration
-          "totalEnrolled":    int
-        }
-    """
+def generate_qr():
     uid, err = _get_teacher_user_id()
     if err: return err
-
     data       = request.get_json() or {}
     subject_id = data.get('subjectId')
-    att_date   = data.get('attendanceDate') or date.today().isoformat()
-    frames     = data.get('frames') or []
+    att_date   = data.get('attendanceDate', date.today().isoformat())
+    if not subject_id: return _err('subjectId required')
 
-    if not subject_id:
-        return _err('subjectId required')
-    if not frames:
-        return _err('At least one webcam frame (base64) required in frames[]')
+    # MySQL schema: QRCodes.TeacherID -> FK to Users(UserID)  => uid is correct, no translation needed
+    # MySQL schema: QRCodes.ClassID   -> NOT NULL FK to Classes(ClassID) => must fetch from Timetable
+    # MySQL schema: NO TimetableID column, NO IsActive column in QRCodes
+    class_id = None
+    tt = _try_queries([
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
+    ], fetch_one=True)
+    if tt: class_id = tt.get('ClassID')
+    print(f'[generate_qr] uid={uid} subject_id={subject_id} class_id={class_id}')
 
-    # ── Import face recognition helper ────────────────────────────────────────
-    try:
-        from face_recognition_helper import identify_faces_in_classroom, check_dependencies
-        deps = check_dependencies()
-        if not deps.get('ready'):
-            return _err(
-                'Face recognition libraries not installed on server. '
-                'Add face_recognition and opencv-python-headless to requirements.txt. '
-                f'Status: {deps}'
-            )
-    except ImportError as e:
-        return _err(f'face_recognition_helper module not found: {e}')
+    if not class_id:
+        return _err('Could not find class for this subject. Check timetable setup.')
 
-    # ── Fetch all students enrolled in this subject / class ───────────────────
-    # Try via StudentEnrollments + Timetable first (preferred), fallback to dept+sem
-    enrolled_students = []
-    try:
-        enrolled_students = db.execute_query(
-            """SELECT DISTINCT s.StudentID, s.FullName, s.RollNumber
-               FROM Students s
-               JOIN StudentEnrollments se ON se.StudentID = s.StudentID
-               JOIN Timetable t ON t.TimetableID = se.TimetableID
-               WHERE t.SubjectID = ? AND t.TeacherID = ? AND se.IsActive = 1""",
-            (subject_id, uid)) or []
-    except Exception:
-        pass
+    qr_token   = secrets.token_urlsafe(24)
+    expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
 
-    # Fallback: look up via Users table (legacy schema)
-    if not enrolled_students:
+    # QRCodes exact MySQL columns: TeacherID, SubjectID, ClassID, QRToken, ExpiresAt, IsUsed, CreatedAt
+    inserted = False
+    for cols, vals in [
+        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt,IsUsed,CreatedAt',
+         (uid, subject_id, class_id, qr_token, expires_at, 0, datetime.now())),
+        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt,CreatedAt',
+         (uid, subject_id, class_id, qr_token, expires_at, datetime.now())),
+        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt',
+         (uid, subject_id, class_id, qr_token, expires_at)),
+    ]:
         try:
-            tt_row = db.execute_query(
-                "SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? AND TeacherID=? LIMIT 1",
-                (subject_id, uid), fetch_one=True)
-            if tt_row:
-                enrolled_students = db.execute_query(
-                    "SELECT UserID AS StudentID, FullName FROM Users "
-                    "WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
-                    (tt_row['DepartmentID'], tt_row['Semester'])) or []
+            ph = ','.join(['?']*len(vals))
+            db.execute_non_query(f'INSERT INTO QRCodes ({cols}) VALUES ({ph})', vals)
+            inserted = True
+            break
         except Exception as e:
-            print(f'[FaceAtt] enrolled fallback err: {e}')
-
-    if not enrolled_students:
-        return _err('No enrolled students found for this subject.')
-
-    enrolled_ids = [s['StudentID'] for s in enrolled_students]
-    enrolled_map  = {s['StudentID']: s.get('FullName', 'Unknown') for s in enrolled_students}
-    total_enrolled = len(enrolled_ids)
-
-    # ── Load stored face encodings for enrolled students only ─────────────────
-    # Uses the student_face_data table (LONGBLOB face_encoding column)
-    face_data_map = {}   # student_id -> face_encoding blob
-    try:
-        if enrolled_ids:
-            placeholders = ','.join(['?'] * len(enrolled_ids))
-            face_rows = db.execute_query(
-                f"SELECT student_id, face_encoding FROM student_face_data WHERE student_id IN ({placeholders})",
-                tuple(enrolled_ids)) or []
-            for row in face_rows:
-                sid = row['student_id']
-                enc = row['face_encoding']
-                # Handle bytes/memoryview from MySQL LONGBLOB
-                if isinstance(enc, memoryview):
-                    enc = bytes(enc)
-                face_data_map[sid] = enc
-    except Exception as e:
-        print(f'[FaceAtt] face_data fetch err: {e}')
-        return _err(f'Could not load face data from database: {e}')
-
-    students_with_face = len(face_data_map)
-    students_without_face = total_enrolled - students_with_face
-
-    if students_with_face == 0:
-        return _err(
-            'No students in this class have registered their faces yet. '
-            'Ask students to register via their student portal.'
-        )
-
-    stored_blobs = list(face_data_map.items())   # [(student_id, bytes), ...]
-
-    # ── Process each frame and collect all identified student IDs ─────────────
-    all_recognised_ids = set()
-    for idx, frame_b64 in enumerate(frames):
-        try:
-            recognised_in_frame = identify_faces_in_classroom(frame_b64, stored_blobs)
-            all_recognised_ids.update(recognised_in_frame)
-            print(f'[FaceAtt] Frame {idx+1}: recognised {len(recognised_in_frame)} student(s)')
-        except Exception as e:
-            print(f'[FaceAtt] Frame {idx+1} error: {e}')
-
-    print(f'[FaceAtt] Total unique students identified: {len(all_recognised_ids)}')
-
-    # ── Check which students are already marked present today ─────────────────
-    already_present_ids = set()
-    try:
-        existing = db.execute_query(
-            "SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
-            (subject_id, att_date)) or []
-        already_present_ids = {r['StudentID'] for r in existing}
-    except Exception:
-        pass
-
-    # ── Mark recognised students as Present (MySQL syntax, skip duplicates) ───
-    newly_marked   = 0
-    already_marked = 0
-    recognised_list = []
-
-    for sid in all_recognised_ids:
-        student_name = enrolled_map.get(sid, f'Student #{sid}')
-        recognised_list.append({'studentId': sid, 'studentName': student_name})
-
-        if sid in already_present_ids:
-            already_marked += 1
-            print(f'[FaceAtt] {student_name} already present — skip')
-            continue
-
-        # INSERT attendance record — MySQL compatible, multi-fallback
-        inserted = False
-        for ins_sql, ins_vals in [
-            # Full schema with MarkedBy='Face'
-            ("INSERT INTO Attendance (StudentID,SubjectID,AttendanceDate,Status,MarkedBy,MarkedAt) VALUES (?,?,?,?,?,?)",
-             (sid, subject_id, att_date, 'Present', 'Face', datetime.now())),
-            # Without MarkedBy (if column doesn't exist)
-            ("INSERT INTO Attendance (StudentID,SubjectID,AttendanceDate,Status) VALUES (?,?,?,'Present')",
-             (sid, subject_id, att_date)),
-        ]:
-            try:
-                db.execute_non_query(ins_sql, ins_vals)
-                inserted = True
-                newly_marked += 1
-                print(f'[FaceAtt] Marked Present: {student_name} (sid={sid})')
-                break
-            except Exception as e:
-                print(f'[FaceAtt] INSERT fallback err: {e}')
-
-        if not inserted:
-            print(f'[FaceAtt] FAILED to mark {student_name} (sid={sid})')
-
+            print(f'[QR Insert] cols={cols} err={e}')
+    if not inserted:
+        return _err('Could not save QR code to database')
     return _ok({
-        'message':          f'Face recognition complete. {newly_marked} student(s) marked present.',
-        'recognised':       recognised_list,
-        'markedPresent':    newly_marked,
-        'alreadyPresent':   already_marked,
-        'noFaceData':       students_without_face,
-        'totalEnrolled':    total_enrolled,
-        'studentsWithFace': students_with_face,
-        'attendanceDate':   att_date,
-        'subjectId':        subject_id,
+        'qrToken': f'{qr_token}|{att_date}|{subject_id}',
+        'qrData':  f'{qr_token}|{att_date}|{subject_id}',
+        'message': 'QR code generated'
     })
 
 
-@bp_teacher.route('/attendance/face-check-registered')
-@jwt_required()
-def face_check_registered():
-    """
-    Check how many students enrolled in a subject have face data registered.
-    Used by teacher portal to show a warning if students haven't registered yet.
+# =============================================================================
+# ATTENDANCE — QR STATUS + SESSION STATS
+# =============================================================================
 
-    Query params: subjectId
-    """
+@bp_teacher.route('/attendance/qr-status')
+@jwt_required()
+def qr_status():
     uid, err = _get_teacher_user_id()
     if err: return err
-
-    subject_id = request.args.get('subjectId')
-    if not subject_id:
-        return _err('subjectId required')
-
-    # Count enrolled students
-    total = 0
-    registered = 0
+    token = request.args.get('token', '').strip()
+    if not token: return _err('token required')
+    parts = token.split('|')
+    subject_id = parts[2] if len(parts) >= 3 else None
+    att_date   = parts[1] if len(parts) >= 2 else date.today().isoformat()
     try:
-        enrolled = db.execute_query(
-            """SELECT DISTINCT s.StudentID
-               FROM Students s
-               JOIN StudentEnrollments se ON se.StudentID = s.StudentID
-               JOIN Timetable t ON t.TimetableID = se.TimetableID
-               WHERE t.SubjectID = ? AND t.TeacherID = ? AND se.IsActive = 1""",
-            (subject_id, uid)) or []
-
-        if not enrolled:
-            # Fallback via dept+semester
-            tt_row = db.execute_query(
-                "SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? AND TeacherID=? LIMIT 1",
-                (subject_id, uid), fetch_one=True)
-            if tt_row:
-                enrolled = db.execute_query(
-                    "SELECT UserID AS StudentID FROM Users "
-                    "WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
-                    (tt_row['DepartmentID'], tt_row['Semester'])) or []
-
-        total = len(enrolled)
-        if total > 0:
-            enrolled_ids  = [s['StudentID'] for s in enrolled]
-            placeholders  = ','.join(['?'] * len(enrolled_ids))
-            reg_count     = db.execute_scalar(
-                f"SELECT COUNT(*) FROM student_face_data WHERE student_id IN ({placeholders})",
-                tuple(enrolled_ids)) or 0
-            registered = int(reg_count)
-    except Exception as e:
-        print(f'[face_check_registered] err: {e}')
-
-    return _ok({
-        'totalEnrolled':  total,
-        'registered':     registered,
-        'unregistered':   total - registered,
-        'readyPercent':   round((registered / total * 100) if total else 0, 1),
-    })
+        scanned = db.execute_scalar(
+            "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present' AND MarkedBy=?",
+            (subject_id, att_date, str(uid))) or 0
+    except Exception:
+        scanned = 0
+    return _ok({'scanned': scanned, 'token': token})
 
 
 @bp_teacher.route('/attendance/session-stats')
 @jwt_required()
 def session_stats():
-    """Session stats — unchanged, used by both manual and face recognition modes."""
     uid, err = _get_teacher_user_id()
     if err: return err
     subject_id = request.args.get('subjectId')
@@ -1375,6 +1179,11 @@ def upload_material_file():
     if 'file' not in request.files: return _err('No file provided')
     f = request.files['file']
     if not f.filename: return _err('Empty filename')
+
+    # 50 MB server-side limit
+    f.seek(0, 2); size = f.tell(); f.seek(0)
+    if size > 50 * 1024 * 1024:
+        return _err(f'File too large ({round(size/1024/1024,1)} MB). Max allowed is 50 MB.', 413)
 
     ext        = os.path.splitext(f.filename)[1].lower()
     filename   = f'{uuid.uuid4().hex}{ext}'
