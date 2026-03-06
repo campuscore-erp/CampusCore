@@ -503,20 +503,6 @@ tbody tr:hover{background:rgba(37,99,235,.025);}
             <div class="sc-label">Departments</div>
           </div>
         </div>
-        <div class="sc sc-teal" style="--sc-teal:#0d9488;background:linear-gradient(135deg,#0d9488 0%,#14b8a6 100%)">
-          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-          <div class="sc-body">
-            <div class="sc-value" id="s-timetable">—</div>
-            <div class="sc-label">Timetable Entries</div>
-          </div>
-        </div>
-        <div class="sc sc-rose" style="background:linear-gradient(135deg,#be185d 0%,#ec4899 100%)">
-          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-          <div class="sc-body">
-            <div class="sc-value" id="s-fees">—</div>
-            <div class="sc-label">Fee Structures</div>
-          </div>
-        </div>
       </div>
 
       <div class="section-grid">
@@ -715,7 +701,7 @@ tbody tr:hover{background:rgba(37,99,235,.025);}
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Department</th><th>Semester</th><th>Year</th><th>Tuition</th><th>Exam</th><th>Lab</th><th>Library</th><th>Total</th></tr></thead>
+            <thead><tr><th>Department</th><th>Semester</th><th>Year</th><th>Tuition</th><th>Lab</th><th>Library</th><th>Sports</th><th>Other</th><th>Total</th></tr></thead>
             <tbody id="feesTbody"></tbody>
           </table>
         </div>
@@ -953,7 +939,7 @@ tbody tr:hover{background:rgba(37,99,235,.025);}
         <div class="form-field"><label>Tuition Fee (₹)</label><input id="fee-tuition" type="number" value="0"></div>
       </div>
       <div class="form-row">
-        <div class="form-field"><label>Exam Fee (₹)</label><input id="fee-exam" type="number" value="0"></div>
+        <div class="form-field"><label>Sports Fee (₹)</label><input id="fee-exam" type="number" value="0"></div>
         <div class="form-field"><label>Lab Fee (₹)</label><input id="fee-lab" type="number" value="0"></div>
       </div>
       <div class="form-row">
@@ -1051,7 +1037,6 @@ async function loadDashboard(){
   if(!d.success){toast(d.error||'Dashboard error','error');return;}
   const s=d.stats||{};
   const totalStu=s.totalStudents??0;const totalTea=s.totalTeachers??0;const totalSub=s.totalSubjects??0;const totalDep=s.totalDepartments??0;
-  const totalTimetable=s.totalTimetable??0;const totalFees=s.totalFeeStructure??0;
   const inactiveStu=s.inactiveStudents??0;const inactiveTea=s.inactiveTeachers??0;
   document.getElementById('s-students').textContent=totalStu;
   document.getElementById('s-students-sub').textContent=inactiveStu?`${inactiveStu} inactive`:'All active';
@@ -1059,8 +1044,6 @@ async function loadDashboard(){
   document.getElementById('s-teachers-sub').textContent=inactiveTea?`${inactiveTea} inactive`:'All active';
   document.getElementById('s-subjects').textContent=totalSub;
   document.getElementById('s-depts').textContent=totalDep;
-  document.getElementById('s-timetable').textContent=totalTimetable;
-  document.getElementById('s-fees').textContent=totalFees;
   const maxStu=Math.max(totalStu+inactiveStu,1);
   document.querySelector('#page-dashboard .sc-fill').style.width=Math.round(totalStu/maxStu*100)+'%';
   const rs=s.recentStudents||[];
@@ -1206,8 +1189,24 @@ async function loadTimetable(){
   document.getElementById('timetableTbody').innerHTML=rows.length?rows.map(t=>`<tr><td>${t.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${t.Semester||''}</span></td><td>${t.SubjectName||''} <small style="color:var(--muted-l)">(${t.SubjectCode||''})</small></td><td>${t.TeacherName||''}</td><td>${t.DayOfWeek||''}</td><td>${t.PeriodNumber||''}</td><td>${t.StartTime||''}–${t.EndTime||''}</td><td>${t.RoomNumber||''}</td><td><span class="badge ${t.IsLab?'b-amber':'b-teal'}">${t.IsLab?'Lab':'Theory'}</span></td><td><button class="btn btn-danger btn-xs" onclick="deleteTimetable(${t.TimetableID})">🗑️</button></td></tr>`).join(''):'<tr><td colspan="10" class="empty-state"><span class="ei">📅</span>No timetable entries</td></tr>';
 }
 async function addTimetable(){
-  const body={departmentId:document.getElementById('tt-dept').value,semester:parseInt(document.getElementById('tt-sem').value),subjectId:document.getElementById('tt-subj').value,teacherId:document.getElementById('tt-teacher').value,dayOfWeek:document.getElementById('tt-day').value,periodNumber:parseInt(document.getElementById('tt-period').value),startTime:document.getElementById('tt-start').value,endTime:document.getElementById('tt-end').value,roomNumber:document.getElementById('tt-room').value,isLab:parseInt(document.getElementById('tt-islab').value)};
-  if(!body.departmentId||!body.subjectId||!body.teacherId){toast('Department, Subject, Teacher required','error');return;}
+  const deptId=document.getElementById('tt-dept').value;
+  const sem=parseInt(document.getElementById('tt-sem').value);
+  const subjId=document.getElementById('tt-subj').value;
+  const teacherId=document.getElementById('tt-teacher').value;
+  if(!deptId||!subjId||!teacherId){toast('Department, Subject, Teacher required','error');return;}
+  const body={
+    departmentId:deptId,
+    semester:sem,
+    subjectId:subjId,
+    teacherId:teacherId,
+    dayOfWeek:document.getElementById('tt-day').value,
+    periodNumber:parseInt(document.getElementById('tt-period').value),
+    startTime:document.getElementById('tt-start').value,
+    endTime:document.getElementById('tt-end').value,
+    roomNumber:document.getElementById('tt-room').value,
+    isLab:parseInt(document.getElementById('tt-islab').value),
+    academicYear:'2024-25'
+  };
   const d=await api('/api/admin/timetable',{method:'POST',body:JSON.stringify(body)});
   if(d?.success){toast('Entry added');closeModal('addTimetableModal');loadTimetable();}else toast(d?.error||'Failed','error');
 }
@@ -1215,10 +1214,18 @@ async function deleteTimetable(id){if(!confirm('Delete this timetable entry?'))r
 
 async function loadFees(){
   const d=await api('/api/admin/fee-structure');if(!d)return;const rows=d.feeStructure||[];
-  document.getElementById('feesTbody').innerHTML=rows.length?rows.map(f=>`<tr><td>${f.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${f.Semester||''}</span></td><td>${f.AcademicYear||''}</td><td>₹${(f.TuitionFee||0).toLocaleString()}</td><td>₹${(f.ExamFee||0).toLocaleString()}</td><td>₹${(f.LabFee||0).toLocaleString()}</td><td>₹${(f.LibraryFee||0).toLocaleString()}</td><td><b>₹${(f.TotalFee||0).toLocaleString()}</b></td></tr>`).join(''):'<tr><td colspan="8" class="empty-state"><span class="ei">💰</span>No fee structures</td></tr>';
+  document.getElementById('feesTbody').innerHTML=rows.length?rows.map(f=>{
+    const tuition=parseFloat(f.TuitionFee||0);
+    const lab=parseFloat(f.LabFee||0);
+    const library=parseFloat(f.LibraryFee||0);
+    const sports=parseFloat(f.SportsFee||0);
+    const other=parseFloat(f.OtherFees||f.OtherCharges||0);
+    const total=f.TotalFee?parseFloat(f.TotalFee):(tuition+lab+library+sports+other);
+    return `<tr><td>${f.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${f.Semester||''}</span></td><td>${f.AcademicYear||''}</td><td>₹${tuition.toLocaleString()}</td><td>₹${lab.toLocaleString()}</td><td>₹${library.toLocaleString()}</td><td>₹${sports.toLocaleString()}</td><td>₹${other.toLocaleString()}</td><td><b>₹${total.toLocaleString()}</b></td></tr>`;
+  }).join(''):'<tr><td colspan="9" class="empty-state"><span class="ei">💰</span>No fee structures</td></tr>';
 }
 async function addFee(){
-  const body={departmentId:document.getElementById('fee-dept').value,semester:document.getElementById('fee-sem').value,academicYear:document.getElementById('fee-year').value,tuitionFee:parseFloat(document.getElementById('fee-tuition').value)||0,examFee:parseFloat(document.getElementById('fee-exam').value)||0,labFee:parseFloat(document.getElementById('fee-lab').value)||0,libraryFee:parseFloat(document.getElementById('fee-lib').value)||0,otherCharges:parseFloat(document.getElementById('fee-other').value)||0,developmentFee:0};
+  const body={departmentId:document.getElementById('fee-dept').value,semester:document.getElementById('fee-sem').value,academicYear:document.getElementById('fee-year').value,tuitionFee:parseFloat(document.getElementById('fee-tuition').value)||0,labFee:parseFloat(document.getElementById('fee-lab').value)||0,libraryFee:parseFloat(document.getElementById('fee-lib').value)||0,sportsFee:parseFloat(document.getElementById('fee-exam').value)||0,otherFees:parseFloat(document.getElementById('fee-other').value)||0};
   if(!body.departmentId){toast('Select a department','error');return;}
   const d=await api('/api/admin/fee-structure',{method:'POST',body:JSON.stringify(body)});
   if(d?.success){toast('Fee structure added');closeModal('addFeeModal');loadFees();}else toast(d?.error||'Failed','error');

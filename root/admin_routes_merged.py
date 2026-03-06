@@ -1029,33 +1029,76 @@ def create_timetable():
     err = admin_required()
     if err: return err
     try:
-        data = request.get_json(silent=True) or {}
+        data       = request.get_json(silent=True) or {}
+        dept_id    = data.get('departmentId')
+        semester   = data.get('semester')
+        subject_id = data.get('subjectId')
+        teacher_id = data.get('teacherId')
+        day        = data.get('dayOfWeek')
+        start_time = data.get('startTime')
+        end_time   = data.get('endTime')
+        room       = data.get('roomNumber', 'TBD')
+        acad_year  = data.get('academicYear', '2024-25')
+        period_num = data.get('periodNumber', 1)
+        is_lab     = data.get('isLab', 0)
+
+        if not all([dept_id, subject_id, teacher_id, day, start_time, end_time]):
+            return jsonify({'error': 'departmentId, subjectId, teacherId, dayOfWeek, startTime, endTime are required', 'success': False}), 400
+
+        # ── Try MySQL schema: needs ClassID ────────────────────────────────────
         class_id = data.get('classId')
         if not class_id:
-            cls = db.execute_query(
-                "SELECT ClassID FROM Classes WHERE DepartmentID=? AND Semester=? LIMIT 1",
-                (data.get('departmentId'), data.get('semester')), fetch_one=True
-            )
-            class_id = cls['ClassID'] if cls else None
+            # Try to find existing class for this dept+semester
+            try:
+                cls = db.execute_query(
+                    "SELECT ClassID FROM Classes WHERE DepartmentID=? AND Semester=? LIMIT 1",
+                    (dept_id, semester), fetch_one=True
+                )
+                if cls:
+                    class_id = cls['ClassID']
+                else:
+                    # Auto-create a class row so timetable can be inserted
+                    db.execute_non_query(
+                        "INSERT INTO Classes (ClassName, DepartmentID, Semester, Section, AcademicYear) VALUES (?, ?, ?, 'A', ?)",
+                        (f'Dept{dept_id}-Sem{semester}', dept_id, semester, acad_year)
+                    )
+                    cls = db.execute_query(
+                        "SELECT ClassID FROM Classes WHERE DepartmentID=? AND Semester=? LIMIT 1",
+                        (dept_id, semester), fetch_one=True
+                    )
+                    class_id = cls['ClassID'] if cls else None
+            except Exception as e:
+                print(f'[Timetable POST] Classes lookup/create failed: {e}')
 
-        if not class_id:
-            return jsonify({'error': 'classId is required (or provide departmentId + semester)', 'success': False}), 400
+        if class_id:
+            # MySQL/MSSQL schema insert
+            try:
+                db.execute_non_query("""
+                    INSERT INTO Timetable
+                        (ClassID, SubjectID, TeacherID, DayOfWeek,
+                         StartTime, EndTime, RoomNumber, AcademicYear)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (class_id, subject_id, teacher_id, day, start_time, end_time, room, acad_year))
+                return jsonify({'success': True, 'message': 'Timetable entry created'}), 201
+            except Exception as e:
+                print(f'[Timetable POST] MySQL insert failed: {e}')
 
-        db.execute_non_query("""
-            INSERT INTO Timetable
-                (ClassID, SubjectID, TeacherID, DayOfWeek,
-                 StartTime, EndTime, RoomNumber, AcademicYear)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            class_id,
-            data['subjectId'], data['teacherId'],
-            data['dayOfWeek'],
-            data['startTime'], data['endTime'],
-            data.get('roomNumber', 'TBD'),
-            data.get('academicYear', '2024-25')
-        ))
-        return jsonify({'success': True, 'message': 'Timetable entry created'}), 201
+        # ── Fallback: SQLite schema (DepartmentID + Semester directly) ─────────
+        try:
+            db.execute_non_query("""
+                INSERT INTO Timetable
+                    (DepartmentID, Semester, SubjectID, TeacherID, DayOfWeek,
+                     PeriodNumber, StartTime, EndTime, RoomNumber, IsLab, AcademicYear)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (dept_id, semester, subject_id, teacher_id, day,
+                  period_num, start_time, end_time, room, is_lab, acad_year))
+            return jsonify({'success': True, 'message': 'Timetable entry created'}), 201
+        except Exception as e:
+            print(f'[Timetable POST] SQLite insert failed: {e}')
+            return jsonify({'error': str(e), 'success': False}), 500
+
     except Exception as e:
+        traceback.print_exc()
         return jsonify({'error': str(e), 'success': False}), 500
 
 
