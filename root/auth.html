@@ -4,42 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CampusCore — Sign In</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #f5f4f0;
-  --white:    #ffffff;
-  --ink:      #1a1a18;
-  --ink2:     #2e2e2b;
-  --muted:    #7a7a72;
-  --muted-l:  #aeaea5;
-  --border:   #e4e3dc;
+  --bg:         #f7f6f2;
+  --white:      #ffffff;
+  --ink:        #16150f;
+  --ink2:       #2a2921;
+  --muted:      #6b6a60;
+  --muted-l:    #b0afa6;
+  --border:     #e8e7e0;
+  --border-2:   #d5d4cc;
 
-  --admin:    #c8521a;
-  --admin-bg: #fdf3ec;
-  --admin-lt: rgba(200,82,26,.1);
+  --admin:      #b5430e;
+  --admin-bg:   #fdf2ed;
+  --admin-lt:   rgba(181,67,14,.12);
+  --admin-glow: rgba(181,67,14,.18);
 
-  --teacher:    #1a6b5a;
-  --teacher-bg: #ecf7f4;
-  --teacher-lt: rgba(26,107,90,.1);
+  --teacher:    #1a6e5c;
+  --teacher-bg: #edf7f4;
+  --teacher-lt: rgba(26,110,92,.12);
+  --teacher-glow:rgba(26,110,92,.18);
 
-  --student:    #2848a9;
+  --student:    #2646a8;
   --student-bg: #edf1fc;
-  --student-lt: rgba(40,72,169,.1);
+  --student-lt: rgba(38,70,168,.12);
+  --student-glow:rgba(38,70,168,.18);
 
-  --panel-bg:   #1c1c1a;
-  --panel-ink:  rgba(255,255,255,.88);
-  --panel-muted:rgba(255,255,255,.38);
-  --panel-dim:  rgba(255,255,255,.06);
+  --panel:      #111110;
+  --panel-2:    #1a1a18;
 
-  --font:  'DM Sans', sans-serif;
-  --serif: 'DM Serif Display', Georgia, serif;
-  --r:     10px;
+  --font:  'Outfit', system-ui, sans-serif;
+  --serif: 'Lora', Georgia, serif;
+
+  --accent: var(--admin);
+  --accent-lt: var(--admin-lt);
+  --accent-glow: var(--admin-glow);
 }
 
 html, body { height: 100%; }
+
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -49,160 +55,191 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ─── LEFT PANEL ───────────────────────────────────────── */
-.panel {
-  flex: 0 0 380px;
-  background: var(--panel-bg);
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar {
+  flex: 0 0 360px;
+  background: var(--panel);
   display: flex;
   flex-direction: column;
-  padding: 2.25rem 2rem;
+  padding: 2rem 1.75rem;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow: hidden;
+  isolation: isolate;
 }
 
-/* subtle grid texture */
-.panel::before {
-  content: '';
+.sidebar-noise {
+  position: absolute;
+  inset: 0;
+  opacity: .4;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-lines {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-  background-size: 32px 32px;
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 28px 28px;
   pointer-events: none;
+  z-index: 0;
 }
 
-/* warm glow blob */
-.panel-glow {
+.sidebar-glow {
   position: absolute;
-  bottom: -80px;
-  right: -80px;
-  width: 320px;
-  height: 320px;
+  bottom: -120px;
+  left: -80px;
+  width: 420px;
+  height: 420px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(200,82,26,.18) 0%, transparent 65%);
+  background: radial-gradient(circle, var(--accent-glow, rgba(181,67,14,.18)) 0%, transparent 60%);
   pointer-events: none;
-  transition: background .4s;
+  z-index: 0;
+  transition: background .5s ease;
 }
-body[data-role="Teacher"] .panel-glow { background: radial-gradient(circle, rgba(26,107,90,.22) 0%, transparent 65%); }
-body[data-role="Student"] .panel-glow { background: radial-gradient(circle, rgba(40,72,169,.22) 0%, transparent 65%); }
 
-/* brand */
+body[data-role="Teacher"] .sidebar-glow { background: radial-gradient(circle, var(--teacher-glow) 0%, transparent 60%); }
+body[data-role="Student"]  .sidebar-glow { background: radial-gradient(circle, var(--student-glow) 0%, transparent 60%); }
+
+/* Brand */
 .brand {
   display: flex;
   align-items: center;
-  gap: .75rem;
+  gap: .85rem;
   position: relative;
   z-index: 1;
 }
-.brand-mark {
-  width: 38px;
-  height: 38px;
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
 }
+
 .brand-name {
   font-family: var(--serif);
-  font-size: 1.35rem;
+  font-size: 1.3rem;
   color: #fff;
   letter-spacing: .01em;
   line-height: 1;
 }
 .brand-tag {
-  font-size: .6rem;
-  color: var(--panel-muted);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  margin-top: .2rem;
-}
-
-/* hero copy */
-.panel-body {
-  margin-top: auto;
-  margin-bottom: 2rem;
-  position: relative;
-  z-index: 1;
-}
-.panel-eyebrow {
-  font-size: .65rem;
+  font-size: .58rem;
   font-weight: 600;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--panel-muted);
-  margin-bottom: .85rem;
+  color: rgba(255,255,255,.28);
+  margin-top: .22rem;
 }
-.panel-heading {
+
+/* Hero */
+.sidebar-body {
+  margin-top: auto;
+  margin-bottom: 1.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-eyebrow {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.28);
+  margin-bottom: .75rem;
+}
+
+.sidebar-heading {
   font-family: var(--serif);
-  font-size: 2.4rem;
+  font-size: 2.2rem;
   color: #fff;
-  line-height: 1.1;
-  margin-bottom: 1rem;
+  line-height: 1.18;
+  margin-bottom: .85rem;
   letter-spacing: -.01em;
 }
-.panel-heading em {
+
+.sidebar-heading em {
   font-style: italic;
   color: transparent;
-  -webkit-text-stroke: 1.5px rgba(255,255,255,.55);
+  -webkit-text-stroke: 1.5px rgba(255,255,255,.3);
   transition: -webkit-text-stroke-color .4s;
 }
-body[data-role="Admin"]   .panel-heading em { -webkit-text-stroke-color: var(--admin); }
-body[data-role="Teacher"] .panel-heading em { -webkit-text-stroke-color: #2ec4a0; }
-body[data-role="Student"] .panel-heading em { -webkit-text-stroke-color: #6b8ef5; }
+body[data-role="Admin"]   .sidebar-heading em { -webkit-text-stroke-color: #e06030; }
+body[data-role="Teacher"] .sidebar-heading em { -webkit-text-stroke-color: #2cd4a4; }
+body[data-role="Student"] .sidebar-heading em { -webkit-text-stroke-color: #7090f5; }
 
-.panel-desc {
-  font-size: .8rem;
-  color: var(--panel-muted);
-  line-height: 1.8;
+.sidebar-desc {
+  font-size: .78rem;
+  color: rgba(255,255,255,.32);
+  line-height: 1.85;
   margin-bottom: 1.5rem;
+  font-weight: 300;
 }
 
-/* role rows */
-.role-rows { display: flex; flex-direction: column; gap: .35rem; }
-.role-row {
+/* Role rows */
+.role-list { display: flex; flex-direction: column; gap: .3rem; }
+
+.role-item {
   display: flex;
   align-items: center;
   gap: .75rem;
-  padding: .6rem .85rem;
-  border-radius: 8px;
-  background: var(--panel-dim);
+  padding: .65rem .9rem;
+  border-radius: 10px;
   border: 1px solid rgba(255,255,255,.05);
+  background: rgba(255,255,255,.04);
   cursor: pointer;
-  transition: background .18s, border-color .18s, transform .18s;
+  transition: background .2s, border-color .2s, transform .2s;
+  position: relative;
+  overflow: hidden;
 }
-.role-row:hover {
-  background: rgba(255,255,255,.1);
-  border-color: rgba(255,255,255,.12);
-  transform: translateX(3px);
+
+.role-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  opacity: 0;
+  transition: opacity .2s;
 }
-.role-row.active {
-  background: rgba(255,255,255,.1);
-  border-color: rgba(255,255,255,.16);
-}
-.rr-dot {
-  width: 8px; height: 8px;
+.role-item.ri-admin::before   { background: #e06030; }
+.role-item.ri-teacher::before { background: #2cd4a4; }
+.role-item.ri-student::before { background: #7090f5; }
+
+.role-item:hover { background: rgba(255,255,255,.08); transform: translateX(2px); }
+.role-item.active { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.1); }
+.role-item.active::before { opacity: 1; }
+
+.ri-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-.rr-dot.adm { background: var(--admin); box-shadow: 0 0 8px var(--admin); }
-.rr-dot.tea { background: #2ec4a0; box-shadow: 0 0 8px rgba(46,196,160,.7); }
-.rr-dot.stu { background: #6b8ef5; box-shadow: 0 0 8px rgba(107,142,245,.7); }
-.rr-name { font-size: .8rem; font-weight: 600; color: rgba(255,255,255,.72); }
-.rr-desc { font-size: .65rem; color: rgba(255,255,255,.3); margin-top: .05rem; }
+.ri-dot.adm { background: #e06030; box-shadow: 0 0 7px rgba(224,96,48,.7); }
+.ri-dot.tea { background: #2cd4a4; box-shadow: 0 0 7px rgba(44,212,164,.7); }
+.ri-dot.stu { background: #7090f5; box-shadow: 0 0 7px rgba(112,144,245,.7); }
 
-/* panel footer */
-.panel-foot {
+.ri-label { font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.7); }
+.ri-desc  { font-size: .62rem; color: rgba(255,255,255,.26); margin-top: .06rem; }
+
+/* Footer */
+.sidebar-foot {
   position: relative;
   z-index: 1;
-  font-size: .63rem;
-  color: rgba(255,255,255,.15);
+  font-size: .6rem;
+  color: rgba(255,255,255,.14);
   border-top: 1px solid rgba(255,255,255,.06);
-  padding-top: .85rem;
+  padding-top: .8rem;
   display: flex;
   justify-content: space-between;
 }
 
-/* ─── RIGHT PANEL ──────────────────────────────────────── */
+/* ── MAIN STAGE ───────────────────────────────────────────── */
 .stage {
   flex: 1;
   display: flex;
@@ -212,36 +249,119 @@ body[data-role="Student"] .panel-heading em { -webkit-text-stroke-color: #6b8ef5
   overflow-y: auto;
 }
 
+/* Subtle patterned bg for stage */
+.stage::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  left: 360px;
+  background-image: radial-gradient(circle at 80% 20%, rgba(181,67,14,.05) 0%, transparent 50%),
+                    radial-gradient(circle at 20% 80%, rgba(38,70,168,.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+  transition: background-image .5s;
+}
+
+/* ── CARD ──────────────────────────────────────────────────── */
 .card {
   width: 100%;
-  max-width: 430px;
+  max-width: 420px;
   background: var(--white);
-  border-radius: 16px;
-  padding: 2rem 2rem 2rem;
+  border-radius: 20px;
+  padding: 2rem 2rem 1.75rem;
   border: 1px solid var(--border);
-  box-shadow: 0 2px 40px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.04);
-  animation: fadeUp .35s ease both;
-}
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
+  box-shadow:
+    0 1px 2px rgba(0,0,0,.03),
+    0 4px 16px rgba(0,0,0,.05),
+    0 20px 40px rgba(0,0,0,.05);
+  position: relative;
+  animation: riseIn .38s cubic-bezier(.16,1,.3,1) both;
 }
 
-/* tabs hidden — role selection handled by left panel only */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(18px) scale(.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-/* form header */
-.card-head { margin-bottom: 1.6rem; }
+/* Accent stripe at top */
+.card-stripe {
+  position: absolute;
+  top: 0; left: 2rem; right: 2rem;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: var(--accent);
+  transition: background .3s;
+  opacity: .9;
+}
+body[data-role="Admin"]   .card-stripe { background: var(--admin); }
+body[data-role="Teacher"] .card-stripe { background: var(--teacher); }
+body[data-role="Student"] .card-stripe { background: var(--student); }
+
+/* Role tabs */
+.role-tabs {
+  display: flex;
+  gap: .35rem;
+  margin-bottom: 1.6rem;
+  background: var(--bg);
+  border-radius: 11px;
+  padding: .28rem;
+}
+
+.role-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .18rem;
+  padding: .52rem .2rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: .66rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .02em;
+  transition: background .18s, color .18s, box-shadow .18s;
+  line-height: 1;
+}
+.role-tab:hover { background: rgba(0,0,0,.04); color: var(--ink2); }
+.role-tab.active-admin   { background: var(--white); color: var(--admin);   box-shadow: 0 1px 8px rgba(0,0,0,.10); }
+.role-tab.active-teacher { background: var(--white); color: var(--teacher); box-shadow: 0 1px 8px rgba(0,0,0,.10); }
+.role-tab.active-student { background: var(--white); color: var(--student); box-shadow: 0 1px 8px rgba(0,0,0,.10); }
+
+.tab-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: .8rem;
+  margin-bottom: .1rem;
+  transition: background .18s;
+}
+.role-tab.active-admin   .tab-icon { background: var(--admin-bg); }
+.role-tab.active-teacher .tab-icon { background: var(--teacher-bg); }
+.role-tab.active-student .tab-icon { background: var(--student-bg); }
+
+/* Card header */
+.card-head {
+  margin-bottom: 1.5rem;
+}
+
 .role-badge {
   display: inline-flex;
   align-items: center;
-  gap: .35rem;
-  font-size: .65rem;
+  gap: .3rem;
+  font-size: .62rem;
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: .07em;
   text-transform: uppercase;
-  padding: .2rem .65rem;
+  padding: .22rem .65rem;
   border-radius: 100px;
-  margin-bottom: .8rem;
+  margin-bottom: .75rem;
   transition: background .25s, color .25s;
 }
 .rb-admin   { background: var(--admin-bg);   color: var(--admin); }
@@ -250,106 +370,132 @@ body[data-role="Student"] .panel-heading em { -webkit-text-stroke-color: #6b8ef5
 
 .card-title {
   font-family: var(--serif);
-  font-size: 1.65rem;
+  font-size: 1.7rem;
   color: var(--ink);
   letter-spacing: -.01em;
-  margin-bottom: .25rem;
+  margin-bottom: .22rem;
   line-height: 1.15;
 }
-.card-sub { font-size: .78rem; color: var(--muted); line-height: 1.6; }
 
-/* alerts */
+.card-sub {
+  font-size: .77rem;
+  color: var(--muted);
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+/* Alerts */
 .alert {
   display: flex;
   align-items: flex-start;
   gap: .5rem;
-  padding: .65rem .85rem;
-  border-radius: 8px;
-  font-size: .78rem;
+  padding: .7rem .9rem;
+  border-radius: 10px;
+  font-size: .77rem;
   font-weight: 500;
   line-height: 1.55;
   margin-bottom: .9rem;
-  animation: slideIn .2s ease;
+  animation: alertIn .22s ease;
 }
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-4px); }
+@keyframes alertIn {
+  from { opacity: 0; transform: translateY(-3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.alert-icon { flex-shrink: 0; font-size: .85rem; margin-top: .05rem; }
-.alert-error   { background: #fff5f5; color: #b91c1c; border: 1px solid rgba(185,28,28,.15); }
-.alert-success { background: #f0fdf4; color: #15803d; border: 1px solid rgba(21,128,61,.15); }
-.alert-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29,78,216,.15); }
+.alert-icon { flex-shrink: 0; font-size: .82rem; margin-top: .06rem; }
+.alert-error   { background: #fff4f4; color: #b91c1c; border: 1px solid rgba(185,28,28,.14); }
+.alert-success { background: #f0fdf6; color: #15803d; border: 1px solid rgba(21,128,61,.14); }
+.alert-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29,78,216,.14); }
 
 .switch-hint {
   display: flex;
   align-items: center;
-  gap: .6rem;
-  padding: .65rem .85rem;
-  border-radius: 8px;
-  background: #fff5f5;
-  border: 1px solid rgba(185,28,28,.15);
+  gap: .55rem;
+  padding: .65rem .9rem;
+  border-radius: 10px;
+  background: #fff4f4;
+  border: 1px solid rgba(185,28,28,.14);
   margin-bottom: .9rem;
-  animation: slideIn .2s ease;
+  animation: alertIn .22s ease;
 }
-.sh-text { font-size: .77rem; color: #b91c1c; font-weight: 500; line-height: 1.5; flex: 1; }
+.sh-text { font-size: .76rem; color: #b91c1c; font-weight: 500; line-height: 1.5; flex: 1; }
 .sh-btn {
   flex-shrink: 0;
-  padding: .28rem .7rem;
+  padding: .28rem .75rem;
   border-radius: 6px;
   background: #b91c1c;
   color: #fff;
   border: none;
   cursor: pointer;
-  font-size: .7rem;
+  font-size: .68rem;
   font-weight: 700;
   font-family: var(--font);
   transition: opacity .15s;
 }
 .sh-btn:hover { opacity: .85; }
 
-/* form fields */
-.field { margin-bottom: 1rem; }
-.field label {
+/* Fields */
+.field { margin-bottom: .95rem; }
+
+.field-label {
   display: block;
-  font-size: .72rem;
+  font-size: .7rem;
   font-weight: 600;
   color: var(--ink2);
   margin-bottom: .4rem;
-  letter-spacing: .02em;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
+
 .input-wrap { position: relative; }
-.input-ico {
+
+.input-icon {
   position: absolute;
   left: .9rem;
   top: 50%;
   transform: translateY(-50%);
-  font-size: .8rem;
   pointer-events: none;
-  opacity: .4;
+  display: flex;
+  align-items: center;
+  color: var(--muted-l);
+  transition: color .2s;
 }
+
 .field input {
   width: 100%;
-  padding: .68rem 1rem .68rem 2.4rem;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
+  padding: .72rem 1rem .72rem 2.6rem;
+  border: 1.5px solid var(--border-2);
+  border-radius: 10px;
   font-family: var(--font);
-  font-size: .87rem;
+  font-size: .875rem;
+  font-weight: 400;
   color: var(--ink);
   background: var(--white);
   outline: none;
-  transition: border-color .18s, box-shadow .18s;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+  -webkit-appearance: none;
 }
-.field input::placeholder { color: var(--muted-l); }
-.field input:focus {
-  border-color: var(--accent, #c8521a);
-  box-shadow: 0 0 0 3px var(--accent-g, rgba(200,82,26,.1));
-}
-.field input.err { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.1); }
-body[data-role="Admin"]   { --accent: var(--admin);   --accent-g: var(--admin-lt); }
-body[data-role="Teacher"] { --accent: var(--teacher); --accent-g: var(--teacher-lt); }
-body[data-role="Student"] { --accent: var(--student); --accent-g: var(--student-lt); }
 
-.pw-eye {
+.field input::placeholder { color: var(--muted-l); font-weight: 300; }
+
+.field input:focus {
+  border-color: var(--accent, var(--admin));
+  box-shadow: 0 0 0 3.5px var(--accent-lt, var(--admin-lt));
+  background: #fff;
+}
+
+.field input:focus + .eye-btn,
+.input-wrap:focus-within .input-icon { color: var(--accent, var(--admin)); }
+
+.field input.err {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239,68,68,.1);
+}
+
+body[data-role="Admin"]   { --accent: var(--admin);   --accent-lt: var(--admin-lt); }
+body[data-role="Teacher"] { --accent: var(--teacher); --accent-lt: var(--teacher-lt); }
+body[data-role="Student"] { --accent: var(--student); --accent-lt: var(--student-lt); }
+
+.eye-btn {
   position: absolute;
   right: .8rem;
   top: 50%;
@@ -357,43 +503,57 @@ body[data-role="Student"] { --accent: var(--student); --accent-g: var(--student-
   background: none;
   border: none;
   cursor: pointer;
-  font-size: .88rem;
-  color: var(--muted);
-  padding: .2rem;
-  line-height: 1;
-  transition: color .15s;
+  color: var(--muted-l);
+  padding: .25rem;
+  display: flex;
+  align-items: center;
+  border-radius: 5px;
+  transition: color .15s, background .15s;
 }
-.pw-eye:hover { color: var(--ink); }
+.eye-btn:hover { color: var(--ink2); background: var(--bg); }
 
-/* submit button */
+/* Submit button */
 .btn {
   width: 100%;
-  padding: .75rem;
+  padding: .8rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: var(--font);
-  font-size: .88rem;
+  font-size: .875rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: .5rem;
+  gap: .45rem;
   letter-spacing: .01em;
-  margin-top: .4rem;
-  transition: all .2s;
+  margin-top: .5rem;
+  transition: transform .18s, box-shadow .18s, filter .18s;
   color: #fff;
+  position: relative;
+  overflow: hidden;
 }
-.btn:disabled { opacity: .5; cursor: not-allowed; transform: none !important; }
-.btn-admin   { background: var(--admin);   box-shadow: 0 3px 14px rgba(200,82,26,.32); }
-.btn-teacher { background: var(--teacher); box-shadow: 0 3px 14px rgba(26,107,90,.28); }
-.btn-student { background: var(--student); box-shadow: 0 3px 14px rgba(40,72,169,.28); }
-.btn-admin:not(:disabled):hover   { filter: brightness(1.08); transform: translateY(-1px); }
-.btn-teacher:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }
-.btn-student:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background .18s;
+}
+.btn:hover::after { background: rgba(255,255,255,.08); }
+.btn:active { transform: translateY(1px) !important; }
+
+.btn:disabled { opacity: .55; cursor: not-allowed; transform: none !important; }
+
+.btn-admin   { background: var(--admin);   box-shadow: 0 4px 18px var(--admin-glow); }
+.btn-teacher { background: var(--teacher); box-shadow: 0 4px 18px var(--teacher-glow); }
+.btn-student { background: var(--student); box-shadow: 0 4px 18px var(--student-glow); }
+
+.btn:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.07); }
 
 .spin {
-  width: 16px; height: 16px;
+  width: 15px; height: 15px;
   border-radius: 50%;
   border: 2px solid rgba(255,255,255,.3);
   border-top-color: #fff;
@@ -402,205 +562,182 @@ body[data-role="Student"] { --accent: var(--student); --accent-g: var(--student-
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* hint footer */
+/* Hint footer */
 .hint-foot {
   margin-top: 1.4rem;
-  padding-top: 1.2rem;
+  padding-top: 1.1rem;
   border-top: 1px solid var(--border);
 }
 .hint-label {
-  font-size: .63rem;
+  font-size: .6rem;
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--muted-l);
-  margin-bottom: .45rem;
+  margin-bottom: .4rem;
 }
-.hint-body {
-  font-size: .75rem;
-  color: var(--muted);
-  line-height: 1.75;
-}
+.hint-body { font-size: .74rem; color: var(--muted); line-height: 1.8; }
 .code {
   display: inline-block;
   background: var(--bg);
-  border: 1px solid var(--border);
-  padding: .05rem .4rem;
-  border-radius: 4px;
+  border: 1px solid var(--border-2);
+  padding: .05rem .42rem;
+  border-radius: 5px;
   font-family: 'Courier New', monospace;
   font-size: .72rem;
   color: var(--ink2);
-}
-
-/* responsive */
-@media (max-width: 820px) { .panel { display: none; } }
-@media (max-width: 480px) { .card { padding: 1.75rem 1.25rem 1.5rem; } }
-
-/* ── In-card role selector tabs ───────────────────────── */
-.role-tabs {
-  display: flex;
-  gap: .5rem;
-  margin-bottom: 1.5rem;
-  background: var(--bg);
-  border-radius: 10px;
-  padding: .3rem;
-}
-.role-tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .2rem;
-  padding: .55rem .25rem;
-  border-radius: 7px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: var(--font);
-  font-size: .68rem;
   font-weight: 600;
-  color: var(--muted);
-  letter-spacing: .02em;
-  transition: background .18s, color .18s, box-shadow .18s;
-  line-height: 1;
 }
-.role-tab .tab-ico { font-size: 1.1rem; }
-.role-tab:hover { background: rgba(0,0,0,.04); color: var(--ink2); }
-.role-tab.active-admin   { background: var(--white); color: var(--admin);   box-shadow: 0 1px 6px rgba(0,0,0,.10); }
-.role-tab.active-teacher { background: var(--white); color: var(--teacher); box-shadow: 0 1px 6px rgba(0,0,0,.10); }
-.role-tab.active-student { background: var(--white); color: var(--student); box-shadow: 0 1px 6px rgba(0,0,0,.10); }
 
+/* Responsive */
+@media (max-width: 860px) { .sidebar { display: none; } .stage::before { left: 0; } }
+@media (max-width: 480px) { .card { padding: 1.75rem 1.25rem 1.5rem; border-radius: 16px; } }
 </style>
 </head>
 <body data-role="Admin">
 
-<!-- ═══ LEFT PANEL ═══════════════════════════════════════ -->
-<aside class="panel">
-  <div class="panel-glow"></div>
+<!-- ═══ SIDEBAR ═══════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-noise"></div>
+  <div class="sidebar-lines"></div>
+  <div class="sidebar-glow"></div>
 
   <div class="brand">
-    <svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 38">
+    <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
       <defs>
-        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#2563eb"/>
+        <linearGradient id="sg1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3b6ef5"/>
           <stop offset="100%" stop-color="#1e40af"/>
         </linearGradient>
-        <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="sg2" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="#f97316"/>
           <stop offset="100%" stop-color="#c2410c"/>
         </linearGradient>
       </defs>
-      <path d="M19 2 L33 8 L33 23 Q33 33 19 37 Q5 33 5 23 L5 8 Z" fill="url(#g1)"/>
-      <path d="M19 2 L33 8 L33 13 L19 7 L5 13 L5 8 Z" fill="url(#g2)"/>
-      <rect x="9"  y="16" width="8"  height="11" rx="1.5" fill="white" opacity=".9"/>
-      <rect x="21" y="16" width="8"  height="11" rx="1.5" fill="white" opacity=".55"/>
-      <polygon points="19,8 27,13 19,18 11,13" fill="url(#g2)"/>
-      <line x1="27" y1="13" x2="27" y2="18" stroke="#f97316" stroke-width="1.5" stroke-linecap="round"/>
-      <circle cx="27" cy="19" r="1.5" fill="#f97316"/>
+      <path d="M24 3 L42 10.5 L42 29 Q42 41 24 47 Q6 41 6 29 L6 10.5 Z" fill="url(#sg1)"/>
+      <path d="M24 3 L42 10.5 L42 16.5 L24 9 L6 16.5 L6 10.5 Z" fill="url(#sg2)"/>
+      <rect x="10" y="21" width="10" height="14" rx="2" fill="white" opacity=".92"/>
+      <rect x="28" y="21" width="10" height="14" rx="2" fill="white" opacity=".6"/>
+      <polygon points="24,10 34,16 24,22 14,16" fill="url(#sg2)"/>
+      <line x1="34" y1="16" x2="34" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="34" cy="23.5" r="2.5" fill="#f97316"/>
     </svg>
     <div>
       <div class="brand-name">CampusCore</div>
-      <div class="brand-tag">University ERP</div>
+      <div class="brand-tag">University ERP System</div>
     </div>
   </div>
 
-  <div class="panel-body">
-    <div class="panel-eyebrow">Access Portal</div>
-    <h1 class="panel-heading">
-      One portal<br>for your <em>campus</em>
-    </h1>
-    <p class="panel-desc">
+  <div class="sidebar-body">
+    <div class="sidebar-eyebrow">Access Portal</div>
+    <h1 class="sidebar-heading">One portal<br>for your <em>campus.</em></h1>
+    <p class="sidebar-desc">
       Select your role, enter your credentials,<br>
       and step into your dedicated workspace.
     </p>
 
-    <div class="role-rows">
-      <div class="role-row" id="rr-Admin" onclick="selectRole('Admin')">
-        <div class="rr-dot adm"></div>
+    <div class="role-list">
+      <div class="role-item ri-admin active" id="rr-Admin" onclick="selectRole('Admin')">
+        <div class="ri-dot adm"></div>
         <div>
-          <div class="rr-name">Administrator</div>
-          <div class="rr-desc">Full system access · manage all users</div>
+          <div class="ri-label">Administrator</div>
+          <div class="ri-desc">Full system access · manage all users</div>
         </div>
       </div>
-      <div class="role-row" id="rr-Teacher" onclick="selectRole('Teacher')">
-        <div class="rr-dot tea"></div>
+      <div class="role-item ri-teacher" id="rr-Teacher" onclick="selectRole('Teacher')">
+        <div class="ri-dot tea"></div>
         <div>
-          <div class="rr-name">Teacher</div>
-          <div class="rr-desc">Attendance, exams, study materials</div>
+          <div class="ri-label">Teacher</div>
+          <div class="ri-desc">Attendance, exams, study materials</div>
         </div>
       </div>
-      <div class="role-row" id="rr-Student" onclick="selectRole('Student')">
-        <div class="rr-dot stu"></div>
+      <div class="role-item ri-student" id="rr-Student" onclick="selectRole('Student')">
+        <div class="ri-dot stu"></div>
         <div>
-          <div class="rr-name">Student</div>
-          <div class="rr-desc">Timetable, marks, notifications</div>
+          <div class="ri-label">Student</div>
+          <div class="ri-desc">Timetable, marks, notifications</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="panel-foot">
+  <div class="sidebar-foot">
     <span>© 2026 CampusCore</span>
     <span>Secure Role-Based Access</span>
   </div>
 </aside>
 
-<!-- ═══ RIGHT STAGE ══════════════════════════════════════ -->
+<!-- ═══ STAGE ═══════════════════════════════════════════════ -->
 <main class="stage">
   <div class="card">
+    <div class="card-stripe"></div>
 
-    <!-- hidden tab anchors kept for JS compatibility -->
+    <!-- hidden tab anchors for JS compatibility -->
     <button id="tab-Admin"   style="display:none"></button>
     <button id="tab-Teacher" style="display:none"></button>
     <button id="tab-Student" style="display:none"></button>
 
-    <!-- role selector tabs -->
+    <!-- In-card role tabs -->
     <div class="role-tabs">
       <button type="button" class="role-tab active-admin" id="rtab-Admin" onclick="selectRole('Admin')">
-        <span class="tab-ico">🔐</span>Admin
+        <div class="tab-icon">🔐</div>Admin
       </button>
       <button type="button" class="role-tab" id="rtab-Teacher" onclick="selectRole('Teacher')">
-        <span class="tab-ico">👨‍🏫</span>Teacher
+        <div class="tab-icon">🏫</div>Teacher
       </button>
       <button type="button" class="role-tab" id="rtab-Student" onclick="selectRole('Student')">
-        <span class="tab-ico">🎒</span>Student
+        <div class="tab-icon">🎒</div>Student
       </button>
     </div>
 
-    <!-- header -->
+    <!-- Header -->
     <div class="card-head">
-      <div class="role-badge rb-admin" id="roleBadge">🔐 &nbsp;Administrator</div>
+      <div class="role-badge rb-admin" id="roleBadge">Administrator</div>
       <div class="card-title" id="cardTitle">Welcome back</div>
       <div class="card-sub"   id="cardSub">Sign in with your Admin credentials</div>
     </div>
 
-    <!-- alerts -->
+    <!-- Alerts -->
     <div id="alertBox"></div>
     <div id="switchHint"></div>
 
-    <!-- form -->
+    <!-- Form -->
     <form onsubmit="handleLogin(event)" novalidate>
       <div class="field">
-        <label for="userCode">User Code</label>
+        <label class="field-label" for="userCode">User Code</label>
         <div class="input-wrap">
-          <span class="input-ico">🪪</span>
+          <span class="input-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            </svg>
+          </span>
           <input type="text" id="userCode" placeholder="e.g. ADMIN001"
                  autocomplete="username" required>
         </div>
       </div>
+
       <div class="field">
-        <label for="password">Password</label>
+        <label class="field-label" for="password">Password</label>
         <div class="input-wrap">
-          <span class="input-ico">🔒</span>
+          <span class="input-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
           <input type="password" id="password" placeholder="Enter your password"
                  autocomplete="current-password" required>
-          <button type="button" class="pw-eye" id="pwToggle" onclick="togglePw()">👁️</button>
+          <button type="button" class="eye-btn" id="pwToggle" onclick="togglePw()" aria-label="Toggle password visibility">
+            <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
         </div>
       </div>
+
       <button type="submit" class="btn btn-admin" id="loginBtn">Sign In as Admin</button>
     </form>
 
-    <!-- hint footer -->
+    <!-- Hint footer -->
     <div class="hint-foot">
       <div class="hint-label" id="hintLabel">Default Credentials</div>
       <div class="hint-body" id="hintBody">
@@ -623,27 +760,27 @@ let selectedRole = 'Admin';
 
 const ROLES = {
   Admin: {
-    badge: '🔐 &nbsp;Administrator', badgeClass: 'rb-admin',
-    title: 'Welcome back',          sub: 'Sign in with your Admin credentials',
-    btnClass: 'btn-admin',          btnText: 'Sign In as Admin',
+    badge: 'Administrator', badgeClass: 'rb-admin',
+    title: 'Welcome back',  sub: 'Sign in with your Admin credentials',
+    btnClass: 'btn-admin',  btnText: 'Sign In as Admin',
     placeholder: 'e.g. ADMIN001',
     hintTitle: 'Admin Login',
     hint: 'User Code: <span class="code">ADMIN001</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',
     redirect: 'admin.html'
   },
   Teacher: {
-    badge: '🏫 &nbsp;Teacher',       badgeClass: 'rb-teacher',
-    title: 'Teacher Portal',         sub: 'Sign in with your Teacher credentials',
-    btnClass: 'btn-teacher',         btnText: 'Sign In as Teacher',
+    badge: 'Teacher', badgeClass: 'rb-teacher',
+    title: 'Teacher Portal', sub: 'Sign in with your Teacher credentials',
+    btnClass: 'btn-teacher', btnText: 'Sign In as Teacher',
     placeholder: 'e.g. TID001',
     hintTitle: 'Teacher Login',
     hint: 'User Code: <span class="code">TID001</span> – <span class="code">TID050</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',
     redirect: 'teacher.html'
   },
   Student: {
-    badge: '🎒 &nbsp;Student',       badgeClass: 'rb-student',
-    title: 'Student Portal',         sub: 'Sign in with your Roll Number',
-    btnClass: 'btn-student',         btnText: 'Sign In as Student',
+    badge: 'Student', badgeClass: 'rb-student',
+    title: 'Student Portal', sub: 'Sign in with your Roll Number',
+    btnClass: 'btn-student', btnText: 'Sign In as Student',
     placeholder: 'e.g. D1S1N01',
     hintTitle: 'Student Login',
     hint: 'Roll Number: <span class="code">D1S1N01</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',
@@ -669,25 +806,25 @@ function selectRole(role) {
 
   document.body.setAttribute('data-role', role);
 
-  // tabs
+  // tabs (hidden anchors)
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + role).classList.add('active');
 
   // sidebar rows
-  document.querySelectorAll('.role-row').forEach(r => r.classList.remove('active'));
+  document.querySelectorAll('.role-item').forEach(r => r.classList.remove('active'));
   const rr = document.getElementById('rr-' + role);
   if (rr) rr.classList.add('active');
 
   // badge
   const badge = document.getElementById('roleBadge');
-  badge.innerHTML  = cfg.badge;
-  badge.className  = 'role-badge ' + cfg.badgeClass;
+  badge.textContent  = cfg.badge;
+  badge.className    = 'role-badge ' + cfg.badgeClass;
 
   document.getElementById('cardTitle').textContent = cfg.title;
   document.getElementById('cardSub').textContent   = cfg.sub;
 
   const btn = document.getElementById('loginBtn');
-  btn.className = 'btn ' + cfg.btnClass;
+  btn.className   = 'btn ' + cfg.btnClass;
   btn.textContent = cfg.btnText;
 
   document.getElementById('userCode').placeholder = cfg.placeholder;
@@ -705,14 +842,21 @@ function togglePw() {
   const inp = document.getElementById('password');
   const btn = document.getElementById('pwToggle');
   inp.type = inp.type === 'password' ? 'text' : 'password';
-  btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+  btn.setAttribute('aria-pressed', inp.type === 'text');
+  document.getElementById('eyeIcon').innerHTML = inp.type === 'password'
+    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+    : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
 }
 
 function showAlert(type, msg) {
-  const icons = { error: '⚠️', success: '✅', info: 'ℹ️' };
+  const icons = {
+    error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+    info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+  };
   document.getElementById('alertBox').innerHTML =
     `<div class="alert alert-${type}">
-       <span class="alert-icon">${icons[type] || 'ℹ️'}</span>
+       <span class="alert-icon">${icons[type] || icons.info}</span>
        <span>${msg}</span>
      </div>`;
 }
@@ -784,11 +928,11 @@ async function handleLogin(e) {
     }
 
     const token = data.token || data.access_token || '';
-    localStorage.setItem('token',      token);
+    localStorage.setItem('token',       token);
     localStorage.setItem('accessToken', token);
-    localStorage.setItem('user',       JSON.stringify(data.user || {}));
-    localStorage.setItem('userType',   selectedRole);
-    localStorage.setItem('loginRole',  selectedRole);
+    localStorage.setItem('user',        JSON.stringify(data.user || {}));
+    localStorage.setItem('userType',    selectedRole);
+    localStorage.setItem('loginRole',   selectedRole);
 
     if (data.isFirstLogin || data.user?.isFirstLogin) {
       showAlert('success', 'First login detected! Redirecting to set your password…');
@@ -800,8 +944,7 @@ async function handleLogin(e) {
 
   } catch (err) {
     console.error('[login]', err);
-    const hint = 'Cannot connect to server. Check your internet connection or try refreshing the page.';
-    showAlert('error', hint);
+    showAlert('error', 'Cannot connect to server. Check your internet connection or try refreshing the page.');
   } finally {
     btn.disabled = false;
     btn.className = 'btn ' + ROLES[selectedRole].btnClass;
