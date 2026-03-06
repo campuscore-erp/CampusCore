@@ -4,968 +4,366 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CampusCore — Admin Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  /* Palette */
-  --blue:       #2563EB;
-  --blue-2:     #1d4ed8;
-  --blue-3:     #1e3a8a;
-  --blue-lt:    #dbeafe;
-  --blue-bg:    #eff6ff;
-
-  --emerald:    #10B981;
-  --emerald-2:  #059669;
-  --emerald-lt: #d1fae5;
-  --emerald-bg: #ecfdf5;
-
-  --amber:      #f59e0b;
-  --amber-lt:   #fef3c7;
-  --amber-bg:   #fffbeb;
-
-  --rose:       #f43f5e;
-  --rose-lt:    #ffe4e6;
-  --rose-bg:    #fff1f2;
-  --rose-dk:    #be123c;
-
-  --violet:     #7c3aed;
-  --violet-lt:  #ede9fe;
-  --violet-bg:  #f5f3ff;
-
-  --sky:        #0ea5e9;
-  --sky-lt:     #e0f2fe;
-
-  /* Neutrals */
-  --bg:         #F9FAFB;
-  --white:      #ffffff;
-  --sidebar:    #1E293B;
-  --sidebar-2:  #0f172a;
-  --ink:        #0f172a;
-  --ink2:       #1e293b;
-  --ink3:       #334155;
-  --muted:      #64748b;
-  --muted-l:    #94a3b8;
-  --border:     #e2e8f0;
-  --border-2:   #f1f5f9;
-
-  --font:       'Plus Jakarta Sans', system-ui, sans-serif;
-  --serif:      'Fraunces', Georgia, serif;
-  --mono:       'Courier New', monospace;
-
-  --sidebar-w:  260px;
-  --topbar-h:   64px;
-  --r:          10px;
-  --r-lg:       14px;
-}
-
-/* ── BASE ─────────────────────────────────────────────────────────────────── */
-html, body { height: 100%; }
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--ink);
-  display: flex;
-  min-height: 100vh;
-  font-size: 14px;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ── SIDEBAR ──────────────────────────────────────────────────────────────── */
-.sidebar {
-  width: var(--sidebar-w);
-  background: var(--sidebar);
-  position: fixed;
-  top: 0; left: 0;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-  transition: transform .28s cubic-bezier(.4,0,.2,1);
-  overflow: hidden;
-}
-
-/* Subtle dot grid texture */
-.sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
-  background-size: 20px 20px;
-  pointer-events: none;
-}
-
-/* Blue accent glow at bottom */
-.sidebar::after {
-  content: '';
-  position: absolute;
-  bottom: -60px; left: -60px;
-  width: 240px; height: 240px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(37,99,235,.25) 0%, transparent 65%);
-  pointer-events: none;
-}
-
-/* Logo */
-.sidebar-logo {
-  padding: 1.25rem 1.1rem 1rem;
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  border-bottom: 1px solid rgba(255,255,255,.07);
-  position: relative;
-  z-index: 1;
-}
-.logo-mark {
-  width: 36px; height: 36px;
-  flex-shrink: 0;
-}
-.logo-text {
-  font-family: var(--serif);
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1;
-  letter-spacing: .01em;
-}
-.logo-sub {
-  font-size: .58rem;
-  font-weight: 600;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,.25);
-  margin-top: .2rem;
-}
-
-/* Nav */
-.nav {
-  flex: 1;
-  padding: .65rem 0;
-  overflow-y: auto;
-  position: relative;
-  z-index: 1;
-}
-.nav::-webkit-scrollbar { width: 4px; }
-.nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 4px; }
-
-.nav-section {
-  padding: .85rem 1.1rem .3rem;
-  font-size: .58rem;
-  font-weight: 700;
-  color: rgba(255,255,255,.22);
-  text-transform: uppercase;
-  letter-spacing: .14em;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: .65rem;
-  padding: .58rem 1.1rem;
-  color: rgba(255,255,255,.48);
-  font-size: .8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background .15s, color .15s;
-  border-left: 2.5px solid transparent;
-  user-select: none;
-  position: relative;
-  margin: 0 .5rem;
-  border-radius: 8px;
-  border-left: none;
-}
-.nav-item::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 0;
-  background: var(--blue);
-  border-radius: 0 3px 3px 0;
-  transition: height .2s;
-}
-
-.nav-item:hover {
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.85);
-}
-.nav-item.active {
-  background: rgba(37,99,235,.2);
-  color: #93c5fd;
-}
-.nav-item.active::before { height: 60%; }
-
-.ni {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: .95rem;
-}
-
-/* Sidebar footer */
-.sidebar-footer {
-  padding: .85rem 1.1rem;
-  border-top: 1px solid rgba(255,255,255,.07);
-  position: relative;
-  z-index: 1;
-}
-.user-row {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-}
-.u-avatar {
-  width: 34px; height: 34px;
-  background: linear-gradient(135deg, var(--blue-2), var(--blue));
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  color: #fff;
-  font-size: .8rem;
-  flex-shrink: 0;
-  letter-spacing: .02em;
-}
-.u-name {
-  font-size: .78rem;
-  font-weight: 600;
-  color: rgba(255,255,255,.88);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.u-role {
-  font-size: .62rem;
-  color: rgba(255,255,255,.28);
-  margin-top: .08rem;
-}
-.btn-logout {
-  background: none;
-  border: none;
-  color: rgba(255,255,255,.2);
-  cursor: pointer;
-  padding: .3rem;
-  border-radius: 6px;
-  margin-left: auto;
-  transition: color .15s, background .15s;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-.btn-logout:hover { color: var(--rose); background: rgba(244,63,94,.1); }
-
-/* ── MAIN ─────────────────────────────────────────────────────────────────── */
-.main {
-  margin-left: var(--sidebar-w);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* ── TOPBAR ───────────────────────────────────────────────────────────────── */
-.topbar {
-  height: var(--topbar-h);
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
-  padding: 0 1.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  gap: 1rem;
-}
-
-.topbar-left {}
-.page-title {
-  font-family: var(--serif);
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--ink);
-  line-height: 1.2;
-}
-.page-sub {
-  font-size: .72rem;
-  color: var(--muted);
-  margin-top: .12rem;
-  font-weight: 400;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  flex-shrink: 0;
-}
-
-.topbar-welcome {
-  font-size: .78rem;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: .35rem;
-}
-.topbar-welcome b { color: var(--ink2); font-weight: 600; }
-
-.topbar-avatar {
-  width: 34px; height: 34px;
-  background: linear-gradient(135deg, var(--blue-2), var(--blue));
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  color: #fff;
-  font-size: .78rem;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-/* ── CONTENT ──────────────────────────────────────────────────────────────── */
-.content {
-  padding: 1.5rem 1.75rem;
-  flex: 1;
-}
-
-/* ── STAT CARDS ───────────────────────────────────────────────────────────── */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.35rem;
-}
-
-.stat-card {
-  background: var(--white);
-  border-radius: var(--r-lg);
-  padding: 1.2rem 1.3rem;
-  border: 1px solid var(--border);
-  position: relative;
-  overflow: hidden;
-  transition: box-shadow .2s, transform .2s;
-}
-.stat-card:hover {
-  box-shadow: 0 8px 24px rgba(0,0,0,.07);
-  transform: translateY(-2px);
-}
-
-/* Decorative corner element */
-.stat-card::after {
-  content: '';
-  position: absolute;
-  top: -20px; right: -20px;
-  width: 80px; height: 80px;
-  border-radius: 50%;
-  opacity: .07;
-}
-.sc-students::after { background: var(--blue); }
-.sc-teachers::after { background: var(--emerald); }
-.sc-subjects::after { background: var(--amber); }
-.sc-depts::after    { background: var(--violet); }
-
-.sc-icon {
-  width: 40px; height: 40px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  margin-bottom: .9rem;
-  flex-shrink: 0;
-}
-.sc-icon-blue    { background: var(--blue-bg);    color: var(--blue); }
-.sc-icon-emerald { background: var(--emerald-bg); color: var(--emerald); }
-.sc-icon-amber   { background: var(--amber-bg);   color: var(--amber); }
-.sc-icon-violet  { background: var(--violet-bg);  color: var(--violet); }
-
-.sc-label {
-  font-size: .67rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .07em;
-  margin-bottom: .4rem;
-}
-.sc-value {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--ink);
-  line-height: 1;
-  letter-spacing: -.02em;
-}
-.sc-sub {
-  font-size: .7rem;
-  color: var(--muted-l);
-  margin-top: .3rem;
-}
-.sc-bar {
-  height: 3px;
-  background: var(--border-2);
-  border-radius: 2px;
-  margin-top: .85rem;
-  overflow: hidden;
-}
-.sc-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width .6s ease;
-}
-/* Kept for JS compat — sc-bg no longer visible */
-.sc-bg { display: none; }
-
-/* ── SECTION GRID ─────────────────────────────────────────────────────────── */
-.section-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-/* ── CARD ─────────────────────────────────────────────────────────────────── */
-.card {
-  background: var(--white);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-.card-head {
-  padding: .9rem 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-2);
-}
-.card-title {
-  font-size: .85rem;
-  font-weight: 700;
-  color: var(--ink2);
-}
-.card-body { padding: 1rem 1.25rem; }
-
-/* ── TOOLBAR ──────────────────────────────────────────────────────────────── */
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  gap: .75rem;
-  flex-wrap: wrap;
-}
-
-.search-wrap { position: relative; flex: 1; max-width: 300px; }
-.search-wrap input {
-  width: 100%;
-  padding: .55rem .9rem .55rem 2.25rem;
-  border: 1.5px solid var(--border);
-  border-radius: 9px;
-  font-family: var(--font);
-  font-size: .82rem;
-  outline: none;
-  transition: border-color .2s, box-shadow .2s;
-  background: var(--white);
-  color: var(--ink);
-}
-.search-wrap input::placeholder { color: var(--muted-l); }
-.search-wrap input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.1);
-}
-.search-ico {
-  position: absolute;
-  left: .7rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted-l);
-  display: flex;
-  align-items: center;
-  pointer-events: none;
-}
-
-/* ── TABLE ────────────────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: .81rem; }
-
-th {
-  padding: .6rem .85rem;
-  text-align: left;
-  font-size: .65rem;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-td {
-  padding: .65rem .85rem;
-  border-bottom: 1px solid var(--border-2);
-  color: var(--ink3);
-  vertical-align: middle;
-}
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: #fafbff; }
-
-.td-name { font-weight: 600; color: var(--ink2); }
-.td-code {
-  font-family: var(--mono);
-  font-size: .76rem;
-  color: var(--blue-2);
-  background: var(--blue-bg);
-  padding: .12rem .45rem;
-  border-radius: 5px;
-  display: inline-block;
-  letter-spacing: .03em;
-}
-
-/* ── BADGES ───────────────────────────────────────────────────────────────── */
-.badge {
-  padding: .2rem .6rem;
-  border-radius: 100px;
-  font-size: .66rem;
-  font-weight: 700;
-  display: inline-block;
-  white-space: nowrap;
-  letter-spacing: .02em;
-}
-.b-green  { background: var(--emerald-lt); color: var(--emerald-2); }
-.b-red    { background: var(--rose-lt);    color: var(--rose-dk); }
-.b-blue   { background: var(--blue-lt);    color: var(--blue-2); }
-.b-amber  { background: var(--amber-lt);   color: #92400e; }
-.b-teal   { background: var(--emerald-lt); color: var(--emerald-2); }
-.b-gray   { background: var(--border-2);   color: var(--muted); }
-.b-orange { background: #ffedd5;           color: #c2410c; }
-
-/* ── BUTTONS ──────────────────────────────────────────────────────────────── */
-.btn {
-  padding: .52rem 1rem;
-  border-radius: 9px;
-  font-family: var(--font);
-  font-size: .8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .18s;
-  border: 1.5px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  white-space: nowrap;
-  letter-spacing: .01em;
-}
-
-.btn-primary {
-  background: var(--blue);
-  color: #fff;
-  border-color: var(--blue);
-  box-shadow: 0 2px 8px rgba(37,99,235,.25);
-}
-.btn-primary:hover {
-  background: var(--blue-2);
-  box-shadow: 0 4px 14px rgba(37,99,235,.35);
-  transform: translateY(-1px);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--muted);
-  border-color: var(--border);
-}
-.btn-ghost:hover { background: var(--bg); color: var(--ink2); }
-
-.btn-danger {
-  background: var(--rose-bg);
-  color: var(--rose-dk);
-  border-color: rgba(244,63,94,.2);
-}
-.btn-danger:hover { background: var(--rose); color: #fff; border-color: var(--rose); }
-
-.btn-warning {
-  background: var(--amber-bg);
-  color: #92400e;
-  border-color: rgba(245,158,11,.2);
-}
-.btn-warning:hover { background: var(--amber); color: #fff; border-color: var(--amber); }
-
-.btn-info {
-  background: var(--blue-bg);
-  color: var(--blue-2);
-  border-color: rgba(37,99,235,.18);
-}
-.btn-info:hover { background: var(--blue); color: #fff; border-color: var(--blue); }
-
-.btn-success {
-  background: var(--emerald-bg);
-  color: var(--emerald-2);
-  border-color: rgba(16,185,129,.2);
-}
-.btn-success:hover { background: var(--emerald); color: #fff; border-color: var(--emerald); }
-
-.btn-sm { padding: .38rem .75rem; font-size: .76rem; }
-.btn-xs { padding: .25rem .6rem; font-size: .7rem; border-radius: 7px; }
-
-.action-group { display: flex; gap: .3rem; flex-wrap: nowrap; }
-
-/* ── PAGE VISIBILITY ──────────────────────────────────────────────────────── */
-.page { display: none; }
-.page.active { display: block; }
-
-/* ── QUICK ACTIONS ────────────────────────────────────────────────────────── */
-.quick-actions {
-  display: flex;
-  flex-direction: column;
-  gap: .5rem;
-}
-.qa-btn {
-  display: flex;
-  align-items: center;
-  gap: .65rem;
-  padding: .62rem .85rem;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  cursor: pointer;
-  font-family: var(--font);
-  font-size: .8rem;
-  font-weight: 500;
-  color: var(--ink3);
-  transition: background .15s, border-color .15s, color .15s;
-  text-align: left;
-  width: 100%;
-}
-.qa-btn:hover {
-  background: var(--blue-bg);
-  border-color: var(--blue-lt);
-  color: var(--blue-2);
-}
-.qa-icon {
-  width: 28px; height: 28px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .85rem;
-  flex-shrink: 0;
-  background: var(--white);
-  border: 1px solid var(--border);
-  transition: background .15s, border-color .15s;
-}
-.qa-btn:hover .qa-icon {
-  background: var(--blue-lt);
-  border-color: transparent;
-}
-
-/* ── DEPT STATS ───────────────────────────────────────────────────────────── */
-.dept-stat-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: .45rem 0;
-  border-bottom: 1px solid var(--border-2);
-  font-size: .8rem;
-}
-.dept-stat-row:last-child { border-bottom: none; }
-
-/* ── MODAL ────────────────────────────────────────────────────────────────── */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15,23,42,.5);
-  z-index: 200;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  backdrop-filter: blur(2px);
-}
-.modal-backdrop.open { display: flex; }
-
-.modal {
-  background: var(--white);
-  border-radius: 18px;
-  width: 100%;
-  max-width: 580px;
-  max-height: 92vh;
-  overflow-y: auto;
-  box-shadow: 0 32px 80px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06);
-  animation: modalIn .22s cubic-bezier(.16,1,.3,1);
-}
-@keyframes modalIn {
-  from { opacity: 0; transform: translateY(12px) scale(.98); }
-  to   { opacity: 1; transform: none; }
-}
-.modal-lg { max-width: 640px; }
-
-.modal-head {
-  padding: 1.1rem 1.4rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  background: var(--white);
-  z-index: 1;
-  border-radius: 18px 18px 0 0;
-}
-.modal-title {
-  font-size: .92rem;
-  font-weight: 700;
-  color: var(--ink);
-}
-.modal-close {
-  background: var(--bg);
-  border: none;
-  width: 28px; height: 28px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background .15s, color .15s;
-  line-height: 1;
-}
-.modal-close:hover { background: var(--rose-lt); color: var(--rose-dk); }
-
-.modal-body { padding: 1.25rem 1.4rem; }
-.modal-foot {
-  padding: .9rem 1.4rem;
-  border-top: 1px solid var(--border);
-  display: flex;
-  gap: .6rem;
-  justify-content: flex-end;
-  position: sticky;
-  bottom: 0;
-  background: var(--white);
-  border-radius: 0 0 18px 18px;
-}
-
-/* ── FORM ─────────────────────────────────────────────────────────────────── */
-.form-row   { display: grid; grid-template-columns: 1fr 1fr;     gap: .85rem; margin-bottom: .85rem; }
-.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; margin-bottom: .85rem; }
-
-.form-field { margin-bottom: .85rem; }
-.form-field label {
-  display: block;
-  font-size: .72rem;
-  font-weight: 700;
-  color: var(--ink3);
-  margin-bottom: .38rem;
-  letter-spacing: .02em;
-  text-transform: uppercase;
-}
-.form-field input,
-.form-field select,
-.form-field textarea {
-  width: 100%;
-  padding: .62rem .9rem;
-  border: 1.5px solid var(--border);
-  border-radius: 9px;
-  font-family: var(--font);
-  font-size: .84rem;
-  color: var(--ink);
-  outline: none;
-  transition: border-color .2s, box-shadow .2s;
-  background: var(--bg);
-}
-.form-field input:focus,
-.form-field select:focus,
-.form-field textarea:focus {
-  border-color: var(--blue);
-  background: var(--white);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.1);
-}
-.form-field input::placeholder,
-.form-field textarea::placeholder { color: var(--muted-l); }
-
-.form-section {
-  font-size: .65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  color: var(--muted);
-  margin: 1rem 0 .7rem;
-  padding-bottom: .4rem;
-  border-bottom: 1px solid var(--border-2);
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-.form-section::before {
-  content: '';
-  display: inline-block;
-  width: 3px; height: 10px;
-  background: var(--blue);
-  border-radius: 2px;
-}
-
-.info-box {
-  background: var(--emerald-bg);
-  border: 1px solid rgba(16,185,129,.25);
-  border-radius: 10px;
-  padding: .9rem 1rem;
-  margin-top: .75rem;
-  font-size: .8rem;
-  color: var(--emerald-2);
-}
-.info-box b { display: block; font-size: .85rem; margin-bottom: .25rem; }
-
-/* Filter selects in toolbar */
-.filter-select {
-  padding: .52rem .9rem;
-  border: 1.5px solid var(--border);
-  border-radius: 9px;
-  font-size: .8rem;
-  font-family: var(--font);
-  color: var(--ink);
-  outline: none;
-  background: var(--white);
-  cursor: pointer;
-  transition: border-color .2s;
-}
-.filter-select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
-
-/* Inline checkbox label */
-.check-label {
-  font-size: .76rem;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: .35rem;
-  cursor: pointer;
-  user-select: none;
-}
-.check-label input[type="checkbox"] { accent-color: var(--blue); width: 14px; height: 14px; cursor: pointer; }
-
-/* ── TOAST ────────────────────────────────────────────────────────────────── */
-.toast-wrap {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
-  gap: .45rem;
-  pointer-events: none;
-}
-.toast {
-  background: var(--sidebar);
-  color: #fff;
-  padding: .72rem 1.1rem;
-  border-radius: 11px;
-  font-size: .8rem;
-  font-weight: 500;
-  opacity: 0;
-  transform: translateY(8px) scale(.97);
-  transition: all .28s cubic-bezier(.16,1,.3,1);
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  max-width: 320px;
-  box-shadow: 0 8px 28px rgba(0,0,0,.2);
-  pointer-events: all;
-  border-left: 3.5px solid rgba(255,255,255,.2);
-}
-.toast.show { opacity: 1; transform: none; }
-.toast.success { border-left-color: var(--emerald); }
-.toast.error   { border-left-color: var(--rose); }
-.toast.info    { border-left-color: var(--blue); }
-
-/* ── LOADER ───────────────────────────────────────────────────────────────── */
-.loader-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(249,250,251,.75);
-  z-index: 998;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-.loader-overlay.show { display: flex; }
-.spinner {
-  width: 36px; height: 36px;
-  border: 3px solid var(--border);
-  border-top-color: var(--blue);
-  border-radius: 50%;
-  animation: spin .65s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.empty-state {
-  text-align: center;
-  padding: 2.5rem;
-  color: var(--muted-l);
-}
-.empty-state .ei { font-size: 2rem; margin-bottom: .5rem; display: block; }
-
-/* ── MOBILE HAMBURGER ─────────────────────────────────────────────────────── */
-.hamburger {
-  display: none;
-  flex-direction: column;
-  gap: 5px;
-  cursor: pointer;
-  padding: .55rem;
-  border-radius: 8px;
-  background: var(--white);
-  border: 1px solid var(--border);
-  position: fixed;
-  top: .95rem;
-  left: 1rem;
-  z-index: 300;
-}
-.hamburger span {
-  display: block;
-  width: 20px;
-  height: 2px;
-  background: var(--ink3);
-  border-radius: 2px;
-  transition: all .3s;
-}
-.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px,5px); }
-.hamburger.open span:nth-child(2) { opacity: 0; }
-.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px,-5px); }
-
-.mobile-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(15,23,42,.5);
-  z-index: 150;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .3s;
-}
-
-/* ── RESPONSIVE ───────────────────────────────────────────────────────────── */
-@media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 900px)  { .section-grid { grid-template-columns: 1fr; } }
-
-@media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); transition: transform .3s ease; z-index: 200; }
-  .sidebar.open { transform: translateX(0); }
-  .main { margin-left: 0; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .hamburger { display: flex !important; }
-  .mobile-overlay { display: block; }
-  .mobile-overlay.active { display: block; opacity: 1; pointer-events: all; }
-  .content { padding: 1.25rem 1rem; }
-  .topbar { padding: 0 1rem 0 4.5rem; }
-}
-
-@media (max-width: 480px) {
-  .stat-grid { grid-template-columns: 1fr; }
-  .section-grid { grid-template-columns: 1fr; }
-  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#2563EB; --blue-d:#1D4ED8; --blue-dd:#1e3a8a; --blue-lt:#eff6ff; --blue-mid:#dbeafe; --blue-ring:rgba(37,99,235,.18);
+  --emerald:#10B981; --emerald-d:#059669; --emerald-lt:#d1fae5; --emerald-bg:#ecfdf5;
+  --amber:#f59e0b; --amber-lt:#fef3c7; --amber-bg:#fffbeb;
+  --rose:#f43f5e; --rose-lt:#ffe4e6; --rose-dk:#be123c;
+  --violet:#7c3aed; --violet-lt:#ede9fe;
+  --sky:#0ea5e9; --sky-lt:#e0f2fe;
+  --bg:#F8FAFC; --white:#ffffff;
+  --sidebar:#1E293B; --sidebar-2:#0f172a; --sidebar-hover:rgba(255,255,255,.06); --sidebar-active:rgba(37,99,235,.25);
+  --ink:#1F2937; --ink2:#374151; --ink3:#4B5563;
+  --muted:#6B7280; --muted-l:#9CA3AF;
+  --border:#E5E7EB; --border2:#F3F4F6;
+  --hd:'Poppins',system-ui,sans-serif; --bd:'Inter',system-ui,sans-serif; --mono:'Courier New',monospace;
+  --sidebar-w:260px; --topbar-h:64px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.05); --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06); --shadow-lg:0 4px 6px rgba(0,0,0,.05),0 10px 40px rgba(0,0,0,.1);
+  --r:10px; --r-lg:14px; --r-xl:18px;
+}
+
+html,body{height:100%;}
+body{font-family:var(--bd);background:var(--bg);color:var(--ink);display:flex;min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased;}
+
+/* ── LOADER ── */
+.loader-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.loader-overlay.show{opacity:1;pointer-events:all;}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--blue-mid);border-top-color:var(--blue);animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);background:var(--sidebar);
+  position:fixed;top:0;left:0;height:100vh;
+  display:flex;flex-direction:column;z-index:100;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden;
+}
+.sidebar::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px);background-size:22px 22px;pointer-events:none;}
+.sidebar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:200px;background:linear-gradient(to top,rgba(37,99,235,.12),transparent);pointer-events:none;}
+
+.sb-header{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative;z-index:1;}
+.sb-brand{display:flex;align-items:center;gap:.75rem;}
+.sb-logo{width:36px;height:36px;flex-shrink:0;}
+.sb-brand-text{}
+.sb-brand-name{font-family:var(--hd);font-size:1rem;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1;}
+.sb-brand-sub{font-size:.58rem;color:rgba(255,255,255,.28);letter-spacing:.1em;text-transform:uppercase;margin-top:.18rem;}
+
+.sb-nav{flex:1;overflow-y:auto;padding:.75rem 0;scrollbar-width:none;position:relative;z-index:1;}
+.sb-nav::-webkit-scrollbar{display:none;}
+
+.nav-section{font-family:var(--hd);font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.22);padding:.6rem 1.25rem .35rem;margin-top:.25rem;}
+
+.nav-item{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.65rem 1.25rem;margin:0 .5rem .15rem;border-radius:9px;
+  cursor:pointer;color:rgba(255,255,255,.55);font-size:.82rem;font-weight:500;
+  transition:all .17s;position:relative;
+}
+.nav-item:hover{background:var(--sidebar-hover);color:rgba(255,255,255,.85);}
+.nav-item.active{background:var(--sidebar-active);color:#fff;font-weight:600;}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--blue);border-radius:0 2px 2px 0;}
+.nav-item svg{flex-shrink:0;opacity:.7;transition:opacity .17s;}
+.nav-item:hover svg,.nav-item.active svg{opacity:1;}
+.nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:.6rem;font-weight:700;padding:.1rem .42rem;border-radius:100px;}
+
+.sb-user{
+  padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;gap:.75rem;flex-shrink:0;position:relative;z-index:1;
+}
+.u-avatar{
+  width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--blue),var(--blue-d));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:var(--hd);font-size:.8rem;font-weight:700;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(37,99,235,.4);
+}
+.u-info{flex:1;min-width:0;}
+.u-name{font-size:.8rem;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.u-role{font-size:.65rem;color:rgba(255,255,255,.28);margin-top:.08rem;}
+.btn-logout{
+  width:30px;height:30px;border-radius:8px;border:none;background:rgba(255,255,255,.06);
+  color:rgba(255,255,255,.35);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .17s;
+}
+.btn-logout:hover{background:rgba(244,63,94,.2);color:#f87171;}
+
+/* ── HAMBURGER ── */
+.hamburger{
+  display:none;position:fixed;top:.9rem;left:.9rem;z-index:200;
+  width:40px;height:40px;border-radius:10px;border:none;
+  background:var(--white);box-shadow:var(--shadow);cursor:pointer;
+  align-items:center;justify-content:center;flex-direction:column;gap:5px;
+  transition:all .2s;
+}
+.hamburger span{display:block;width:18px;height:2px;background:var(--ink);border-radius:2px;transition:all .25s;}
+.hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+.hamburger.open span:nth-child(2){opacity:0;}
+.hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;backdrop-filter:blur(2px);}
+.mobile-overlay.active{display:block;}
+
+/* ── MAIN ── */
+main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0;}
+
+/* ── TOPBAR ── */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:var(--white);border-bottom:1px solid var(--border);
+  height:var(--topbar-h);display:flex;align-items:center;
+  padding:0 1.75rem;gap:1rem;
+  box-shadow:0 1px 0 var(--border),var(--shadow-sm);
+}
+.tb-left{flex:1;min-width:0;}
+.page-title{font-family:var(--hd);font-size:1.1rem;font-weight:700;color:var(--ink);letter-spacing:-.02em;line-height:1.2;}
+.page-sub{font-size:.72rem;color:var(--muted);margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tb-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
+.tb-welcome{font-size:.78rem;color:var(--muted);white-space:nowrap;}
+.tb-welcome b{color:var(--ink2);font-weight:600;}
+.tb-divider{width:1px;height:22px;background:var(--border);}
+.tb-avatar{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--blue),var(--blue-d));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:var(--hd);font-size:.78rem;font-weight:700;
+  cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.3);flex-shrink:0;
+}
+
+/* ── CONTENT ── */
+.content{flex:1;padding:1.75rem;overflow-x:hidden;}
+
+/* ── PAGES ── */
+.page{display:none;}
+.page.active{display:block;animation:pgIn .28s cubic-bezier(.16,1,.3,1);}
+@keyframes pgIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+/* ── STAT CARDS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.sc{
+  background:var(--white);border-radius:var(--r-lg);padding:1.25rem 1.35rem;
+  border:1px solid var(--border);box-shadow:var(--shadow-sm);
+  display:flex;align-items:flex-start;gap:1rem;position:relative;overflow:hidden;
+  transition:box-shadow .2s,transform .2s;
+}
+.sc:hover{box-shadow:var(--shadow);transform:translateY(-1px);}
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0;}
+.sc-blue::after{background:linear-gradient(90deg,var(--blue),var(--blue-d));}
+.sc-green::after{background:linear-gradient(90deg,var(--emerald),var(--emerald-d));}
+.sc-amber::after{background:linear-gradient(90deg,var(--amber),#d97706);}
+.sc-violet::after{background:linear-gradient(90deg,var(--violet),#6d28d9);}
+.sc-icon{
+  width:44px;height:44px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.sc-blue .sc-icon{background:var(--blue-lt);color:var(--blue);}
+.sc-green .sc-icon{background:var(--emerald-bg);color:var(--emerald-d);}
+.sc-amber .sc-icon{background:var(--amber-bg);color:var(--amber);}
+.sc-violet .sc-icon{background:var(--violet-lt);color:var(--violet);}
+.sc-body{flex:1;min-width:0;}
+.sc-value{font-family:var(--hd);font-size:1.75rem;font-weight:800;color:var(--ink);line-height:1;letter-spacing:-.03em;}
+.sc-label{font-size:.75rem;font-weight:600;color:var(--muted);margin-top:.22rem;text-transform:uppercase;letter-spacing:.04em;}
+.sc-sub{font-size:.72rem;color:var(--muted-l);margin-top:.18rem;}
+.sc-bar{height:3px;background:var(--border2);border-radius:2px;margin-top:.75rem;overflow:hidden;}
+.sc-fill{height:100%;border-radius:2px;background:var(--blue);transition:width .6s ease;}
+
+/* ── SECTION GRID ── */
+.section-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;}
+
+/* ── CARDS ── */
+.card{background:var(--white);border-radius:var(--r-lg);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden;}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.35rem;border-bottom:1px solid var(--border2);}
+.card-title{font-family:var(--hd);font-size:.88rem;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+.card-body{padding:1.1rem 1.35rem;}
+
+/* Quick actions grid */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.qa-btn{
+  display:flex;align-items:center;gap:.6rem;padding:.7rem .85rem;
+  border:1.5px solid var(--border);border-radius:var(--r);background:var(--white);
+  cursor:pointer;font-family:var(--hd);font-size:.76rem;font-weight:600;color:var(--ink2);
+  transition:all .17s;text-align:left;
+}
+.qa-btn:hover{border-color:var(--blue);background:var(--blue-lt);color:var(--blue);}
+.qa-btn svg{flex-shrink:0;color:var(--muted-l);transition:color .17s;}
+.qa-btn:hover svg{color:var(--blue);}
+
+/* Dept stats */
+.dept-row{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--border2);}
+.dept-row:last-child{border-bottom:none;}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;flex-wrap:wrap;}
+.toolbar-left{flex:1;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;min-width:0;}
+.search-wrap{position:relative;flex:1;min-width:180px;max-width:300px;}
+.search-wrap svg{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-l);pointer-events:none;}
+.search-input{
+  width:100%;padding:.58rem .85rem .58rem 2.25rem;
+  border:1.5px solid var(--border);border-radius:9px;
+  font-family:var(--bd);font-size:.82rem;color:var(--ink);background:var(--white);outline:none;
+  transition:border-color .18s,box-shadow .18s;
+}
+.search-input::placeholder{color:var(--muted-l);}
+.search-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-ring);}
+.filter-select{
+  padding:.56rem .85rem;border:1.5px solid var(--border);border-radius:9px;
+  font-family:var(--bd);font-size:.82rem;color:var(--ink);background:var(--white);outline:none;
+  cursor:pointer;transition:border-color .18s;
+}
+.filter-select:focus{border-color:var(--blue);}
+.checkbox-wrap{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--muted);cursor:pointer;white-space:nowrap;}
+.checkbox-wrap input{accent-color:var(--blue);cursor:pointer;}
+
+/* ── TABLES ── */
+.table-wrap{overflow-x:auto;border-radius:0 0 var(--r-lg) var(--r-lg);}
+table{width:100%;border-collapse:collapse;}
+thead th{
+  background:var(--bg);padding:.7rem 1rem;
+  font-family:var(--hd);font-size:.68rem;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.06em;
+  border-bottom:1px solid var(--border);white-space:nowrap;text-align:left;
+  position:sticky;top:0;
+}
+tbody td{
+  padding:.75rem 1rem;border-bottom:1px solid var(--border2);
+  font-size:.82rem;color:var(--ink2);vertical-align:middle;
+}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr{transition:background .12s;}
+tbody tr:hover{background:rgba(37,99,235,.025);}
+.td-name{font-weight:600;color:var(--ink);}
+.td-code{
+  display:inline-block;background:var(--border2);border:1px solid var(--border);
+  padding:.18rem .55rem;border-radius:6px;
+  font-family:var(--mono);font-size:.75rem;font-weight:700;color:var(--ink2);
+}
+.empty-state{text-align:center;padding:2.5rem 1rem!important;color:var(--muted);font-size:.82rem;}
+.ei{display:block;font-size:1.8rem;margin-bottom:.5rem;}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:.28rem;padding:.2rem .6rem;border-radius:100px;font-size:.68rem;font-weight:700;font-family:var(--hd);letter-spacing:.02em;white-space:nowrap;}
+.b-blue  {background:var(--blue-lt);color:var(--blue-d);}
+.b-green {background:var(--emerald-bg);color:var(--emerald-d);}
+.b-teal  {background:#ccfbf1;color:#0f766e;}
+.b-red   {background:#fee2e2;color:#dc2626;}
+.b-amber {background:var(--amber-bg);color:#b45309;}
+.b-gray  {background:var(--border2);color:var(--muted);}
+
+/* ── ACTION GROUP ── */
+.action-group{display:flex;align-items:center;gap:.35rem;flex-wrap:nowrap;}
+
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.58rem 1rem;border-radius:9px;border:none;cursor:pointer;
+  font-family:var(--hd);font-size:.8rem;font-weight:600;
+  transition:all .17s;white-space:nowrap;letter-spacing:.01em;
+}
+.btn svg{flex-shrink:0;}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3);}
+.btn-primary:hover{background:var(--blue-d);box-shadow:0 4px 14px rgba(37,99,235,.4);transform:translateY(-1px);}
+.btn-ghost{background:var(--white);color:var(--ink2);border:1.5px solid var(--border);}
+.btn-ghost:hover{background:var(--bg);border-color:var(--blue);color:var(--blue);}
+.btn-danger{background:#fee2e2;color:#dc2626;}
+.btn-danger:hover{background:#dc2626;color:#fff;}
+.btn-success{background:var(--emerald-bg);color:var(--emerald-d);}
+.btn-success:hover{background:var(--emerald-d);color:#fff;}
+.btn-warning{background:var(--amber-bg);color:#b45309;}
+.btn-warning:hover{background:var(--amber);color:#fff;}
+.btn-info{background:var(--blue-lt);color:var(--blue-d);}
+.btn-info:hover{background:var(--blue);color:#fff;}
+.btn-xs{padding:.32rem .65rem;font-size:.72rem;border-radius:7px;}
+.btn-sm{padding:.42rem .75rem;font-size:.78rem;}
+
+/* ── MODALS ── */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);
+  z-index:500;display:flex;align-items:center;justify-content:center;padding:1rem;
+  opacity:0;pointer-events:none;transition:opacity .22s;
+}
+.modal-backdrop.open{opacity:1;pointer-events:all;}
+.modal{
+  background:var(--white);border-radius:var(--r-xl);
+  width:100%;max-width:600px;max-height:90vh;
+  box-shadow:0 25px 60px rgba(0,0,0,.2),0 0 0 1px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;
+  transform:scale(.96) translateY(8px);transition:transform .25s cubic-bezier(.16,1,.3,1);
+  overflow:hidden;
+}
+.modal-backdrop.open .modal{transform:none;}
+.modal-lg{max-width:720px;}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.modal-title{font-family:var(--hd);font-size:1rem;font-weight:700;color:var(--ink);letter-spacing:-.015em;}
+.modal-close{
+  width:30px;height:30px;border-radius:8px;border:none;background:var(--border2);
+  color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:1rem;transition:all .15s;
+}
+.modal-close:hover{background:var(--border);color:var(--ink);}
+.modal-body{padding:1.5rem;overflow-y:auto;flex:1;}
+.modal-foot{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.6rem;flex-shrink:0;background:var(--bg);}
+
+/* ── FORMS ── */
+.form-section{
+  font-family:var(--hd);font-size:.68rem;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+  margin:1.25rem 0 .85rem;padding-bottom:.5rem;border-bottom:1px solid var(--border2);
+}
+.form-section:first-child{margin-top:0;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem;}
+.form-field{display:flex;flex-direction:column;gap:.38rem;margin-bottom:.85rem;}
+.form-field:last-child{margin-bottom:0;}
+.form-field label{font-family:var(--hd);font-size:.68rem;font-weight:600;color:var(--ink2);letter-spacing:.03em;text-transform:uppercase;}
+.form-field input,.form-field select,.form-field textarea{
+  padding:.65rem .85rem;border:1.5px solid var(--border);border-radius:9px;
+  font-family:var(--bd);font-size:.85rem;color:var(--ink);background:var(--border2);outline:none;
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+.form-field input:focus,.form-field select:focus,.form-field textarea:focus{
+  border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-ring);background:var(--white);
+}
+.form-field input::placeholder{color:var(--muted-l);font-size:.83rem;}
+
+/* Info box */
+.info-box{background:var(--emerald-bg);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:.9rem 1rem;font-size:.8rem;color:var(--emerald-d);line-height:1.65;}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;display:flex;flex-direction:column;gap:.5rem;}
+.toast{
+  background:var(--sidebar);color:#fff;padding:.7rem 1.1rem;border-radius:11px;
+  font-size:.8rem;font-weight:500;box-shadow:var(--shadow-lg);
+  transform:translateX(120%);transition:transform .3s cubic-bezier(.16,1,.3,1);
+  max-width:300px;border-left:3px solid var(--blue);
+}
+.toast.show{transform:none;}
+.toast.error{border-left-color:var(--rose);}
+.toast.info{border-left-color:var(--sky);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1200px){.stats-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:900px){
+  .section-grid{grid-template-columns:1fr;}
+  .form-row,.form-row-3{grid-template-columns:1fr;}
+}
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:none;box-shadow:var(--shadow-lg);}
+  main{margin-left:0;}
+  .hamburger{display:flex;}
+  .topbar{padding-left:4rem;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .content{padding:1.1rem;}
+  .tb-welcome,.tb-divider{display:none;}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr;}
+  .action-group{flex-wrap:wrap;}
+  .toolbar{flex-direction:column;align-items:stretch;}
+  .search-wrap{max-width:100%;}
 }
 </style>
 </head>
@@ -973,253 +371,199 @@ tr:hover td { background: #fafbff; }
 
 <div class="loader-overlay" id="loader"><div class="spinner"></div></div>
 
-<!-- HAMBURGER (mobile) -->
+<!-- Hamburger -->
 <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
   <span></span><span></span><span></span>
 </button>
 <div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
 
-<!-- ════════════════════════════════════════════════════════════════ SIDEBAR -->
+<!-- ── SIDEBAR ── -->
 <aside class="sidebar" id="sidebar">
-
-  <div class="sidebar-logo">
-    <svg class="logo-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-      <defs>
-        <linearGradient id="agl1" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#3b82f6"/>
-          <stop offset="100%" stop-color="#1e40af"/>
-        </linearGradient>
-        <linearGradient id="agl2" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f97316"/>
-          <stop offset="100%" stop-color="#ea580c"/>
-        </linearGradient>
-      </defs>
-      <path d="M24 3 L42 10.5 L42 29 Q42 41 24 47 Q6 41 6 29 L6 10.5 Z" fill="url(#agl1)"/>
-      <path d="M24 3 L42 10.5 L42 16 L24 8.5 L6 16 L6 10.5 Z" fill="url(#agl2)"/>
-      <rect x="10" y="21" width="10" height="14" rx="2" fill="white" opacity=".92"/>
-      <rect x="28" y="21" width="10" height="14" rx="2" fill="white" opacity=".6"/>
-      <polygon points="24,10 34,16 24,22 14,16" fill="url(#agl2)"/>
-      <line x1="34" y1="16" x2="34" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="34" cy="23.5" r="2.5" fill="#f97316"/>
-    </svg>
-    <div>
-      <div class="logo-text">CampusCore</div>
-      <div class="logo-sub">Admin Portal</div>
+  <div class="sb-header">
+    <div class="sb-brand">
+      <svg class="sb-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+        <defs>
+          <linearGradient id="agl1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient>
+          <linearGradient id="agl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fdba74"/><stop offset="100%" stop-color="#f97316"/></linearGradient>
+        </defs>
+        <path d="M24 3L42 10.5V29Q42 41 24 47Q6 41 6 29V10.5Z" fill="url(#agl1)"/>
+        <path d="M24 3L42 10.5V16L24 8.5L6 16V10.5Z" fill="url(#agl2)"/>
+        <rect x="10" y="21" width="10" height="14" rx="2" fill="white" opacity=".9"/>
+        <rect x="28" y="21" width="10" height="14" rx="2" fill="white" opacity=".55"/>
+        <polygon points="24,10 34,16 24,22 14,16" fill="url(#agl2)"/>
+        <line x1="34" y1="16" x2="34" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="34" cy="23.5" r="2.5" fill="#f97316"/>
+      </svg>
+      <div class="sb-brand-text">
+        <div class="sb-brand-name">CampusCore</div>
+        <div class="sb-brand-sub">Admin Portal</div>
+      </div>
     </div>
   </div>
 
-  <nav class="nav">
+  <nav class="sb-nav">
     <div class="nav-section">Overview</div>
     <div class="nav-item active" onclick="showPage('dashboard',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       Dashboard
     </div>
 
     <div class="nav-section">User Management</div>
     <div class="nav-item" onclick="showPage('students',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
       Students
     </div>
     <div class="nav-item" onclick="showPage('teachers',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><line x1="12" y1="12" x2="12" y2="12"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Teachers
     </div>
 
     <div class="nav-section">Academics</div>
     <div class="nav-item" onclick="showPage('departments',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Departments
     </div>
     <div class="nav-item" onclick="showPage('subjects',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
       Subjects
     </div>
     <div class="nav-item" onclick="showPage('timetable',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Timetable
     </div>
 
     <div class="nav-section">Finance</div>
     <div class="nav-item" onclick="showPage('fees',this)">
-      <span class="ni">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
       Fee Structure
     </div>
   </nav>
 
-  <div class="sidebar-footer">
-    <div class="user-row">
-      <div class="u-avatar" id="sideAvatar">A</div>
-      <div style="flex:1;min-width:0">
-        <div class="u-name" id="sideName">Admin</div>
-        <div class="u-role">Administrator</div>
-      </div>
-      <button class="btn-logout" onclick="logout()" title="Logout">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
+  <div class="sb-user">
+    <div class="u-avatar" id="sideAvatar">A</div>
+    <div class="u-info">
+      <div class="u-name" id="sideName">Admin</div>
+      <div class="u-role">Administrator</div>
     </div>
+    <button class="btn-logout" onclick="logout()" title="Logout">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </button>
   </div>
 </aside>
 
-<!-- ═══════════════════════════════════════════════════════════════════ MAIN -->
-<main class="main">
-
-  <!-- TOPBAR -->
+<!-- ── MAIN ── -->
+<main>
+  <!-- Topbar -->
   <div class="topbar" id="topbar">
-    <div class="topbar-left">
+    <div class="tb-left">
       <div class="page-title" id="pageTitle">Dashboard</div>
-      <div class="page-sub"   id="pageSub">University overview &amp; statistics</div>
+      <div class="page-sub" id="pageSub">University overview &amp; statistics</div>
     </div>
-    <div class="topbar-right">
-      <span class="topbar-welcome">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        Welcome, <b id="topName">Admin</b>
-      </span>
+    <div class="tb-right">
+      <div class="tb-welcome">Welcome, <b id="topName">Admin</b></div>
+      <div class="tb-divider"></div>
+      <div class="tb-avatar" id="topAvatar">A</div>
     </div>
   </div>
 
-  <!-- CONTENT -->
+  <!-- Content -->
   <div class="content">
 
-    <!-- ══════════════════════════ DASHBOARD PAGE -->
+    <!-- ══ DASHBOARD PAGE ══ -->
     <div class="page active" id="page-dashboard">
-      <div class="stat-grid">
-        <div class="stat-card sc-students">
-          <div class="sc-icon sc-icon-blue">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <div class="stats-grid">
+        <div class="sc sc-blue">
+          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>
+          <div class="sc-body">
+            <div class="sc-value" id="s-students">—</div>
+            <div class="sc-label">Total Students</div>
+            <div class="sc-sub" id="s-students-sub">Loading…</div>
+            <div class="sc-bar"><div class="sc-fill" style="width:0%"></div></div>
           </div>
-          <div class="sc-bg">🎒</div>
-          <div class="sc-label">Active Students</div>
-          <div class="sc-value" id="s-students">—</div>
-          <div class="sc-sub"  id="s-students-sub">Loading…</div>
-          <div class="sc-bar"><div class="sc-fill" style="width:70%;background:var(--blue)"></div></div>
         </div>
-        <div class="stat-card sc-teachers">
-          <div class="sc-icon sc-icon-emerald">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+        <div class="sc sc-green">
+          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div class="sc-body">
+            <div class="sc-value" id="s-teachers">—</div>
+            <div class="sc-label">Total Teachers</div>
+            <div class="sc-sub" id="s-teachers-sub">Loading…</div>
           </div>
-          <div class="sc-bg">👨‍🏫</div>
-          <div class="sc-label">Active Teachers</div>
-          <div class="sc-value" id="s-teachers">—</div>
-          <div class="sc-sub"  id="s-teachers-sub">Loading…</div>
-          <div class="sc-bar"><div class="sc-fill" style="width:55%;background:var(--emerald)"></div></div>
         </div>
-        <div class="stat-card sc-subjects">
-          <div class="sc-icon sc-icon-amber">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <div class="sc sc-amber">
+          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+          <div class="sc-body">
+            <div class="sc-value" id="s-subjects">—</div>
+            <div class="sc-label">Total Subjects</div>
           </div>
-          <div class="sc-bg">📚</div>
-          <div class="sc-label">Total Subjects</div>
-          <div class="sc-value" id="s-subjects">—</div>
-          <div class="sc-sub">Across all departments</div>
-          <div class="sc-bar"><div class="sc-fill" style="width:80%;background:var(--amber)"></div></div>
         </div>
-        <div class="stat-card sc-depts">
-          <div class="sc-icon sc-icon-violet">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <div class="sc sc-violet">
+          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+          <div class="sc-body">
+            <div class="sc-value" id="s-depts">—</div>
+            <div class="sc-label">Departments</div>
           </div>
-          <div class="sc-bg">🏛️</div>
-          <div class="sc-label">Departments</div>
-          <div class="sc-value" id="s-depts">—</div>
-          <div class="sc-sub">Active programmes</div>
-          <div class="sc-bar"><div class="sc-fill" style="width:60%;background:var(--violet)"></div></div>
         </div>
       </div>
 
       <div class="section-grid">
         <div class="card">
           <div class="card-head">
-            <span class="card-title">Recent Students</span>
+            <div class="card-title">Recent Students</div>
             <button class="btn btn-ghost btn-sm" onclick="triggerPage('students')">View all →</button>
           </div>
-          <div class="card-body" style="padding:0">
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Name</th><th>Code</th><th>Dept</th><th>Sem</th><th>Status</th></tr></thead>
-                <tbody id="recentStudentsTbody">
-                  <tr><td colspan="5" class="empty-state">Loading…</td></tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Code</th><th>Department</th><th>Semester</th><th>Status</th></tr></thead>
+              <tbody id="recentStudentsTbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+            </table>
           </div>
         </div>
         <div class="card">
           <div class="card-head">
-            <span class="card-title">Recent Teachers</span>
+            <div class="card-title">Recent Teachers</div>
             <button class="btn btn-ghost btn-sm" onclick="triggerPage('teachers')">View all →</button>
           </div>
-          <div class="card-body" style="padding:0">
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Name</th><th>Code</th><th>Dept</th><th>Status</th></tr></thead>
-                <tbody id="recentTeachersTbody">
-                  <tr><td colspan="4" class="empty-state">Loading…</td></tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Code</th><th>Department</th><th>Status</th></tr></thead>
+              <tbody id="recentTeachersTbody"><tr><td colspan="4" class="empty-state">Loading…</td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
 
       <div class="section-grid">
         <div class="card">
-          <div class="card-head"><span class="card-title">Students by Department</span></div>
-          <div class="card-body" id="deptStatsList">
-            <div class="empty-state" style="padding:1rem">Loading…</div>
-          </div>
+          <div class="card-head"><div class="card-title">Students by Department</div></div>
+          <div class="card-body" id="deptStatsList"><div class="empty-state">Loading…</div></div>
         </div>
         <div class="card">
-          <div class="card-head"><span class="card-title">Quick Actions</span></div>
+          <div class="card-head"><div class="card-title">Quick Actions</div></div>
           <div class="card-body">
-            <div class="quick-actions">
+            <div class="qa-grid">
               <button class="qa-btn" onclick="triggerPage('students')">
-                <span class="qa-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                </span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
                 Manage Students
               </button>
               <button class="qa-btn" onclick="triggerPage('teachers')">
-                <span class="qa-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
-                </span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 Manage Teachers
               </button>
               <button class="qa-btn" onclick="triggerPage('departments')">
-                <span class="qa-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                </span>
-                Manage Departments
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                Departments
               </button>
               <button class="qa-btn" onclick="triggerPage('subjects')">
-                <span class="qa-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15z"/></svg>
-                </span>
-                Manage Subjects
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                Subjects
               </button>
               <button class="qa-btn" onclick="triggerPage('timetable')">
-                <span class="qa-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                </span>
-                Manage Timetable
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Timetable
               </button>
               <button class="qa-btn" onclick="triggerPage('fees')">
-                <span class="qa-icon">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                </span>
-                Manage Fees
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Fee Structure
               </button>
             </div>
           </div>
@@ -1227,77 +571,64 @@ tr:hover td { background: #fafbff; }
       </div>
     </div>
 
-    <!-- ══════════════════════════ STUDENTS PAGE -->
+    <!-- ══ STUDENTS PAGE ══ -->
     <div class="page" id="page-students">
       <div class="toolbar">
-        <div class="search-wrap">
-          <span class="search-ico">
+        <div class="toolbar-left">
+          <div class="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input type="text" placeholder="Search students…" id="studentSearch" oninput="searchStudents()">
-        </div>
-        <div style="display:flex;gap:.6rem;align-items:center">
-          <label class="check-label">
+            <input class="search-input" type="text" placeholder="Search students…" id="studentSearch" oninput="searchStudents()">
+          </div>
+          <label class="checkbox-wrap">
             <input type="checkbox" id="showInactive" onchange="loadStudents()"> Show inactive
           </label>
-          <button class="btn btn-primary" onclick="openModal('addStudentModal')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Student
-          </button>
         </div>
+        <button class="btn btn-primary" onclick="openModal('addStudentModal')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Student
+        </button>
       </div>
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Phone</th><th>Department</th><th>Semester</th><th>Status</th><th style="min-width:220px">Actions</th></tr></thead>
-            <tbody id="studentsTbody">
-              <tr><td colspan="8" class="empty-state"><span class="ei">📭</span>Loading…</td></tr>
-            </tbody>
+            <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Phone</th><th>Department</th><th>Semester</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="studentsTbody"><tr><td colspan="8" class="empty-state"><span class="ei">📭</span>No students found</td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- ══════════════════════════ TEACHERS PAGE -->
+    <!-- ══ TEACHERS PAGE ══ -->
     <div class="page" id="page-teachers">
       <div class="toolbar">
-        <div class="search-wrap">
-          <span class="search-ico">
+        <div class="toolbar-left">
+          <div class="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input type="text" placeholder="Search teachers…" id="teacherSearch" oninput="searchTeachers()">
-        </div>
-        <div style="display:flex;gap:.6rem;align-items:center">
-          <label class="check-label">
+            <input class="search-input" type="text" placeholder="Search teachers…" id="teacherSearch" oninput="searchTeachers()">
+          </div>
+          <label class="checkbox-wrap">
             <input type="checkbox" id="showInactiveTeachers" onchange="loadTeachers()"> Show inactive
           </label>
-          <button class="btn btn-primary" onclick="openModal('addTeacherModal')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Teacher
-          </button>
         </div>
+        <button class="btn btn-primary" onclick="openModal('addTeacherModal')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Teacher
+        </button>
       </div>
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Phone</th><th>Department</th><th>Gender</th><th>Status</th><th style="min-width:220px">Actions</th></tr></thead>
-            <tbody id="teachersTbody">
-              <tr><td colspan="8" class="empty-state"><span class="ei">📭</span>Loading…</td></tr>
-            </tbody>
+            <thead><tr><th>Name</th><th>Code</th><th>Email</th><th>Phone</th><th>Department</th><th>Gender</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="teachersTbody"><tr><td colspan="8" class="empty-state"><span class="ei">📭</span>No teachers found</td></tr></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- ══════════════════════════ DEPARTMENTS PAGE -->
+    <!-- ══ DEPARTMENTS PAGE ══ -->
     <div class="page" id="page-departments">
       <div class="toolbar">
-        <div class="search-wrap">
-          <span class="search-ico">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input type="text" placeholder="Search departments…" oninput="filterTable('deptsTable',this.value)">
-        </div>
+        <div class="toolbar-left"></div>
         <button class="btn btn-primary" onclick="openModal('addDeptModal')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Department
@@ -1313,15 +644,10 @@ tr:hover td { background: #fafbff; }
       </div>
     </div>
 
-    <!-- ══════════════════════════ SUBJECTS PAGE -->
+    <!-- ══ SUBJECTS PAGE ══ -->
     <div class="page" id="page-subjects">
       <div class="toolbar">
-        <div class="search-wrap">
-          <span class="search-ico">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <input type="text" placeholder="Search subjects…" oninput="filterTable('subjectsTable',this.value)">
-        </div>
+        <div class="toolbar-left"></div>
         <button class="btn btn-primary" onclick="openModal('addSubjectModal')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Subject
@@ -1337,17 +663,15 @@ tr:hover td { background: #fafbff; }
       </div>
     </div>
 
-    <!-- ══════════════════════════ TIMETABLE PAGE -->
+    <!-- ══ TIMETABLE PAGE ══ -->
     <div class="page" id="page-timetable">
       <div class="toolbar">
-        <div style="display:flex;gap:.5rem">
-          <select id="tt-filter-dept" class="filter-select" onchange="loadTimetable()">
-            <option value="">All Departments</option>
-          </select>
+        <div class="toolbar-left">
+          <select id="tt-filter-dept" class="filter-select" onchange="loadTimetable()"><option value="">All Departments</option></select>
           <select id="tt-filter-sem" class="filter-select" onchange="loadTimetable()">
             <option value="">All Semesters</option>
-            <option>1</option><option>2</option><option>3</option><option>4</option>
-            <option>5</option><option>6</option><option>7</option><option>8</option>
+            <option value="1">Sem 1</option><option value="2">Sem 2</option><option value="3">Sem 3</option><option value="4">Sem 4</option>
+            <option value="5">Sem 5</option><option value="6">Sem 6</option><option value="7">Sem 7</option><option value="8">Sem 8</option>
           </select>
         </div>
         <button class="btn btn-primary" onclick="openModal('addTimetableModal')">
@@ -1365,10 +689,10 @@ tr:hover td { background: #fafbff; }
       </div>
     </div>
 
-    <!-- ══════════════════════════ FEES PAGE -->
+    <!-- ══ FEES PAGE ══ -->
     <div class="page" id="page-fees">
       <div class="toolbar">
-        <span style="font-size:.82rem;color:var(--muted)">Fee structures across departments</span>
+        <div class="toolbar-left"><span style="font-size:.82rem;color:var(--muted)">Fee structures across departments</span></div>
         <button class="btn btn-primary" onclick="openModal('addFeeModal')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Fee Structure
@@ -1387,7 +711,7 @@ tr:hover td { background: #fafbff; }
   </div><!-- /content -->
 </main>
 
-<!-- ════════════════════════════════════════════════════════ MODALS (unchanged) -->
+<!-- ══════════════════ MODALS ══════════════════ -->
 
 <!-- Add Student -->
 <div class="modal-backdrop" id="addStudentModal">
@@ -1404,7 +728,7 @@ tr:hover td { background: #fafbff; }
         <div class="form-field"><label>Phone</label><input id="st-phone" type="text" placeholder="10-digit number"></div>
       </div>
       <div class="form-row">
-        <div class="form-field"><label>Date of Birth * <small style="color:var(--muted);text-transform:none;letter-spacing:0">(used as default password DD-MM-YYYY)</small></label><input id="st-dob" type="date"></div>
+        <div class="form-field"><label>Date of Birth * <small style="color:var(--muted);text-transform:none;letter-spacing:0">(default password DD-MM-YYYY)</small></label><input id="st-dob" type="date"></div>
         <div class="form-field"><label>Gender</label><select id="st-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
       </div>
       <div class="form-section">Academic Information</div>
@@ -1458,7 +782,7 @@ tr:hover td { background: #fafbff; }
       <input type="hidden" id="reset-user-id">
       <p style="font-size:.82rem;color:var(--muted);margin-bottom:.9rem">Resetting password for: <b id="reset-user-name" style="color:var(--ink2)"></b></p>
       <div class="form-field">
-        <label>New Password <small style="color:var(--muted);text-transform:none;letter-spacing:0">(leave blank to reset to Date of Birth DD-MM-YYYY)</small></label>
+        <label>New Password <small style="color:var(--muted);text-transform:none;letter-spacing:0">(leave blank to reset to DOB DD-MM-YYYY)</small></label>
         <input id="reset-new-pw" type="text" placeholder="Custom password or leave blank for DOB">
       </div>
       <div id="resetResult" style="display:none"></div>
@@ -1632,31 +956,23 @@ tr:hover td { background: #fafbff; }
 
 <div class="toast-wrap" id="toastWrap"></div>
 
-<!-- ════════════════════════════════════════════ ALL JS — COMPLETELY UNCHANGED -->
+<!-- ══════════════════ ALL JS — COMPLETELY UNCHANGED ══════════════════ -->
 <script>
-// ── State ─────────────────────────────────────────────────────────────────────
-// API base — always points to Flask on port 5000, regardless of which port serves the HTML
-const API = (function() {
-  const stored = localStorage.getItem('api_base');
-  if (stored) return stored.replace(/\/$/, '');
-  // Auto-detect: if page served by Flask (5000), use same host. Otherwise hardcode 5000.
-  return window.location.origin;
-})();
-let TOKEN = '', USER = {};
-let depts = [], teacherList = [], subjectList = [];
-let allStudents = [], allTeachers = [];
+const API=(function(){const stored=localStorage.getItem('api_base');if(stored)return stored.replace(/\/$/,'');return window.location.origin;})();
+let TOKEN='',USER={};
+let depts=[],teacherList=[],subjectList=[];
+let allStudents=[],allTeachers=[];
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-function init() {
-  TOKEN = localStorage.getItem('token') || localStorage.getItem('accessToken') || '';
-  USER  = JSON.parse(localStorage.getItem('user') || '{}');
-  if (!TOKEN)                    { location.href = 'auth.html'; return; }
-  if (USER.userType !== 'Admin') { alert('Admin access required'); location.href = 'auth.html'; return; }
-  const name = USER.fullName || 'Admin';
-  document.getElementById('sideName').textContent    = name;
-  document.getElementById('topName').textContent     = name;
-  document.getElementById('sideAvatar').textContent  = name[0].toUpperCase();
-  // Load all data in parallel — dashboard needs students+teachers for recent tables
+function init(){
+  TOKEN=localStorage.getItem('token')||localStorage.getItem('accessToken')||'';
+  USER=JSON.parse(localStorage.getItem('user')||'{}');
+  if(!TOKEN){location.href='auth.html';return;}
+  if(USER.userType!=='Admin'){alert('Admin access required');location.href='auth.html';return;}
+  const name=USER.fullName||'Admin';
+  document.getElementById('sideName').textContent=name;
+  document.getElementById('topName').textContent=name;
+  document.getElementById('sideAvatar').textContent=name[0].toUpperCase();
+  const ta=document.getElementById('topAvatar');if(ta)ta.textContent=name[0].toUpperCase();
   loadDashboard();
   loadDepts();
   loadStudentsData();
@@ -1664,651 +980,250 @@ function init() {
   loadSubjectsData();
 }
 
-// ── API ───────────────────────────────────────────────────────────────────────
-async function api(url, opts = {}) {
-  opts.headers = {
-    ...(opts.headers || {}),
-    'Authorization': 'Bearer ' + TOKEN,
-    'Content-Type':  'application/json'
-  };
-  try {
-    const r = await fetch(API + url, opts);
-    if (r.status === 401) { logout(); return null; }
+async function api(url,opts={}){
+  opts.headers={...(opts.headers||{}),'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'};
+  try{
+    const r=await fetch(API+url,opts);
+    if(r.status===401){logout();return null;}
     return await r.json();
-  } catch (err) {
-    toast('Network error — is the server running?', 'error');
-    return null;
-  }
+  }catch(err){toast('Network error — is the server running?','error');return null;}
 }
 
-function showLoader(v) { document.getElementById('loader').className = 'loader-overlay' + (v ? ' show' : ''); }
+function showLoader(v){document.getElementById('loader').className='loader-overlay'+(v?' show':'');}
 
-function toast(msg, type = 'success') {
-  const w = document.getElementById('toastWrap');
-  const t = document.createElement('div');
-  t.className = 'toast ' + type;
-  const ic = { success: '✅', error: '❌', info: 'ℹ️' };
-  t.innerHTML = `${ic[type]||'ℹ️'} ${msg}`;
+function toast(msg,type='success'){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  const ic={success:'✅',error:'❌',info:'ℹ️'};
+  t.innerHTML=`${ic[type]||'ℹ️'} ${msg}`;
   w.appendChild(t);
-  setTimeout(() => t.classList.add('show'), 10);
-  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 4000);
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},4000);
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────────
-const PAGE_META = {
-  dashboard:   ['Dashboard',      'University overview & statistics'],
-  students:    ['Students',       'Manage student accounts — edit, activate/deactivate, reset password'],
-  teachers:    ['Teachers',       'Manage teacher accounts — edit, activate/deactivate, reset password'],
-  departments: ['Departments',    'Manage departments & programmes'],
-  subjects:    ['Subjects',       'Manage course subjects'],
-  timetable:   ['Timetable',      'Manage class schedule'],
-  fees:        ['Fee Structure',  'Manage fee structures'],
+const PAGE_META={
+  dashboard:  ['Dashboard','University overview & statistics'],
+  students:   ['Students','Manage student accounts — edit, activate/deactivate, reset password'],
+  teachers:   ['Teachers','Manage teacher accounts — edit, activate/deactivate, reset password'],
+  departments:['Departments','Manage departments & programmes'],
+  subjects:   ['Subjects','Manage course subjects'],
+  timetable:  ['Timetable','Manage class schedule'],
+  fees:       ['Fee Structure','Manage fee structures'],
 };
 
-function showPage(id, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  if (el) el.classList.add('active');
-  const [t, s] = PAGE_META[id] || [id, ''];
-  document.getElementById('pageTitle').textContent = t;
-  document.getElementById('pageSub').textContent   = s;
-  const loaders = {
-    students:    () => loadStudents(),
-    teachers:    () => loadTeachers(),
-    departments: () => loadDepts(),
-    subjects:    () => loadSubjects(),
-    timetable:   () => loadTimetable(),
-    fees:        () => loadFees(),
-  };
-  if (loaders[id]) loaders[id]();
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el)el.classList.add('active');
+  const[t,s]=PAGE_META[id]||[id,''];
+  document.getElementById('pageTitle').textContent=t;
+  document.getElementById('pageSub').textContent=s;
+  const loaders={students:()=>loadStudents(),teachers:()=>loadTeachers(),departments:()=>loadDepts(),subjects:()=>loadSubjects(),timetable:()=>loadTimetable(),fees:()=>loadFees()};
+  if(loaders[id])loaders[id]();
 }
 
-function triggerPage(id) {
-  const navItem = [...document.querySelectorAll('.nav-item')].find(n => n.textContent.trim().toLowerCase().startsWith(id.slice(0,6)));
-  showPage(id, navItem);
+function triggerPage(id){
+  const navItem=[...document.querySelectorAll('.nav-item')].find(n=>n.textContent.trim().toLowerCase().startsWith(id.slice(0,6)));
+  showPage(id,navItem);
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// DASHBOARD
-// ══════════════════════════════════════════════════════════════════════════════
-async function loadDashboard() {
+async function loadDashboard(){
   showLoader(true);
-  const d = await api('/api/admin/dashboard');
+  const d=await api('/api/admin/dashboard');
   showLoader(false);
-  if (!d) { toast('Failed to load dashboard data. Check server connection.', 'error'); return; }
-  if (!d.success) { toast(d.error || 'Dashboard error', 'error'); return; }
-  const s = d.stats || {};
-
-  // Stat cards
-  const totalStu = s.totalStudents ?? 0;
-  const totalTea = s.totalTeachers ?? 0;
-  const totalSub = s.totalSubjects ?? 0;
-  const totalDep = s.totalDepartments ?? 0;
-  const inactiveStu = s.inactiveStudents ?? 0;
-  const inactiveTea = s.inactiveTeachers ?? 0;
-
-  document.getElementById('s-students').textContent = totalStu;
-  document.getElementById('s-students-sub').textContent = inactiveStu ? `${inactiveStu} inactive` : 'All active';
-  document.getElementById('s-teachers').textContent = totalTea;
-  document.getElementById('s-teachers-sub').textContent = inactiveTea ? `${inactiveTea} inactive` : 'All active';
-  document.getElementById('s-subjects').textContent = totalSub;
-  document.getElementById('s-depts').textContent   = totalDep;
-
-  // Dynamic stat bars based on real ratios
-  const maxStu = Math.max(totalStu + inactiveStu, 1);
-  const maxTea = Math.max(totalTea + inactiveTea, 1);
-  document.querySelector('#page-dashboard .sc-fill').style.width = Math.round(totalStu / maxStu * 100) + '%';
-
-  // Recent students table
-  const rs = s.recentStudents || [];
-  document.getElementById('recentStudentsTbody').innerHTML = rs.length
-    ? rs.map(x => `<tr>
-        <td class="td-name">${esc(x.FullName)}</td>
-        <td><span class="td-code">${esc(x.UserCode)}</span></td>
-        <td>${esc(x.DepartmentName||'—')}</td>
-        <td><span class="badge b-blue">Sem ${x.Semester||'?'}</span></td>
-        <td><span class="badge ${x.IsActive?'b-green':'b-red'}">${x.IsActive?'Active':'Inactive'}</span></td>
-      </tr>`).join('')
-    : '<tr><td colspan="5" class="empty-state"><span class="ei">📭</span>No students yet</td></tr>';
-
-  // Recent teachers table
-  const rt = s.recentTeachers || [];
-  document.getElementById('recentTeachersTbody').innerHTML = rt.length
-    ? rt.map(x => `<tr>
-        <td class="td-name">${esc(x.FullName)}</td>
-        <td><span class="td-code">${esc(x.UserCode)}</span></td>
-        <td>${esc(x.DepartmentName||'—')}</td>
-        <td><span class="badge ${x.IsActive?'b-teal':'b-red'}">${x.IsActive?'Active':'Inactive'}</span></td>
-      </tr>`).join('')
-    : '<tr><td colspan="4" class="empty-state"><span class="ei">📭</span>No teachers yet</td></tr>';
-
-  // Department breakdown
-  const deptStatsEl = document.getElementById('deptStatsList');
-  if (deptStatsEl) {
-    const ds = s.departmentStats || [];
-    deptStatsEl.innerHTML = ds.length
-      ? ds.map(d => `<div style="display:flex;align-items:center;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--border-2)">
-          <span style="font-size:.8rem;font-weight:600;color:var(--ink2)">${esc(d.DepartmentName)}</span>
-          <span class="badge b-blue">${d.StudentCount} students</span>
-        </div>`).join('')
-      : '<div class="empty-state" style="padding:1rem">No department data</div>';
+  if(!d){toast('Failed to load dashboard data.','error');return;}
+  if(!d.success){toast(d.error||'Dashboard error','error');return;}
+  const s=d.stats||{};
+  const totalStu=s.totalStudents??0;const totalTea=s.totalTeachers??0;const totalSub=s.totalSubjects??0;const totalDep=s.totalDepartments??0;
+  const inactiveStu=s.inactiveStudents??0;const inactiveTea=s.inactiveTeachers??0;
+  document.getElementById('s-students').textContent=totalStu;
+  document.getElementById('s-students-sub').textContent=inactiveStu?`${inactiveStu} inactive`:'All active';
+  document.getElementById('s-teachers').textContent=totalTea;
+  document.getElementById('s-teachers-sub').textContent=inactiveTea?`${inactiveTea} inactive`:'All active';
+  document.getElementById('s-subjects').textContent=totalSub;
+  document.getElementById('s-depts').textContent=totalDep;
+  const maxStu=Math.max(totalStu+inactiveStu,1);
+  document.querySelector('#page-dashboard .sc-fill').style.width=Math.round(totalStu/maxStu*100)+'%';
+  const rs=s.recentStudents||[];
+  document.getElementById('recentStudentsTbody').innerHTML=rs.length?rs.map(x=>`<tr><td class="td-name">${esc(x.FullName)}</td><td><span class="td-code">${esc(x.UserCode)}</span></td><td>${esc(x.DepartmentName||'—')}</td><td><span class="badge b-blue">Sem ${x.Semester||'?'}</span></td><td><span class="badge ${x.IsActive?'b-green':'b-red'}">${x.IsActive?'Active':'Inactive'}</span></td></tr>`).join(''):'<tr><td colspan="5" class="empty-state"><span class="ei">📭</span>No students yet</td></tr>';
+  const rt=s.recentTeachers||[];
+  document.getElementById('recentTeachersTbody').innerHTML=rt.length?rt.map(x=>`<tr><td class="td-name">${esc(x.FullName)}</td><td><span class="td-code">${esc(x.UserCode)}</span></td><td>${esc(x.DepartmentName||'—')}</td><td><span class="badge ${x.IsActive?'b-teal':'b-red'}">${x.IsActive?'Active':'Inactive'}</span></td></tr>`).join(''):'<tr><td colspan="4" class="empty-state"><span class="ei">📭</span>No teachers yet</td></tr>';
+  const deptStatsEl=document.getElementById('deptStatsList');
+  if(deptStatsEl){
+    const ds=s.departmentStats||[];
+    deptStatsEl.innerHTML=ds.length?ds.map(d=>`<div class="dept-row"><span style="font-size:.8rem;font-weight:600;color:var(--ink2)">${esc(d.DepartmentName)}</span><span class="badge b-blue">${d.StudentCount} students</span></div>`).join(''):'<div class="empty-state" style="padding:1rem">No department data</div>';
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// STUDENTS
-// ══════════════════════════════════════════════════════════════════════════════
-async function loadStudentsData() {
-  const d = await api('/api/admin/students');
-  if (!d || !d.success) return;
-  allStudents = d.students || [];
+async function loadStudentsData(){const d=await api('/api/admin/students');if(!d||!d.success)return;allStudents=d.students||[];}
+async function loadStudents(){
+  showLoader(true);const d=await api('/api/admin/students');showLoader(false);
+  if(!d){toast('Failed to load students','error');return;}
+  if(!d.success){toast(d.error||'Error loading students','error');return;}
+  allStudents=d.students||[];renderStudents(allStudents);
 }
-
-async function loadStudents() {
-  showLoader(true);
-  const d = await api('/api/admin/students');
-  showLoader(false);
-  if (!d) { toast('Failed to load students', 'error'); return; }
-  if (!d.success) { toast(d.error || 'Error loading students', 'error'); return; }
-  allStudents = d.students || [];
-  renderStudents(allStudents);
-}
-
-function searchStudents() {
-  const q = document.getElementById('studentSearch').value.toLowerCase();
-  const showInactive = document.getElementById('showInactive').checked;
-  let rows = allStudents;
-  if (!showInactive) rows = rows.filter(s => s.IsActive);
-  if (q) rows = rows.filter(s =>
-    (s.FullName||'').toLowerCase().includes(q) ||
-    (s.UserCode||'').toLowerCase().includes(q) ||
-    (s.Email||'').toLowerCase().includes(q) ||
-    (s.DepartmentName||'').toLowerCase().includes(q)
-  );
+function searchStudents(){
+  const q=document.getElementById('studentSearch').value.toLowerCase();
+  const showInactive=document.getElementById('showInactive').checked;
+  let rows=allStudents;
+  if(!showInactive)rows=rows.filter(s=>s.IsActive);
+  if(q)rows=rows.filter(s=>(s.FullName||'').toLowerCase().includes(q)||(s.UserCode||'').toLowerCase().includes(q)||(s.Email||'').toLowerCase().includes(q)||(s.DepartmentName||'').toLowerCase().includes(q));
   renderStudents(rows);
 }
-
-function renderStudents(rows) {
-  const showInactive = document.getElementById('showInactive').checked;
-  // FIX: single clean filter — show all rows if showInactive, otherwise only active
-  const display = showInactive ? rows : rows.filter(s => s.IsActive);
-  document.getElementById('studentsTbody').innerHTML = display.length
-    ? display.map(s => `<tr>
-        <td class="td-name">${esc(s.FullName)}</td>
-        <td><span class="td-code">${esc(s.UserCode)}</span></td>
-        <td>${esc(s.Email||'—')}</td>
-        <td>${esc(s.Phone||'—')}</td>
-        <td>${esc(s.DepartmentName||'—')}</td>
-        <td><span class="badge b-blue">Sem ${s.Semester||'?'}</span></td>
-        <td><span class="badge ${s.IsActive?'b-green':'b-red'}">${s.IsActive?'Active':'Inactive'}</span></td>
-        <td>
-          <div class="action-group">
-            <button class="btn btn-info btn-xs" onclick='openEditStudent(${JSON.stringify(s)})' title="Edit">✏️ Edit</button>
-            <button class="btn btn-warning btn-xs" onclick='openResetPw(${s.UserID},"${(s.FullName||'').replace(/"/g,'&quot;')}")' title="Reset Password">🔑</button>
-            <button class="btn ${s.IsActive?'btn-danger':'btn-success'} btn-xs" onclick="toggleStudent(${s.UserID},${s.IsActive?1:0})" title="${s.IsActive?'Deactivate':'Activate'}">
-              ${s.IsActive?'🚫 Deactivate':'✅ Activate'}
-            </button>
-          </div>
-        </td>
-      </tr>`).join('')
-    : '<tr><td colspan="8" class="empty-state"><span class="ei">📭</span>No students found</td></tr>';
+function renderStudents(rows){
+  const showInactive=document.getElementById('showInactive').checked;
+  const display=showInactive?rows:rows.filter(s=>s.IsActive);
+  document.getElementById('studentsTbody').innerHTML=display.length?display.map(s=>`<tr><td class="td-name">${esc(s.FullName)}</td><td><span class="td-code">${esc(s.UserCode)}</span></td><td>${esc(s.Email||'—')}</td><td>${esc(s.Phone||'—')}</td><td>${esc(s.DepartmentName||'—')}</td><td><span class="badge b-blue">Sem ${s.Semester||'?'}</span></td><td><span class="badge ${s.IsActive?'b-green':'b-red'}">${s.IsActive?'Active':'Inactive'}</span></td><td><div class="action-group"><button class="btn btn-info btn-xs" onclick='openEditStudent(${JSON.stringify(s)})' title="Edit">✏️ Edit</button><button class="btn btn-warning btn-xs" onclick='openResetPw(${s.UserID},"${(s.FullName||'').replace(/"/g,'&quot;')}")' title="Reset Password">🔑</button><button class="btn ${s.IsActive?'btn-danger':'btn-success'} btn-xs" onclick="toggleStudent(${s.UserID},${s.IsActive?1:0})" title="${s.IsActive?'Deactivate':'Activate'}">${s.IsActive?'🚫 Deactivate':'✅ Activate'}</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty-state"><span class="ei">📭</span>No students found</td></tr>';
+}
+function openEditStudent(s){document.getElementById('edit-st-id').value=s.UserID;document.getElementById('edit-st-name').value=s.FullName||'';document.getElementById('edit-st-email').value=s.Email||'';document.getElementById('edit-st-phone').value=s.Phone||'';document.getElementById('edit-st-address').value=s.Address||'';setSelectVal('edit-st-gender',s.Gender||'');setSelectVal('edit-st-sem',String(s.Semester||'1'));populateDeptSelect('edit-st-dept',s.DepartmentID);openModal('editStudentModal');}
+async function saveStudent(){
+  const id=document.getElementById('edit-st-id').value;
+  const body={fullName:document.getElementById('edit-st-name').value.trim(),email:document.getElementById('edit-st-email').value.trim(),phone:document.getElementById('edit-st-phone').value.trim(),gender:document.getElementById('edit-st-gender').value,departmentId:document.getElementById('edit-st-dept').value||null,semester:document.getElementById('edit-st-sem').value,address:document.getElementById('edit-st-address').value.trim()};
+  if(!body.fullName){toast('Full name is required','error');return;}
+  const d=await api(`/api/admin/students/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  if(d?.success){toast('Student updated successfully');closeModal('editStudentModal');loadStudents();loadDashboard();}else toast(d?.error||'Failed to update','error');
+}
+async function addStudent(){
+  const body={userCode:document.getElementById('st-code').value.trim().toUpperCase(),fullName:document.getElementById('st-name').value.trim(),email:document.getElementById('st-email').value.trim(),phone:document.getElementById('st-phone').value.trim(),gender:document.getElementById('st-gender').value,dateOfBirth:document.getElementById('st-dob').value,departmentId:document.getElementById('st-dept').value||null,semester:document.getElementById('st-sem').value,address:document.getElementById('st-address').value.trim()};
+  if(!body.userCode||!body.fullName||!body.dateOfBirth){toast('Name, Code, and Date of Birth are required','error');return;}
+  const d=await api('/api/admin/students',{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){toast(d.message||'Student added');closeModal('addStudentModal');clearStudentForm();loadStudents();loadDashboard();}else toast(d?.error||'Failed to add student','error');
+}
+function clearStudentForm(){['st-code','st-name','st-email','st-phone','st-address'].forEach(id=>document.getElementById(id).value='');document.getElementById('st-dob').value='';document.getElementById('st-gender').value='';document.getElementById('st-dept').value='';}
+async function toggleStudent(id,currentlyActive){
+  const action=currentlyActive?'deactivate':'activate';
+  if(!confirm(`Are you sure you want to ${action} this student?\n\n${currentlyActive?'They will NOT be able to log in.':'They will be able to log in again.'}`))return;
+  const d=await api(`/api/admin/students/${id}/toggle-active`,{method:'POST'});
+  if(d?.success){toast(d.message||`Student ${action}d`);loadStudents();loadDashboard();}else toast(d?.error||`Failed to ${action}`,'error');
 }
 
-function openEditStudent(s) {
-  document.getElementById('edit-st-id').value       = s.UserID;
-  document.getElementById('edit-st-name').value     = s.FullName || '';
-  document.getElementById('edit-st-email').value    = s.Email || '';
-  document.getElementById('edit-st-phone').value    = s.Phone || '';
-  document.getElementById('edit-st-address').value  = s.Address || '';
-  setSelectVal('edit-st-gender', s.Gender || '');
-  setSelectVal('edit-st-sem',    String(s.Semester || '1'));
-  populateDeptSelect('edit-st-dept', s.DepartmentID);
-  openModal('editStudentModal');
+async function loadTeachersData(){const d=await api('/api/admin/teachers');if(!d||!d.success)return;teacherList=d.teachers||[];allTeachers=teacherList;populateTeacherDropdown();}
+async function loadTeachers(){
+  showLoader(true);const d=await api('/api/admin/teachers');showLoader(false);
+  if(!d){toast('Failed to load teachers','error');return;}
+  if(!d.success){toast(d.error||'Error loading teachers','error');return;}
+  teacherList=d.teachers||[];allTeachers=teacherList;renderTeachers(allTeachers);populateTeacherDropdown();
 }
-
-async function saveStudent() {
-  const id = document.getElementById('edit-st-id').value;
-  const body = {
-    fullName:     document.getElementById('edit-st-name').value.trim(),
-    email:        document.getElementById('edit-st-email').value.trim(),
-    phone:        document.getElementById('edit-st-phone').value.trim(),
-    gender:       document.getElementById('edit-st-gender').value,
-    departmentId: document.getElementById('edit-st-dept').value || null,
-    semester:     document.getElementById('edit-st-sem').value,
-    address:      document.getElementById('edit-st-address').value.trim(),
-  };
-  if (!body.fullName) { toast('Full name is required','error'); return; }
-  const d = await api(`/api/admin/students/${id}`, { method:'PUT', body: JSON.stringify(body) });
-  if (d?.success) { toast('Student updated successfully'); closeModal('editStudentModal'); loadStudents(); loadDashboard(); }
-  else toast(d?.error || 'Failed to update', 'error');
-}
-
-async function addStudent() {
-  const body = {
-    userCode:     document.getElementById('st-code').value.trim().toUpperCase(),
-    fullName:     document.getElementById('st-name').value.trim(),
-    email:        document.getElementById('st-email').value.trim(),
-    phone:        document.getElementById('st-phone').value.trim(),
-    gender:       document.getElementById('st-gender').value,
-    dateOfBirth:  document.getElementById('st-dob').value,
-    departmentId: document.getElementById('st-dept').value || null,
-    semester:     document.getElementById('st-sem').value,
-    address:      document.getElementById('st-address').value.trim(),
-  };
-  if (!body.userCode || !body.fullName || !body.dateOfBirth) { toast('Name, Code, and Date of Birth are required','error'); return; }
-  const d = await api('/api/admin/students', { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) { toast(d.message || 'Student added'); closeModal('addStudentModal'); clearStudentForm(); loadStudents(); loadDashboard(); }
-  else toast(d?.error || 'Failed to add student', 'error');
-}
-
-function clearStudentForm() {
-  ['st-code','st-name','st-email','st-phone','st-address'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('st-dob').value='';
-  document.getElementById('st-gender').value='';
-  document.getElementById('st-dept').value='';
-}
-
-async function toggleStudent(id, currentlyActive) {
-  const action = currentlyActive ? 'deactivate' : 'activate';
-  if (!confirm(`Are you sure you want to ${action} this student?\n\n${currentlyActive ? 'They will NOT be able to log in.' : 'They will be able to log in again.'}`)) return;
-  const d = await api(`/api/admin/students/${id}/toggle-active`, { method:'POST' });
-  if (d?.success) {
-    toast(d.message || `Student ${action}d`);
-    loadStudents();
-    loadDashboard();
-  } else toast(d?.error || `Failed to ${action}`, 'error');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TEACHERS
-// ══════════════════════════════════════════════════════════════════════════════
-async function loadTeachersData() {
-  const d = await api('/api/admin/teachers');
-  if (!d || !d.success) return;
-  teacherList = d.teachers || [];
-  allTeachers = teacherList;
-  populateTeacherDropdown();
-}
-
-async function loadTeachers() {
-  showLoader(true);
-  const d = await api('/api/admin/teachers');
-  showLoader(false);
-  if (!d) { toast('Failed to load teachers', 'error'); return; }
-  if (!d.success) { toast(d.error || 'Error loading teachers', 'error'); return; }
-  teacherList = d.teachers || [];
-  allTeachers = teacherList;
-  renderTeachers(allTeachers);
-  populateTeacherDropdown();
-}
-
-function searchTeachers() {
-  const q = document.getElementById('teacherSearch').value.toLowerCase();
-  const showInactive = document.getElementById('showInactiveTeachers').checked;
-  let rows = showInactive ? allTeachers : allTeachers.filter(t => t.IsActive);
-  if (q) rows = rows.filter(t =>
-    (t.FullName||'').toLowerCase().includes(q) ||
-    (t.UserCode||'').toLowerCase().includes(q) ||
-    (t.Email||'').toLowerCase().includes(q)
-  );
+function searchTeachers(){
+  const q=document.getElementById('teacherSearch').value.toLowerCase();
+  const showInactive=document.getElementById('showInactiveTeachers').checked;
+  let rows=showInactive?allTeachers:allTeachers.filter(t=>t.IsActive);
+  if(q)rows=rows.filter(t=>(t.FullName||'').toLowerCase().includes(q)||(t.UserCode||'').toLowerCase().includes(q)||(t.Email||'').toLowerCase().includes(q));
   renderTeachers(rows);
 }
-
-function renderTeachers(rows) {
-  // FIX: single clean filter
-  const showInactive = document.getElementById('showInactiveTeachers')?.checked;
-  const display = showInactive ? rows : rows.filter(t => t.IsActive);
-  document.getElementById('teachersTbody').innerHTML = display.length
-    ? display.map(t => `<tr>
-        <td class="td-name">${esc(t.FullName)}</td>
-        <td><span class="td-code">${esc(t.UserCode)}</span></td>
-        <td>${esc(t.Email||'—')}</td>
-        <td>${esc(t.Phone||'—')}</td>
-        <td>${esc(t.DepartmentName||'—')}</td>
-        <td>${esc(t.Gender||'—')}</td>
-        <td><span class="badge ${t.IsActive?'b-teal':'b-red'}">${t.IsActive?'Active':'Inactive'}</span></td>
-        <td>
-          <div class="action-group">
-            <button class="btn btn-info btn-xs" onclick='openEditTeacher(${JSON.stringify(t)})' title="Edit">✏️ Edit</button>
-            <button class="btn btn-warning btn-xs" onclick='openResetPw(${t.UserID},"${(t.FullName||'').replace(/"/g,'&quot;')}")' title="Reset Password">🔑</button>
-            <button class="btn ${t.IsActive?'btn-danger':'btn-success'} btn-xs" onclick="toggleTeacher(${t.UserID},${t.IsActive?1:0})" title="${t.IsActive?'Deactivate':'Activate'}">
-              ${t.IsActive?'🚫 Deactivate':'✅ Activate'}
-            </button>
-          </div>
-        </td>
-      </tr>`).join('')
-    : '<tr><td colspan="8" class="empty-state"><span class="ei">📭</span>No teachers found</td></tr>';
+function renderTeachers(rows){
+  const showInactive=document.getElementById('showInactiveTeachers')?.checked;
+  const display=showInactive?rows:rows.filter(t=>t.IsActive);
+  document.getElementById('teachersTbody').innerHTML=display.length?display.map(t=>`<tr><td class="td-name">${esc(t.FullName)}</td><td><span class="td-code">${esc(t.UserCode)}</span></td><td>${esc(t.Email||'—')}</td><td>${esc(t.Phone||'—')}</td><td>${esc(t.DepartmentName||'—')}</td><td>${esc(t.Gender||'—')}</td><td><span class="badge ${t.IsActive?'b-teal':'b-red'}">${t.IsActive?'Active':'Inactive'}</span></td><td><div class="action-group"><button class="btn btn-info btn-xs" onclick='openEditTeacher(${JSON.stringify(t)})' title="Edit">✏️ Edit</button><button class="btn btn-warning btn-xs" onclick='openResetPw(${t.UserID},"${(t.FullName||'').replace(/"/g,'&quot;')}")' title="Reset Password">🔑</button><button class="btn ${t.IsActive?'btn-danger':'btn-success'} btn-xs" onclick="toggleTeacher(${t.UserID},${t.IsActive?1:0})" title="${t.IsActive?'Deactivate':'Activate'}">${t.IsActive?'🚫 Deactivate':'✅ Activate'}</button></div></td></tr>`).join(''):'<tr><td colspan="8" class="empty-state"><span class="ei">📭</span>No teachers found</td></tr>';
+}
+function openEditTeacher(t){document.getElementById('edit-tc-id').value=t.UserID;document.getElementById('edit-tc-name').value=t.FullName||'';document.getElementById('edit-tc-email').value=t.Email||'';document.getElementById('edit-tc-phone').value=t.Phone||'';document.getElementById('edit-tc-address').value=t.Address||'';setSelectVal('edit-tc-gender',t.Gender||'');populateDeptSelect('edit-tc-dept',t.DepartmentID);openModal('editTeacherModal');}
+async function saveTeacher(){
+  const id=document.getElementById('edit-tc-id').value;
+  const body={fullName:document.getElementById('edit-tc-name').value.trim(),email:document.getElementById('edit-tc-email').value.trim(),phone:document.getElementById('edit-tc-phone').value.trim(),gender:document.getElementById('edit-tc-gender').value,departmentId:document.getElementById('edit-tc-dept').value||null,address:document.getElementById('edit-tc-address').value.trim()};
+  if(!body.fullName){toast('Full name is required','error');return;}
+  const d=await api(`/api/admin/teachers/${id}`,{method:'PUT',body:JSON.stringify(body)});
+  if(d?.success){toast('Teacher updated successfully');closeModal('editTeacherModal');loadTeachers();loadDashboard();}else toast(d?.error||'Failed to update','error');
+}
+async function addTeacher(){
+  const body={userCode:document.getElementById('tc-code').value.trim().toUpperCase(),fullName:document.getElementById('tc-name').value.trim(),email:document.getElementById('tc-email').value.trim(),phone:document.getElementById('tc-phone').value.trim(),gender:document.getElementById('tc-gender').value,dateOfBirth:document.getElementById('tc-dob').value,departmentId:document.getElementById('tc-dept').value||null,address:document.getElementById('tc-address').value.trim()};
+  if(!body.userCode||!body.fullName||!body.dateOfBirth){toast('Name, Code, and Date of Birth are required','error');return;}
+  const d=await api('/api/admin/teachers',{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){toast(d.message||'Teacher added');closeModal('addTeacherModal');loadTeachers();loadDashboard();}else toast(d?.error||'Failed to add teacher','error');
+}
+async function toggleTeacher(id,currentlyActive){
+  const action=currentlyActive?'deactivate':'activate';
+  if(!confirm(`Are you sure you want to ${action} this teacher?\n\n${currentlyActive?'They will NOT be able to log in.':'They will be able to log in again.'}`))return;
+  const d=await api(`/api/admin/teachers/${id}/toggle-active`,{method:'POST'});
+  if(d?.success){toast(d.message||`Teacher ${action}d`);loadTeachers();loadDashboard();}else toast(d?.error||`Failed to ${action}`,'error');
 }
 
-function openEditTeacher(t) {
-  document.getElementById('edit-tc-id').value      = t.UserID;
-  document.getElementById('edit-tc-name').value    = t.FullName || '';
-  document.getElementById('edit-tc-email').value   = t.Email || '';
-  document.getElementById('edit-tc-phone').value   = t.Phone || '';
-  document.getElementById('edit-tc-address').value = t.Address || '';
-  setSelectVal('edit-tc-gender', t.Gender || '');
-  populateDeptSelect('edit-tc-dept', t.DepartmentID);
-  openModal('editTeacherModal');
-}
-
-async function saveTeacher() {
-  const id = document.getElementById('edit-tc-id').value;
-  const body = {
-    fullName:     document.getElementById('edit-tc-name').value.trim(),
-    email:        document.getElementById('edit-tc-email').value.trim(),
-    phone:        document.getElementById('edit-tc-phone').value.trim(),
-    gender:       document.getElementById('edit-tc-gender').value,
-    departmentId: document.getElementById('edit-tc-dept').value || null,
-    address:      document.getElementById('edit-tc-address').value.trim(),
-  };
-  if (!body.fullName) { toast('Full name is required','error'); return; }
-  const d = await api(`/api/admin/teachers/${id}`, { method:'PUT', body: JSON.stringify(body) });
-  if (d?.success) { toast('Teacher updated successfully'); closeModal('editTeacherModal'); loadTeachers(); loadDashboard(); }
-  else toast(d?.error || 'Failed to update', 'error');
-}
-
-async function addTeacher() {
-  const body = {
-    userCode:     document.getElementById('tc-code').value.trim().toUpperCase(),
-    fullName:     document.getElementById('tc-name').value.trim(),
-    email:        document.getElementById('tc-email').value.trim(),
-    phone:        document.getElementById('tc-phone').value.trim(),
-    gender:       document.getElementById('tc-gender').value,
-    dateOfBirth:  document.getElementById('tc-dob').value,
-    departmentId: document.getElementById('tc-dept').value || null,
-    address:      document.getElementById('tc-address').value.trim(),
-  };
-  if (!body.userCode || !body.fullName || !body.dateOfBirth) { toast('Name, Code, and Date of Birth are required','error'); return; }
-  const d = await api('/api/admin/teachers', { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) { toast(d.message || 'Teacher added'); closeModal('addTeacherModal'); loadTeachers(); loadDashboard(); }
-  else toast(d?.error || 'Failed to add teacher', 'error');
-}
-
-async function toggleTeacher(id, currentlyActive) {
-  const action = currentlyActive ? 'deactivate' : 'activate';
-  if (!confirm(`Are you sure you want to ${action} this teacher?\n\n${currentlyActive ? 'They will NOT be able to log in.' : 'They will be able to log in again.'}`)) return;
-  const d = await api(`/api/admin/teachers/${id}/toggle-active`, { method:'POST' });
-  if (d?.success) { toast(d.message || `Teacher ${action}d`); loadTeachers(); loadDashboard(); }
-  else toast(d?.error || `Failed to ${action}`, 'error');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// RESET PASSWORD
-// ══════════════════════════════════════════════════════════════════════════════
-function openResetPw(userId, userName) {
-  document.getElementById('reset-user-id').value    = userId;
-  document.getElementById('reset-user-name').textContent = userName;
-  document.getElementById('reset-new-pw').value     = '';
-  document.getElementById('resetResult').style.display = 'none';
-  document.getElementById('resetResult').innerHTML  = '';
-  openModal('resetPwModal');
-}
-
-async function doResetPassword() {
-  const id  = document.getElementById('reset-user-id').value;
-  const pw  = document.getElementById('reset-new-pw').value.trim();
-  const body = pw ? { newPassword: pw } : {};
-  const d = await api(`/api/admin/reset-password/${id}`, { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) {
-    const box = document.getElementById('resetResult');
-    box.style.display = 'block';
-    box.innerHTML = `<div class="info-box"><b>✅ Password Reset Successfully</b>${d.message}<br><br>
-      <span style="background:#d1fae5;padding:.25rem .6rem;border-radius:6px;font-family:monospace;font-size:.88rem;font-weight:700">${d.newPassword||''}</span>
-      <br><small style="color:var(--emerald-2);margin-top:.35rem;display:block">Share this with the user. They will be prompted to change it on next login.</small></div>`;
+function openResetPw(userId,userName){document.getElementById('reset-user-id').value=userId;document.getElementById('reset-user-name').textContent=userName;document.getElementById('reset-new-pw').value='';document.getElementById('resetResult').style.display='none';document.getElementById('resetResult').innerHTML='';openModal('resetPwModal');}
+async function doResetPassword(){
+  const id=document.getElementById('reset-user-id').value;
+  const pw=document.getElementById('reset-new-pw').value.trim();
+  const body=pw?{newPassword:pw}:{};
+  const d=await api(`/api/admin/reset-password/${id}`,{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){
+    const box=document.getElementById('resetResult');box.style.display='block';
+    box.innerHTML=`<div class="info-box"><b>✅ Password Reset Successfully</b><br>${d.message}<br><br><span style="background:#d1fae5;padding:.25rem .6rem;border-radius:6px;font-family:monospace;font-size:.88rem;font-weight:700">${d.newPassword||''}</span><br><small style="color:var(--emerald-d);margin-top:.35rem;display:block">Share this with the user. They will be prompted to change it on next login.</small></div>`;
     toast('Password reset successfully');
-  } else {
-    toast(d?.error || 'Failed to reset password', 'error');
-  }
+  }else toast(d?.error||'Failed to reset password','error');
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// DEPARTMENTS
-// ══════════════════════════════════════════════════════════════════════════════
-async function loadDepts() {
-  const d = await api('/api/admin/departments');
-  if (!d) return;
-  depts = d.departments || [];
-
-  document.getElementById('deptsTbody').innerHTML = depts.length
-    ? depts.map(dep => `<tr>
-        <td class="td-name">${dep.DepartmentName||''}</td>
-        <td><span class="td-code">${dep.DepartmentCode||''}</span></td>
-        <td>${dep.TotalSemesters||8}</td>
-        <td><span class="badge b-blue">${dep.StudentCount||0} students</span></td>
-        <td><span class="badge b-teal">${dep.TeacherCount||0} teachers</span></td>
-        <td><button class="btn btn-danger btn-xs" onclick="deleteDept(${dep.DepartmentID})">🗑️ Delete</button></td>
-      </tr>`).join('')
-    : '<tr><td colspan="6" class="empty-state">No departments</td></tr>';
-
-  // Populate all dept selects
-  ['st-dept','tc-dept','sb-dept','tt-dept','tt-filter-dept','edit-st-dept','edit-tc-dept','fee-dept'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const isFilter = id === 'tt-filter-dept';
-    sel.innerHTML = `<option value="">${isFilter ? 'All Departments' : 'Select…'}</option>` +
-      depts.map(dep => `<option value="${dep.DepartmentID}">${dep.DepartmentName}</option>`).join('');
-  });
+async function loadDepts(){
+  const d=await api('/api/admin/departments');if(!d)return;depts=d.departments||[];
+  document.getElementById('deptsTbody').innerHTML=depts.length?depts.map(dep=>`<tr><td class="td-name">${dep.DepartmentName||''}</td><td><span class="td-code">${dep.DepartmentCode||''}</span></td><td>${dep.TotalSemesters||8}</td><td><span class="badge b-blue">${dep.StudentCount||0} students</span></td><td><span class="badge b-teal">${dep.TeacherCount||0} teachers</span></td><td><button class="btn btn-danger btn-xs" onclick="deleteDept(${dep.DepartmentID})">🗑️ Delete</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No departments</td></tr>';
+  ['st-dept','tc-dept','sb-dept','tt-dept','tt-filter-dept','edit-st-dept','edit-tc-dept','fee-dept'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;const isFilter=id==='tt-filter-dept';sel.innerHTML=`<option value="">${isFilter?'All Departments':'Select…'}</option>`+depts.map(dep=>`<option value="${dep.DepartmentID}">${dep.DepartmentName}</option>`).join('');});
 }
-
-function populateDeptSelect(selectId, selectedId) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select…</option>' +
-    depts.map(dep => `<option value="${dep.DepartmentID}" ${dep.DepartmentID == selectedId ? 'selected' : ''}>${dep.DepartmentName}</option>`).join('');
+function populateDeptSelect(selectId,selectedId){const sel=document.getElementById(selectId);if(!sel)return;sel.innerHTML='<option value="">Select…</option>'+depts.map(dep=>`<option value="${dep.DepartmentID}" ${dep.DepartmentID==selectedId?'selected':''}>${dep.DepartmentName}</option>`).join('');}
+async function addDept(){
+  const body={departmentCode:document.getElementById('dp-code').value.trim(),departmentName:document.getElementById('dp-name').value.trim(),totalSemesters:parseInt(document.getElementById('dp-sem').value)||8};
+  if(!body.departmentCode||!body.departmentName){toast('Name and Code required','error');return;}
+  const d=await api('/api/admin/departments',{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){toast('Department added');closeModal('addDeptModal');loadDepts();}else toast(d?.error||'Failed','error');
 }
+async function deleteDept(id){if(!confirm('Delete this department? This cannot be undone.'))return;const d=await api(`/api/admin/departments/${id}`,{method:'DELETE'});if(d?.success){toast('Department deleted');loadDepts();}else toast(d?.error||'Failed','error');}
 
-async function addDept() {
-  const body = { departmentCode: document.getElementById('dp-code').value.trim(), departmentName: document.getElementById('dp-name').value.trim(), totalSemesters: parseInt(document.getElementById('dp-sem').value) || 8 };
-  if (!body.departmentCode || !body.departmentName) { toast('Name and Code required','error'); return; }
-  const d = await api('/api/admin/departments', { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) { toast('Department added'); closeModal('addDeptModal'); loadDepts(); }
-  else toast(d?.error || 'Failed','error');
-}
-
-async function deleteDept(id) {
-  if (!confirm('Delete this department? This cannot be undone.')) return;
-  const d = await api(`/api/admin/departments/${id}`, { method:'DELETE' });
-  if (d?.success) { toast('Department deleted'); loadDepts(); }
-  else toast(d?.error || 'Failed','error');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SUBJECTS
-// ══════════════════════════════════════════════════════════════════════════════
-async function loadSubjectsData() {
-  const d = await api('/api/admin/subjects');
-  if (!d) return;
-  subjectList = d.subjects || [];
+async function loadSubjectsData(){const d=await api('/api/admin/subjects');if(!d)return;subjectList=d.subjects||[];populateSubjectDropdown();}
+async function loadSubjects(){
+  const d=await api('/api/admin/subjects');if(!d)return;subjectList=d.subjects||[];
+  document.getElementById('subjectsTbody').innerHTML=subjectList.length?subjectList.map(s=>`<tr><td class="td-name">${s.SubjectName||''}</td><td><span class="td-code">${s.SubjectCode||''}</span></td><td>${s.Credits||4}</td><td><span class="badge b-blue">Sem ${s.Semester||''}</span></td><td>${s.DepartmentName||'—'}</td><td><span class="badge ${s.IsLab?'b-amber':'b-teal'}">${s.IsLab?'Lab':'Theory'}</span></td><td><button class="btn btn-danger btn-xs" onclick="deleteSubject(${s.SubjectID})">🗑️</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty-state"><span class="ei">📭</span>No subjects</td></tr>';
   populateSubjectDropdown();
 }
+function populateSubjectDropdown(){const sel=document.getElementById('tt-subj');if(!sel)return;sel.innerHTML='<option value="">Select Subject…</option>'+subjectList.map(s=>`<option value="${s.SubjectID}">${s.SubjectName} (${s.SubjectCode})</option>`).join('');}
+async function addSubject(){
+  const body={subjectName:document.getElementById('sb-name').value.trim(),subjectCode:document.getElementById('sb-code').value.trim(),credits:parseInt(document.getElementById('sb-credits').value)||4,semester:parseInt(document.getElementById('sb-sem').value)||1,departmentId:document.getElementById('sb-dept').value,isLab:parseInt(document.getElementById('sb-lab').value)||0};
+  if(!body.subjectName||!body.subjectCode||!body.departmentId){toast('Name, Code, Department required','error');return;}
+  const d=await api('/api/admin/subjects',{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){toast('Subject added');closeModal('addSubjectModal');loadSubjects();}else toast(d?.error||'Failed','error');
+}
+async function deleteSubject(id){if(!confirm('Delete this subject?'))return;const d=await api(`/api/admin/subjects/${id}`,{method:'DELETE'});if(d?.success){toast('Subject deleted');loadSubjects();}else toast(d?.error||'Failed','error');}
 
-async function loadSubjects() {
-  const d = await api('/api/admin/subjects');
-  if (!d) return;
-  subjectList = d.subjects || [];
-  document.getElementById('subjectsTbody').innerHTML = subjectList.length
-    ? subjectList.map(s => `<tr>
-        <td class="td-name">${s.SubjectName||''}</td>
-        <td><span class="td-code">${s.SubjectCode||''}</span></td>
-        <td>${s.Credits||4}</td>
-        <td><span class="badge b-blue">Sem ${s.Semester||''}</span></td>
-        <td>${s.DepartmentName||'—'}</td>
-        <td><span class="badge ${s.IsLab?'b-amber':'b-teal'}">${s.IsLab?'Lab':'Theory'}</span></td>
-        <td><button class="btn btn-danger btn-xs" onclick="deleteSubject(${s.SubjectID})">🗑️</button></td>
-      </tr>`).join('')
-    : '<tr><td colspan="7" class="empty-state"><span class="ei">📭</span>No subjects</td></tr>';
-  populateSubjectDropdown();
+function populateTeacherDropdown(){const sel=document.getElementById('tt-teacher');if(!sel)return;const active=teacherList.filter(t=>t.IsActive);sel.innerHTML='<option value="">Select Teacher…</option>'+active.map(t=>`<option value="${t.UserID}">${t.FullName} (${t.UserCode})</option>`).join('');}
+async function loadTimetable(){
+  const deptId=document.getElementById('tt-filter-dept')?.value||'';const sem=document.getElementById('tt-filter-sem')?.value||'';
+  let url='/api/admin/timetable?';if(deptId)url+=`departmentId=${deptId}&`;if(sem)url+=`semester=${sem}`;
+  const d=await api(url);if(!d)return;const rows=d.timetable||[];
+  document.getElementById('timetableTbody').innerHTML=rows.length?rows.map(t=>`<tr><td>${t.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${t.Semester||''}</span></td><td>${t.SubjectName||''} <small style="color:var(--muted-l)">(${t.SubjectCode||''})</small></td><td>${t.TeacherName||''}</td><td>${t.DayOfWeek||''}</td><td>${t.PeriodNumber||''}</td><td>${t.StartTime||''}–${t.EndTime||''}</td><td>${t.RoomNumber||''}</td><td><span class="badge ${t.IsLab?'b-amber':'b-teal'}">${t.IsLab?'Lab':'Theory'}</span></td><td><button class="btn btn-danger btn-xs" onclick="deleteTimetable(${t.TimetableID})">🗑️</button></td></tr>`).join(''):'<tr><td colspan="10" class="empty-state"><span class="ei">📅</span>No timetable entries</td></tr>';
+}
+async function addTimetable(){
+  const body={departmentId:document.getElementById('tt-dept').value,semester:parseInt(document.getElementById('tt-sem').value),subjectId:document.getElementById('tt-subj').value,teacherId:document.getElementById('tt-teacher').value,dayOfWeek:document.getElementById('tt-day').value,periodNumber:parseInt(document.getElementById('tt-period').value),startTime:document.getElementById('tt-start').value,endTime:document.getElementById('tt-end').value,roomNumber:document.getElementById('tt-room').value,isLab:parseInt(document.getElementById('tt-islab').value)};
+  if(!body.departmentId||!body.subjectId||!body.teacherId){toast('Department, Subject, Teacher required','error');return;}
+  const d=await api('/api/admin/timetable',{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){toast('Entry added');closeModal('addTimetableModal');loadTimetable();}else toast(d?.error||'Failed','error');
+}
+async function deleteTimetable(id){if(!confirm('Delete this timetable entry?'))return;const d=await api(`/api/admin/timetable/${id}`,{method:'DELETE'});if(d?.success){toast('Entry deleted');loadTimetable();}else toast(d?.error||'Failed','error');}
+
+async function loadFees(){
+  const d=await api('/api/admin/fee-structure');if(!d)return;const rows=d.feeStructure||[];
+  document.getElementById('feesTbody').innerHTML=rows.length?rows.map(f=>`<tr><td>${f.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${f.Semester||''}</span></td><td>${f.AcademicYear||''}</td><td>₹${(f.TuitionFee||0).toLocaleString()}</td><td>₹${(f.ExamFee||0).toLocaleString()}</td><td>₹${(f.LabFee||0).toLocaleString()}</td><td>₹${(f.LibraryFee||0).toLocaleString()}</td><td><b>₹${(f.TotalFee||0).toLocaleString()}</b></td></tr>`).join(''):'<tr><td colspan="8" class="empty-state"><span class="ei">💰</span>No fee structures</td></tr>';
+}
+async function addFee(){
+  const body={departmentId:document.getElementById('fee-dept').value,semester:document.getElementById('fee-sem').value,academicYear:document.getElementById('fee-year').value,tuitionFee:parseFloat(document.getElementById('fee-tuition').value)||0,examFee:parseFloat(document.getElementById('fee-exam').value)||0,labFee:parseFloat(document.getElementById('fee-lab').value)||0,libraryFee:parseFloat(document.getElementById('fee-lib').value)||0,otherCharges:parseFloat(document.getElementById('fee-other').value)||0,developmentFee:0};
+  if(!body.departmentId){toast('Select a department','error');return;}
+  const d=await api('/api/admin/fee-structure',{method:'POST',body:JSON.stringify(body)});
+  if(d?.success){toast('Fee structure added');closeModal('addFeeModal');loadFees();}else toast(d?.error||'Failed','error');
 }
 
-function populateSubjectDropdown() {
-  const sel = document.getElementById('tt-subj');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">Select Subject…</option>' +
-    subjectList.map(s => `<option value="${s.SubjectID}">${s.SubjectName} (${s.SubjectCode})</option>`).join('');
-}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function setSelectVal(id,val){const sel=document.getElementById(id);if(sel)sel.value=val;}
+function filterTable(tblId,q){document.querySelectorAll(`#${tblId} tbody tr`).forEach(r=>{r.style.display=(q&&!r.textContent.toLowerCase().includes(q.toLowerCase()))?'none':'';});}
+function esc(str){if(str==null)return'—';return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function logout(){localStorage.removeItem('token');localStorage.removeItem('accessToken');localStorage.removeItem('user');localStorage.removeItem('userType');localStorage.removeItem('loginRole');location.href='auth.html';}
 
-async function addSubject() {
-  const body = { subjectName: document.getElementById('sb-name').value.trim(), subjectCode: document.getElementById('sb-code').value.trim(), credits: parseInt(document.getElementById('sb-credits').value)||4, semester: parseInt(document.getElementById('sb-sem').value)||1, departmentId: document.getElementById('sb-dept').value, isLab: parseInt(document.getElementById('sb-lab').value)||0 };
-  if (!body.subjectName || !body.subjectCode || !body.departmentId) { toast('Name, Code, Department required','error'); return; }
-  const d = await api('/api/admin/subjects', { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) { toast('Subject added'); closeModal('addSubjectModal'); loadSubjects(); }
-  else toast(d?.error || 'Failed','error');
-}
-
-async function deleteSubject(id) {
-  if (!confirm('Delete this subject?')) return;
-  const d = await api(`/api/admin/subjects/${id}`, { method:'DELETE' });
-  if (d?.success) { toast('Subject deleted'); loadSubjects(); }
-  else toast(d?.error||'Failed','error');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TIMETABLE
-// ══════════════════════════════════════════════════════════════════════════════
-function populateTeacherDropdown() {
-  const sel = document.getElementById('tt-teacher');
-  if (!sel) return;
-  const active = teacherList.filter(t => t.IsActive);
-  sel.innerHTML = '<option value="">Select Teacher…</option>' +
-    active.map(t => `<option value="${t.UserID}">${t.FullName} (${t.UserCode})</option>`).join('');
-}
-
-async function loadTimetable() {
-  const deptId  = document.getElementById('tt-filter-dept')?.value || '';
-  const sem     = document.getElementById('tt-filter-sem')?.value  || '';
-  let url = '/api/admin/timetable?';
-  if (deptId) url += `departmentId=${deptId}&`;
-  if (sem)    url += `semester=${sem}`;
-  const d = await api(url);
-  if (!d) return;
-  const rows = d.timetable || [];
-  document.getElementById('timetableTbody').innerHTML = rows.length
-    ? rows.map(t => `<tr>
-        <td>${t.DepartmentName||'—'}</td>
-        <td><span class="badge b-blue">Sem ${t.Semester||''}</span></td>
-        <td>${t.SubjectName||''} <small style="color:var(--muted-l)">(${t.SubjectCode||''})</small></td>
-        <td>${t.TeacherName||''}</td>
-        <td>${t.DayOfWeek||''}</td>
-        <td>${t.PeriodNumber||''}</td>
-        <td>${t.StartTime||''}–${t.EndTime||''}</td>
-        <td>${t.RoomNumber||''}</td>
-        <td><span class="badge ${t.IsLab?'b-amber':'b-teal'}">${t.IsLab?'Lab':'Theory'}</span></td>
-        <td><button class="btn btn-danger btn-xs" onclick="deleteTimetable(${t.TimetableID})">🗑️</button></td>
-      </tr>`).join('')
-    : '<tr><td colspan="10" class="empty-state"><span class="ei">📅</span>No timetable entries</td></tr>';
-}
-
-async function addTimetable() {
-  const body = { departmentId: document.getElementById('tt-dept').value, semester: parseInt(document.getElementById('tt-sem').value), subjectId: document.getElementById('tt-subj').value, teacherId: document.getElementById('tt-teacher').value, dayOfWeek: document.getElementById('tt-day').value, periodNumber: parseInt(document.getElementById('tt-period').value), startTime: document.getElementById('tt-start').value, endTime: document.getElementById('tt-end').value, roomNumber: document.getElementById('tt-room').value, isLab: parseInt(document.getElementById('tt-islab').value) };
-  if (!body.departmentId || !body.subjectId || !body.teacherId) { toast('Department, Subject, Teacher required','error'); return; }
-  const d = await api('/api/admin/timetable', { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) { toast('Entry added'); closeModal('addTimetableModal'); loadTimetable(); }
-  else toast(d?.error||'Failed','error');
-}
-
-async function deleteTimetable(id) {
-  if (!confirm('Delete this timetable entry?')) return;
-  const d = await api(`/api/admin/timetable/${id}`, { method:'DELETE' });
-  if (d?.success) { toast('Entry deleted'); loadTimetable(); }
-  else toast(d?.error||'Failed','error');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// FEES
-// ══════════════════════════════════════════════════════════════════════════════
-async function loadFees() {
-  const d = await api('/api/admin/fee-structure');
-  if (!d) return;
-  const rows = d.feeStructure || [];
-  document.getElementById('feesTbody').innerHTML = rows.length
-    ? rows.map(f => `<tr>
-        <td>${f.DepartmentName||'—'}</td>
-        <td><span class="badge b-blue">Sem ${f.Semester||''}</span></td>
-        <td>${f.AcademicYear||''}</td>
-        <td>₹${(f.TuitionFee||0).toLocaleString()}</td>
-        <td>₹${(f.ExamFee||0).toLocaleString()}</td>
-        <td>₹${(f.LabFee||0).toLocaleString()}</td>
-        <td>₹${(f.LibraryFee||0).toLocaleString()}</td>
-        <td><b>₹${(f.TotalFee||0).toLocaleString()}</b></td>
-      </tr>`).join('')
-    : '<tr><td colspan="8" class="empty-state"><span class="ei">💰</span>No fee structures</td></tr>';
-}
-
-async function addFee() {
-  const body = { departmentId: document.getElementById('fee-dept').value, semester: document.getElementById('fee-sem').value, academicYear: document.getElementById('fee-year').value, tuitionFee: parseFloat(document.getElementById('fee-tuition').value)||0, examFee: parseFloat(document.getElementById('fee-exam').value)||0, labFee: parseFloat(document.getElementById('fee-lab').value)||0, libraryFee: parseFloat(document.getElementById('fee-lib').value)||0, otherCharges: parseFloat(document.getElementById('fee-other').value)||0, developmentFee: 0 };
-  if (!body.departmentId) { toast('Select a department','error'); return; }
-  const d = await api('/api/admin/fee-structure', { method:'POST', body: JSON.stringify(body) });
-  if (d?.success) { toast('Fee structure added'); closeModal('addFeeModal'); loadFees(); }
-  else toast(d?.error||'Failed','error');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ══════════════════════════════════════════════════════════════════════════════
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-function setSelectVal(id, val) {
-  const sel = document.getElementById(id);
-  if (sel) sel.value = val;
-}
-
-// FIX: reset all rows first so clearing search shows them again
-function filterTable(tblId, q) {
-  document.querySelectorAll(`#${tblId} tbody tr`).forEach(r => {
-    r.style.display = (q && !r.textContent.toLowerCase().includes(q.toLowerCase())) ? 'none' : '';
-  });
-}
-
-// Safe HTML escaping to prevent XSS from data values
-function esc(str) {
-  if (str == null) return '—';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function logout() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('userType');
-  localStorage.removeItem('loginRole');
-  location.href = 'auth.html';
-}
-
-// Close modal on backdrop click
-document.querySelectorAll('.modal-backdrop').forEach(m =>
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); })
-);
-
-// ── Start ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 init();
 </script>
 
 <script>
-function toggleSidebar(){
-  const sb = document.getElementById('sidebar');
-  const hb = document.getElementById('hamburger');
-  const ov = document.getElementById('mobileOverlay');
-  sb.classList.toggle('open');
-  hb.classList.toggle('open');
-  ov.classList.toggle('active');
-}
-function closeSidebar(){
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('hamburger').classList.remove('open');
-  document.getElementById('mobileOverlay').classList.remove('active');
-}
-// Close sidebar when nav item clicked on mobile
-document.querySelectorAll('.nav-item').forEach(el=>{
-  el.addEventListener('click', ()=>{ if(window.innerWidth<=768) closeSidebar(); });
-});
-// Adjust topbar padding on mobile
-function adjustTopbar(){
-  const tb = document.getElementById('topbar');
-  if(tb) tb.style.paddingLeft = window.innerWidth<=768 ? '4.5rem' : '1.75rem';
-}
-window.addEventListener('resize', adjustTopbar);
+function toggleSidebar(){const sb=document.getElementById('sidebar');const hb=document.getElementById('hamburger');const ov=document.getElementById('mobileOverlay');sb.classList.toggle('open');hb.classList.toggle('open');ov.classList.toggle('active');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('hamburger').classList.remove('open');document.getElementById('mobileOverlay').classList.remove('active');}
+document.querySelectorAll('.nav-item').forEach(el=>{el.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();});});
+function adjustTopbar(){const tb=document.getElementById('topbar');if(tb)tb.style.paddingLeft=window.innerWidth<=768?'4.5rem':'1.75rem';}
+window.addEventListener('resize',adjustTopbar);
 adjustTopbar();
 </script>
 </body>
