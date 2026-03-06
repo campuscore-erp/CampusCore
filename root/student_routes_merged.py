@@ -558,8 +558,9 @@ def get_subjects():
         student_id, dept_id, semester, _ = _resolve(user_id)
         subjects = []
 
-        # ── Strategy 1: StudentEnrollments → Timetable (TimetableID) → Subjects → Users ──
-        # MySQL schema: StudentEnrollments(StudentID, TimetableID), Timetable(DepartmentID, Semester)
+        # ── Strategy 1: StudentEnrollments.ClassID = DepartmentID → Timetable → Subjects ──
+        # Actual MySQL schema: StudentEnrollments(StudentID, ClassID, SubjectID, AcademicYear)
+        # ClassID in this table stores DepartmentID value
         try:
             rows = db.execute_query("""
                 SELECT DISTINCT
@@ -574,7 +575,7 @@ def get_subjects():
                     NULL        AS TeacherDesignation,
                     d.DepartmentName, d.DepartmentCode
                 FROM StudentEnrollments se
-                JOIN Timetable   t  ON se.TimetableID = t.TimetableID
+                JOIN Timetable   t  ON t.DepartmentID = se.ClassID
                 JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
                 JOIN Users       tc ON t.TeacherID    = tc.UserID
                 JOIN Departments d  ON t.DepartmentID = d.DepartmentID
@@ -584,9 +585,37 @@ def get_subjects():
             if rows:
                 subjects = serialize_rows(rows)
         except Exception as e:
-            print(f'[Subjects] S1 SE+TimetableID+Users failed: {e}')
+            print(f'[Subjects] S1 SE.ClassID->Timetable.DeptID failed: {e}')
 
-        # ── Strategy 2: Cohort via DepartmentID + Semester → Timetable → Subjects → Users ──
+        # ── Strategy 1b: Same but also filter by Semester from Users ──
+        if not subjects and dept_id and semester:
+            try:
+                rows = db.execute_query("""
+                    SELECT DISTINCT
+                        s.SubjectID, s.SubjectName, s.SubjectCode,
+                        COALESCE(s.Credits,0) AS Credits,
+                        COALESCE(s.IsLab,0)  AS IsLab,
+                        tc.UserID   AS TeacherID,
+                        tc.UserCode AS TeacherCode,
+                        tc.FullName AS TeacherName,
+                        tc.Email    AS TeacherEmail,
+                        tc.Phone    AS TeacherPhone,
+                        NULL        AS TeacherDesignation,
+                        d.DepartmentName, d.DepartmentCode
+                    FROM StudentEnrollments se
+                    JOIN Timetable   t  ON t.DepartmentID = se.ClassID AND t.Semester = ?
+                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                    JOIN Users       tc ON t.TeacherID    = tc.UserID
+                    JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                    WHERE se.StudentID = ?
+                    ORDER BY s.IsLab ASC, s.SubjectName
+                """, (semester, student_id))
+                if rows:
+                    subjects = serialize_rows(rows)
+            except Exception as e:
+                print(f'[Subjects] S1b SE.ClassID+Semester failed: {e}')
+
+        # ── Strategy 2: Cohort — Timetable by DepartmentID + Semester directly ──
         if not subjects and dept_id and semester:
             try:
                 rows = db.execute_query("""
@@ -611,9 +640,9 @@ def get_subjects():
                 if rows:
                     subjects = serialize_rows(rows)
             except Exception as e:
-                print(f'[Subjects] S2 Cohort+Timetable+Users failed: {e}')
+                print(f'[Subjects] S2 Cohort Timetable+Dept+Sem failed: {e}')
 
-        # ── Strategy 3: Cohort via Subjects table directly (no Timetable) ──
+        # ── Strategy 3: Subjects table directly by DeptID + Semester ──
         if not subjects and dept_id and semester:
             try:
                 rows = db.execute_query("""
@@ -633,10 +662,10 @@ def get_subjects():
                 if rows:
                     subjects = serialize_rows(rows)
             except Exception as e:
-                print(f'[Subjects] S3 Subjects+Dept failed: {e}')
+                print(f'[Subjects] S3 Subjects by DeptID+Sem failed: {e}')
 
-        # ── Strategy 4: StudentEnrollments → Timetable without Users join ──
-        if not subjects:
+        # ── Strategy 4: All subjects for dept only (ignore semester) ──
+        if not subjects and dept_id:
             try:
                 rows = db.execute_query("""
                     SELECT DISTINCT
@@ -646,17 +675,16 @@ def get_subjects():
                         NULL AS TeacherID, NULL AS TeacherCode,
                         NULL AS TeacherName, NULL AS TeacherEmail,
                         NULL AS TeacherPhone, NULL AS TeacherDesignation,
-                        NULL AS DepartmentName, NULL AS DepartmentCode
-                    FROM StudentEnrollments se
-                    JOIN Timetable t ON se.TimetableID = t.TimetableID
-                    JOIN Subjects  s ON t.SubjectID    = s.SubjectID
-                    WHERE se.StudentID = ?
+                        d.DepartmentName, d.DepartmentCode
+                    FROM Subjects    s
+                    JOIN Departments d ON s.DepartmentID = d.DepartmentID
+                    WHERE s.DepartmentID = ?
                     ORDER BY s.IsLab ASC, s.SubjectName
-                """, (student_id,))
+                """, (dept_id,))
                 if rows:
                     subjects = serialize_rows(rows)
             except Exception as e:
-                print(f'[Subjects] S4 SE+TimetableID no-join failed: {e}')
+                print(f'[Subjects] S4 Subjects by DeptID only failed: {e}')
 
         return jsonify({'success': True, 'subjects': subjects}), 200
     except Exception as e:
