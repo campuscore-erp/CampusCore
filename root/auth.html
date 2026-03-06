@@ -4,985 +4,346 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CampusCore — Sign In</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:         #f7f6f2;
-  --white:      #ffffff;
-  --ink:        #16150f;
-  --ink2:       #2a2921;
-  --muted:      #6b6a60;
-  --muted-l:    #b0afa6;
-  --border:     #e8e7e0;
-  --border-2:   #d5d4cc;
-
-  --admin:      #b5430e;
-  --admin-bg:   #fdf2ed;
-  --admin-lt:   rgba(181,67,14,.12);
-  --admin-glow: rgba(181,67,14,.18);
-
-  --teacher:    #1a6e5c;
-  --teacher-bg: #edf7f4;
-  --teacher-lt: rgba(26,110,92,.12);
-  --teacher-glow:rgba(26,110,92,.18);
-
-  --student:    #2646a8;
-  --student-bg: #edf1fc;
-  --student-lt: rgba(38,70,168,.12);
-  --student-glow:rgba(38,70,168,.18);
-
-  --panel:      #111110;
-  --panel-2:    #1a1a18;
-
-  --font:  'Outfit', system-ui, sans-serif;
-  --serif: 'Lora', Georgia, serif;
-
-  --accent: var(--admin);
-  --accent-lt: var(--admin-lt);
-  --accent-glow: var(--admin-glow);
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#2563EB; --blue-d:#1d4ed8; --blue-dd:#1e3a8a;
+  --blue-lt:#eff6ff; --blue-ring:rgba(37,99,235,.16);
+  --emerald:#10B981; --emerald-d:#059669; --emerald-lt:#ecfdf5;
+  --bg:#F9FAFB; --card:#ffffff; --ink:#1E293B; --ink2:#334155;
+  --muted:#64748b; --muted-l:#94a3b8; --border:#e2e8f0; --border2:#f1f5f9;
+  --admin-c:#2563EB; --admin-bg:#eff6ff; --admin-rg:rgba(37,99,235,.14);
+  --teacher-c:#10B981; --teacher-bg:#ecfdf5; --teacher-rg:rgba(16,185,129,.14);
+  --student-c:#7c3aed; --student-bg:#f5f3ff; --student-rg:rgba(124,58,237,.14);
+  --panel:#1e3a8a; --panel-d:#172554;
+  --hd:'Poppins',system-ui,sans-serif; --bd:'Inter',system-ui,sans-serif; --mn:'Courier New',monospace;
 }
+html,body{height:100%}
+body{font-family:var(--bd);background:var(--bg);display:flex;min-height:100vh;color:var(--ink);-webkit-font-smoothing:antialiased;}
 
-html, body { height: 100%; }
+/* LEFT PANEL */
+.panel{flex:0 0 390px;background:linear-gradient(170deg,var(--panel) 0%,var(--panel-d) 100%);
+  display:flex;flex-direction:column;padding:2.5rem 2.25rem;position:sticky;top:0;height:100vh;overflow:hidden;}
+.panel::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(circle,rgba(255,255,255,.09) 1px,transparent 1px);background-size:22px 22px;}
+.p-glow{position:absolute;bottom:-100px;right:-100px;width:380px;height:380px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(37,99,235,.35) 0%,transparent 65%);transition:background .5s;}
+body[data-role="Teacher"] .p-glow{background:radial-gradient(circle,rgba(16,185,129,.38) 0%,transparent 65%);}
+body[data-role="Student"] .p-glow{background:radial-gradient(circle,rgba(124,58,237,.4) 0%,transparent 65%);}
+.p-glow2{position:absolute;top:-60px;left:-60px;width:220px;height:220px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(16,185,129,.12) 0%,transparent 65%);transition:background .5s;}
+.brand{display:flex;align-items:center;gap:.85rem;position:relative;z-index:1;}
+.b-icon{width:42px;height:42px;flex-shrink:0;filter:drop-shadow(0 4px 12px rgba(0,0,0,.35));}
+.b-name{font-family:var(--hd);font-size:1.18rem;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1.1;}
+.b-tag{font-size:.58rem;font-weight:500;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase;margin-top:.2rem;}
+.p-body{margin-top:auto;margin-bottom:2.25rem;position:relative;z-index:1;}
+.p-eye{display:flex;align-items:center;gap:.55rem;font-size:.6rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:1rem;}
+.p-eye::before{content:'';width:20px;height:1.5px;background:rgba(255,255,255,.2);flex-shrink:0;}
+.p-head{font-family:var(--hd);font-size:2.15rem;font-weight:800;color:#fff;line-height:1.12;letter-spacing:-.03em;margin-bottom:1rem;}
+.p-head em{font-style:italic;color:transparent;-webkit-text-stroke:1.5px rgba(255,255,255,.35);transition:-webkit-text-stroke-color .45s;}
+body[data-role="Admin"]   .p-head em{-webkit-text-stroke-color:rgba(96,165,250,.8);}
+body[data-role="Teacher"] .p-head em{-webkit-text-stroke-color:rgba(52,211,153,.8);}
+body[data-role="Student"] .p-head em{-webkit-text-stroke-color:rgba(192,132,252,.8);}
+.p-desc{font-size:.82rem;color:rgba(255,255,255,.38);line-height:1.9;margin-bottom:1.65rem;}
+.role-list{display:flex;flex-direction:column;gap:.38rem;}
+.role-row{display:flex;align-items:center;gap:.8rem;padding:.65rem .9rem;border-radius:11px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);cursor:pointer;
+  position:relative;overflow:hidden;transition:background .18s,border-color .18s,transform .2s;}
+.role-row::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:0 2px 2px 0;background:transparent;transition:background .22s;}
+.role-row:hover{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.13);transform:translateX(4px);}
+.role-row.active{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16);}
+#rr-Admin.active::after{background:#93c5fd;} #rr-Teacher.active::after{background:#6ee7b7;} #rr-Student.active::after{background:#c4b5fd;}
+.rr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.rr-dot.adm{background:#93c5fd;box-shadow:0 0 8px rgba(147,197,253,.65);}
+.rr-dot.tea{background:#6ee7b7;box-shadow:0 0 8px rgba(110,231,183,.6);}
+.rr-dot.stu{background:#c4b5fd;box-shadow:0 0 8px rgba(196,181,253,.6);}
+.rr-tx{flex:1;min-width:0;}
+.rr-name{font-size:.8rem;font-weight:600;color:rgba(255,255,255,.8);}
+.rr-desc{font-size:.64rem;color:rgba(255,255,255,.27);margin-top:.04rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rr-arr{color:rgba(255,255,255,.2);font-size:.75rem;transition:color .18s,transform .18s;}
+.role-row:hover .rr-arr,.role-row.active .rr-arr{color:rgba(255,255,255,.5);transform:translateX(2px);}
+.p-foot{position:relative;z-index:1;font-size:.61rem;color:rgba(255,255,255,.12);
+  border-top:1px solid rgba(255,255,255,.07);padding-top:.85rem;display:flex;justify-content:space-between;align-items:center;}
+.p-sep{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.12);}
 
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  display: flex;
-  min-height: 100vh;
-  color: var(--ink);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ── SIDEBAR ─────────────────────────────────────────────── */
-.sidebar {
-  flex: 0 0 360px;
-  background: var(--panel);
-  display: flex;
-  flex-direction: column;
-  padding: 2rem 1.75rem;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.sidebar-noise {
-  position: absolute;
-  inset: 0;
-  opacity: .4;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-}
-
-.sidebar-lines {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
-  background-size: 28px 28px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.sidebar-glow {
-  position: absolute;
-  bottom: -120px;
-  left: -80px;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-glow, rgba(181,67,14,.18)) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-  transition: background .5s ease;
-}
-
-body[data-role="Teacher"] .sidebar-glow { background: radial-gradient(circle, var(--teacher-glow) 0%, transparent 60%); }
-body[data-role="Student"]  .sidebar-glow { background: radial-gradient(circle, var(--student-glow) 0%, transparent 60%); }
-
-/* Brand */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: .85rem;
-  position: relative;
-  z-index: 1;
-}
-
-.brand-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-}
-
-.brand-name {
-  font-family: var(--serif);
-  font-size: 1.3rem;
-  color: #fff;
-  letter-spacing: .01em;
-  line-height: 1;
-}
-.brand-tag {
-  font-size: .58rem;
-  font-weight: 600;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,.28);
-  margin-top: .22rem;
-}
-
-/* Hero */
-.sidebar-body {
-  margin-top: auto;
-  margin-bottom: 1.75rem;
-  position: relative;
-  z-index: 1;
-}
-
-.sidebar-eyebrow {
-  font-size: .6rem;
-  font-weight: 700;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,.28);
-  margin-bottom: .75rem;
-}
-
-.sidebar-heading {
-  font-family: var(--serif);
-  font-size: 2.2rem;
-  color: #fff;
-  line-height: 1.18;
-  margin-bottom: .85rem;
-  letter-spacing: -.01em;
-}
-
-.sidebar-heading em {
-  font-style: italic;
-  color: transparent;
-  -webkit-text-stroke: 1.5px rgba(255,255,255,.3);
-  transition: -webkit-text-stroke-color .4s;
-}
-body[data-role="Admin"]   .sidebar-heading em { -webkit-text-stroke-color: #e06030; }
-body[data-role="Teacher"] .sidebar-heading em { -webkit-text-stroke-color: #2cd4a4; }
-body[data-role="Student"] .sidebar-heading em { -webkit-text-stroke-color: #7090f5; }
-
-.sidebar-desc {
-  font-size: .78rem;
-  color: rgba(255,255,255,.32);
-  line-height: 1.85;
-  margin-bottom: 1.5rem;
-  font-weight: 300;
-}
-
-/* Role rows */
-.role-list { display: flex; flex-direction: column; gap: .3rem; }
-
-.role-item {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .65rem .9rem;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.05);
-  background: rgba(255,255,255,.04);
-  cursor: pointer;
-  transition: background .2s, border-color .2s, transform .2s;
-  position: relative;
-  overflow: hidden;
-}
-
-.role-item::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  opacity: 0;
-  transition: opacity .2s;
-}
-.role-item.ri-admin::before   { background: #e06030; }
-.role-item.ri-teacher::before { background: #2cd4a4; }
-.role-item.ri-student::before { background: #7090f5; }
-
-.role-item:hover { background: rgba(255,255,255,.08); transform: translateX(2px); }
-.role-item.active { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.1); }
-.role-item.active::before { opacity: 1; }
-
-.ri-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.ri-dot.adm { background: #e06030; box-shadow: 0 0 7px rgba(224,96,48,.7); }
-.ri-dot.tea { background: #2cd4a4; box-shadow: 0 0 7px rgba(44,212,164,.7); }
-.ri-dot.stu { background: #7090f5; box-shadow: 0 0 7px rgba(112,144,245,.7); }
-
-.ri-label { font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.7); }
-.ri-desc  { font-size: .62rem; color: rgba(255,255,255,.26); margin-top: .06rem; }
-
-/* Footer */
-.sidebar-foot {
-  position: relative;
-  z-index: 1;
-  font-size: .6rem;
-  color: rgba(255,255,255,.14);
-  border-top: 1px solid rgba(255,255,255,.06);
-  padding-top: .8rem;
-  display: flex;
-  justify-content: space-between;
-}
-
-/* ── MAIN STAGE ───────────────────────────────────────────── */
-.stage {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  overflow-y: auto;
-}
-
-/* Subtle patterned bg for stage */
-.stage::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  left: 360px;
-  background-image: radial-gradient(circle at 80% 20%, rgba(181,67,14,.05) 0%, transparent 50%),
-                    radial-gradient(circle at 20% 80%, rgba(38,70,168,.05) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-  transition: background-image .5s;
-}
-
-/* ── CARD ──────────────────────────────────────────────────── */
-.card {
-  width: 100%;
-  max-width: 420px;
-  background: var(--white);
-  border-radius: 20px;
-  padding: 2rem 2rem 1.75rem;
-  border: 1px solid var(--border);
-  box-shadow:
-    0 1px 2px rgba(0,0,0,.03),
-    0 4px 16px rgba(0,0,0,.05),
-    0 20px 40px rgba(0,0,0,.05);
-  position: relative;
-  animation: riseIn .38s cubic-bezier(.16,1,.3,1) both;
-}
-
-@keyframes riseIn {
-  from { opacity: 0; transform: translateY(18px) scale(.99); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Accent stripe at top */
-.card-stripe {
-  position: absolute;
-  top: 0; left: 2rem; right: 2rem;
-  height: 3px;
-  border-radius: 0 0 4px 4px;
-  background: var(--accent);
-  transition: background .3s;
-  opacity: .9;
-}
-body[data-role="Admin"]   .card-stripe { background: var(--admin); }
-body[data-role="Teacher"] .card-stripe { background: var(--teacher); }
-body[data-role="Student"] .card-stripe { background: var(--student); }
+/* MAIN STAGE */
+.stage{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;overflow-y:auto;background:var(--bg);}
+.si{width:100%;max-width:430px;}
+.card{background:var(--card);border-radius:20px;padding:2.25rem 2.25rem 2rem;border:1px solid var(--border);
+  box-shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.06),0 20px 52px rgba(0,0,0,.06);
+  position:relative;overflow:hidden;animation:cardUp .4s cubic-bezier(.16,1,.3,1) both;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;transition:background .3s;}
+body[data-role="Admin"]   .card::before{background:var(--blue);}
+body[data-role="Teacher"] .card::before{background:var(--emerald);}
+body[data-role="Student"] .card::before{background:var(--student-c);}
+@keyframes cardUp{from{opacity:0;transform:translateY(18px) scale(.99);}to{opacity:1;transform:none;}}
 
 /* Role tabs */
-.role-tabs {
-  display: flex;
-  gap: .35rem;
-  margin-bottom: 1.6rem;
-  background: var(--bg);
-  border-radius: 11px;
-  padding: .28rem;
-}
+.role-tabs{display:flex;gap:.3rem;background:var(--bg);border-radius:13px;padding:.28rem;margin-bottom:1.75rem;border:1px solid var(--border);}
+.role-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:.22rem;padding:.6rem .2rem;border-radius:9px;border:none;
+  background:transparent;cursor:pointer;font-family:var(--hd);font-size:.63rem;font-weight:600;
+  color:var(--muted);letter-spacing:.01em;line-height:1;transition:background .18s,color .18s,box-shadow .18s;}
+.t-ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:background .18s;flex-shrink:0;}
+.role-tab:hover{background:rgba(0,0,0,.04);color:var(--ink2);}
+.role-tab.active-admin  {background:var(--card);color:var(--admin-c); box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.role-tab.active-teacher{background:var(--card);color:var(--teacher-c);box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.role-tab.active-student{background:var(--card);color:var(--student-c);box-shadow:0 2px 8px rgba(0,0,0,.08);}
+.role-tab.active-admin   .t-ico{background:var(--admin-bg);}
+.role-tab.active-teacher .t-ico{background:var(--teacher-bg);}
+.role-tab.active-student .t-ico{background:var(--student-bg);}
 
-.role-tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .18rem;
-  padding: .52rem .2rem;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-family: var(--font);
-  font-size: .66rem;
-  font-weight: 600;
-  color: var(--muted);
-  letter-spacing: .02em;
-  transition: background .18s, color .18s, box-shadow .18s;
-  line-height: 1;
-}
-.role-tab:hover { background: rgba(0,0,0,.04); color: var(--ink2); }
-.role-tab.active-admin   { background: var(--white); color: var(--admin);   box-shadow: 0 1px 8px rgba(0,0,0,.10); }
-.role-tab.active-teacher { background: var(--white); color: var(--teacher); box-shadow: 0 1px 8px rgba(0,0,0,.10); }
-.role-tab.active-student { background: var(--white); color: var(--student); box-shadow: 0 1px 8px rgba(0,0,0,.10); }
-
-.tab-icon {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  font-size: .8rem;
-  margin-bottom: .1rem;
-  transition: background .18s;
-}
-.role-tab.active-admin   .tab-icon { background: var(--admin-bg); }
-.role-tab.active-teacher .tab-icon { background: var(--teacher-bg); }
-.role-tab.active-student .tab-icon { background: var(--student-bg); }
-
-/* Card header */
-.card-head {
-  margin-bottom: 1.5rem;
-}
-
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  font-size: .62rem;
-  font-weight: 700;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  padding: .22rem .65rem;
-  border-radius: 100px;
-  margin-bottom: .75rem;
-  transition: background .25s, color .25s;
-}
-.rb-admin   { background: var(--admin-bg);   color: var(--admin); }
-.rb-teacher { background: var(--teacher-bg); color: var(--teacher); }
-.rb-student { background: var(--student-bg); color: var(--student); }
-
-.card-title {
-  font-family: var(--serif);
-  font-size: 1.7rem;
-  color: var(--ink);
-  letter-spacing: -.01em;
-  margin-bottom: .22rem;
-  line-height: 1.15;
-}
-
-.card-sub {
-  font-size: .77rem;
-  color: var(--muted);
-  line-height: 1.6;
-  font-weight: 400;
-}
+/* Card head */
+.card-head{margin-bottom:1.4rem;}
+.role-badge{display:inline-flex;align-items:center;gap:.3rem;font-family:var(--hd);font-size:.6rem;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;padding:.22rem .72rem;border-radius:100px;margin-bottom:.7rem;transition:background .25s,color .25s;}
+.rb-admin  {background:var(--admin-bg);  color:var(--admin-c);}
+.rb-teacher{background:var(--teacher-bg);color:var(--teacher-c);}
+.rb-student{background:var(--student-bg);color:var(--student-c);}
+.card-title{font-family:var(--hd);font-size:1.5rem;font-weight:700;color:var(--ink);letter-spacing:-.028em;line-height:1.2;margin-bottom:.26rem;}
+.card-sub{font-size:.8rem;color:var(--muted);line-height:1.65;}
 
 /* Alerts */
-.alert {
-  display: flex;
-  align-items: flex-start;
-  gap: .5rem;
-  padding: .7rem .9rem;
-  border-radius: 10px;
-  font-size: .77rem;
-  font-weight: 500;
-  line-height: 1.55;
-  margin-bottom: .9rem;
-  animation: alertIn .22s ease;
-}
-@keyframes alertIn {
-  from { opacity: 0; transform: translateY(-3px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.alert-icon { flex-shrink: 0; font-size: .82rem; margin-top: .06rem; }
-.alert-error   { background: #fff4f4; color: #b91c1c; border: 1px solid rgba(185,28,28,.14); }
-.alert-success { background: #f0fdf6; color: #15803d; border: 1px solid rgba(21,128,61,.14); }
-.alert-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29,78,216,.14); }
-
-.switch-hint {
-  display: flex;
-  align-items: center;
-  gap: .55rem;
-  padding: .65rem .9rem;
-  border-radius: 10px;
-  background: #fff4f4;
-  border: 1px solid rgba(185,28,28,.14);
-  margin-bottom: .9rem;
-  animation: alertIn .22s ease;
-}
-.sh-text { font-size: .76rem; color: #b91c1c; font-weight: 500; line-height: 1.5; flex: 1; }
-.sh-btn {
-  flex-shrink: 0;
-  padding: .28rem .75rem;
-  border-radius: 6px;
-  background: #b91c1c;
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  font-size: .68rem;
-  font-weight: 700;
-  font-family: var(--font);
-  transition: opacity .15s;
-}
-.sh-btn:hover { opacity: .85; }
+.alert{display:flex;align-items:flex-start;gap:.5rem;padding:.7rem .9rem;border-radius:10px;
+  font-size:.78rem;font-weight:500;line-height:1.55;margin-bottom:.9rem;animation:alIn .22s ease;}
+@keyframes alIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:none;}}
+.alert-icon{flex-shrink:0;font-size:.8rem;margin-top:.07rem;}
+.alert-error  {background:#fef2f2;color:#b91c1c;border:1px solid rgba(185,28,28,.14);}
+.alert-success{background:var(--emerald-lt);color:#065f46;border:1px solid rgba(16,185,129,.18);}
+.alert-info   {background:var(--blue-lt);color:var(--blue-d);border:1px solid rgba(37,99,235,.14);}
+.switch-hint{display:flex;align-items:center;gap:.55rem;padding:.65rem .9rem;border-radius:10px;
+  background:#fef2f2;border:1px solid rgba(185,28,28,.14);margin-bottom:.9rem;animation:alIn .22s ease;}
+.sh-text{font-size:.77rem;color:#b91c1c;font-weight:500;line-height:1.5;flex:1;}
+.sh-btn{flex-shrink:0;padding:.27rem .72rem;border-radius:7px;background:#b91c1c;color:#fff;border:none;cursor:pointer;font-size:.68rem;font-weight:700;font-family:var(--hd);transition:opacity .15s;}
+.sh-btn:hover{opacity:.85;}
 
 /* Fields */
-.field { margin-bottom: .95rem; }
+.field{margin-bottom:1rem;}
+.field label{display:block;font-family:var(--hd);font-size:.68rem;font-weight:600;color:var(--ink2);margin-bottom:.42rem;letter-spacing:.04em;text-transform:uppercase;}
+.iw{position:relative;}
+.i-ico{position:absolute;left:.9rem;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted-l);display:flex;align-items:center;transition:color .2s;}
+body[data-role="Admin"]   .iw:focus-within .i-ico{color:var(--admin-c);}
+body[data-role="Teacher"] .iw:focus-within .i-ico{color:var(--teacher-c);}
+body[data-role="Student"] .iw:focus-within .i-ico{color:var(--student-c);}
+.field input{width:100%;padding:.73rem 1rem .73rem 2.6rem;border:1.5px solid var(--border);border-radius:11px;
+  font-family:var(--bd);font-size:.875rem;color:var(--ink);background:var(--bg);outline:none;
+  transition:border-color .2s,box-shadow .2s,background .2s;}
+.field input::placeholder{color:var(--muted-l);font-size:.84rem;}
+.field input:focus{background:var(--card);border-color:var(--fb,var(--blue));box-shadow:0 0 0 3.5px var(--fr,var(--blue-ring));}
+.field input.err{border-color:#ef4444!important;box-shadow:0 0 0 3.5px rgba(239,68,68,.12)!important;}
+body[data-role="Admin"]  {--fb:var(--admin-c);  --fr:var(--admin-rg);}
+body[data-role="Teacher"]{--fb:var(--teacher-c);--fr:var(--teacher-rg);}
+body[data-role="Student"]{--fb:var(--student-c);--fr:var(--student-rg);}
+.pw-eye{position:absolute;right:.78rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;
+  color:var(--muted-l);padding:.25rem;display:flex;align-items:center;border-radius:6px;transition:color .15s,background .15s;}
+.pw-eye:hover{color:var(--ink2);background:var(--border2);}
+.pw-eye svg{display:block;}
 
-.field-label {
-  display: block;
-  font-size: .7rem;
-  font-weight: 600;
-  color: var(--ink2);
-  margin-bottom: .4rem;
-  letter-spacing: .03em;
-  text-transform: uppercase;
-}
-
-.input-wrap { position: relative; }
-
-.input-icon {
-  position: absolute;
-  left: .9rem;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  color: var(--muted-l);
-  transition: color .2s;
-}
-
-.field input {
-  width: 100%;
-  padding: .72rem 1rem .72rem 2.6rem;
-  border: 1.5px solid var(--border-2);
-  border-radius: 10px;
-  font-family: var(--font);
-  font-size: .875rem;
-  font-weight: 400;
-  color: var(--ink);
-  background: var(--white);
-  outline: none;
-  transition: border-color .2s, box-shadow .2s, background .2s;
-  -webkit-appearance: none;
-}
-
-.field input::placeholder { color: var(--muted-l); font-weight: 300; }
-
-.field input:focus {
-  border-color: var(--accent, var(--admin));
-  box-shadow: 0 0 0 3.5px var(--accent-lt, var(--admin-lt));
-  background: #fff;
-}
-
-.field input:focus + .eye-btn,
-.input-wrap:focus-within .input-icon { color: var(--accent, var(--admin)); }
-
-.field input.err {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239,68,68,.1);
-}
-
-body[data-role="Admin"]   { --accent: var(--admin);   --accent-lt: var(--admin-lt); }
-body[data-role="Teacher"] { --accent: var(--teacher); --accent-lt: var(--teacher-lt); }
-body[data-role="Student"] { --accent: var(--student); --accent-lt: var(--student-lt); }
-
-.eye-btn {
-  position: absolute;
-  right: .8rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--muted-l);
-  padding: .25rem;
-  display: flex;
-  align-items: center;
-  border-radius: 5px;
-  transition: color .15s, background .15s;
-}
-.eye-btn:hover { color: var(--ink2); background: var(--bg); }
-
-/* Submit button */
-.btn {
-  width: 100%;
-  padding: .8rem;
-  border: none;
-  border-radius: 10px;
-  font-family: var(--font);
-  font-size: .875rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .45rem;
-  letter-spacing: .01em;
-  margin-top: .5rem;
-  transition: transform .18s, box-shadow .18s, filter .18s;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: rgba(255,255,255,0);
-  transition: background .18s;
-}
-.btn:hover::after { background: rgba(255,255,255,.08); }
-.btn:active { transform: translateY(1px) !important; }
-
-.btn:disabled { opacity: .55; cursor: not-allowed; transform: none !important; }
-
-.btn-admin   { background: var(--admin);   box-shadow: 0 4px 18px var(--admin-glow); }
-.btn-teacher { background: var(--teacher); box-shadow: 0 4px 18px var(--teacher-glow); }
-.btn-student { background: var(--student); box-shadow: 0 4px 18px var(--student-glow); }
-
-.btn:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.07); }
-
-.spin {
-  width: 15px; height: 15px;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.3);
-  border-top-color: #fff;
-  animation: spin .6s linear infinite;
-  flex-shrink: 0;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+/* Button */
+.btn{width:100%;padding:.82rem;border:none;border-radius:11px;font-family:var(--hd);font-size:.875rem;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:.45rem;letter-spacing:.01em;margin-top:.5rem;
+  color:#fff;position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s,filter .18s;}
+.btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background .2s;}
+.btn:hover::after{background:rgba(255,255,255,.1);}
+.btn:active{transform:scale(.99)!important;}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none!important;}
+.btn-admin  {background:var(--blue);    box-shadow:0 4px 16px rgba(37,99,235,.35);}
+.btn-teacher{background:var(--emerald); box-shadow:0 4px 16px rgba(16,185,129,.3);}
+.btn-student{background:var(--student-c);box-shadow:0 4px 16px rgba(124,58,237,.32);}
+.btn-admin:not(:disabled):hover  {filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 8px 24px rgba(37,99,235,.42);}
+.btn-teacher:not(:disabled):hover{filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 8px 24px rgba(16,185,129,.38);}
+.btn-student:not(:disabled):hover{filter:brightness(1.07);transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,.4);}
+.spin{width:15px;height:15px;border-radius:50%;flex-shrink:0;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
 /* Hint footer */
-.hint-foot {
-  margin-top: 1.4rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--border);
-}
-.hint-label {
-  font-size: .6rem;
-  font-weight: 700;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--muted-l);
-  margin-bottom: .4rem;
-}
-.hint-body { font-size: .74rem; color: var(--muted); line-height: 1.8; }
-.code {
-  display: inline-block;
-  background: var(--bg);
-  border: 1px solid var(--border-2);
-  padding: .05rem .42rem;
-  border-radius: 5px;
-  font-family: 'Courier New', monospace;
-  font-size: .72rem;
-  color: var(--ink2);
-  font-weight: 600;
-}
+.hint-foot{margin-top:1.4rem;padding-top:1.1rem;border-top:1px solid var(--border);}
+.hint-label{font-family:var(--hd);font-size:.59rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-l);margin-bottom:.42rem;}
+.hint-body{font-size:.74rem;color:var(--muted);line-height:1.85;}
+.code{display:inline-block;background:var(--border2);border:1px solid var(--border);padding:.06rem .45rem;border-radius:5px;font-family:var(--mn);font-size:.7rem;color:var(--ink2);font-weight:600;}
+.pg-foot{margin-top:1.1rem;font-size:.68rem;color:var(--muted-l);text-align:center;}
 
-/* Responsive */
-@media (max-width: 860px) { .sidebar { display: none; } .stage::before { left: 0; } }
-@media (max-width: 480px) { .card { padding: 1.75rem 1.25rem 1.5rem; border-radius: 16px; } }
+@media(max-width:860px){.panel{display:none;}}
+@media(max-width:520px){.stage{padding:1.5rem 1rem;align-items:flex-start;padding-top:2.5rem;}.card{padding:1.75rem 1.25rem 1.5rem;border-radius:16px;}}
 </style>
 </head>
 <body data-role="Admin">
 
-<!-- ═══ SIDEBAR ═══════════════════════════════════════════ -->
-<aside class="sidebar">
-  <div class="sidebar-noise"></div>
-  <div class="sidebar-lines"></div>
-  <div class="sidebar-glow"></div>
-
+<aside class="panel">
+  <div class="p-glow"></div>
+  <div class="p-glow2"></div>
   <div class="brand">
-    <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+    <svg class="b-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
       <defs>
-        <linearGradient id="sg1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#3b6ef5"/>
-          <stop offset="100%" stop-color="#1e40af"/>
-        </linearGradient>
-        <linearGradient id="sg2" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#f97316"/>
-          <stop offset="100%" stop-color="#c2410c"/>
-        </linearGradient>
+        <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient>
+        <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fdba74"/><stop offset="100%" stop-color="#f97316"/></linearGradient>
       </defs>
-      <path d="M24 3 L42 10.5 L42 29 Q42 41 24 47 Q6 41 6 29 L6 10.5 Z" fill="url(#sg1)"/>
-      <path d="M24 3 L42 10.5 L42 16.5 L24 9 L6 16.5 L6 10.5 Z" fill="url(#sg2)"/>
-      <rect x="10" y="21" width="10" height="14" rx="2" fill="white" opacity=".92"/>
-      <rect x="28" y="21" width="10" height="14" rx="2" fill="white" opacity=".6"/>
-      <polygon points="24,10 34,16 24,22 14,16" fill="url(#sg2)"/>
+      <path d="M24 3L42 10.5V29Q42 41 24 47Q6 41 6 29V10.5Z" fill="url(#lg1)"/>
+      <path d="M24 3L42 10.5V16L24 8.5L6 16V10.5Z" fill="url(#lg2)"/>
+      <rect x="10" y="21" width="10" height="14" rx="2" fill="white" opacity=".9"/>
+      <rect x="28" y="21" width="10" height="14" rx="2" fill="white" opacity=".55"/>
+      <polygon points="24,10 34,16 24,22 14,16" fill="url(#lg2)"/>
       <line x1="34" y1="16" x2="34" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
       <circle cx="34" cy="23.5" r="2.5" fill="#f97316"/>
     </svg>
-    <div>
-      <div class="brand-name">CampusCore</div>
-      <div class="brand-tag">University ERP System</div>
-    </div>
+    <div><div class="b-name">CampusCore</div><div class="b-tag">University ERP</div></div>
   </div>
-
-  <div class="sidebar-body">
-    <div class="sidebar-eyebrow">Access Portal</div>
-    <h1 class="sidebar-heading">One portal<br>for your <em>campus.</em></h1>
-    <p class="sidebar-desc">
-      Select your role, enter your credentials,<br>
-      and step into your dedicated workspace.
-    </p>
-
+  <div class="p-body">
+    <div class="p-eye">Access Portal</div>
+    <h1 class="p-head">One portal<br>for your <em>campus</em></h1>
+    <p class="p-desc">Select your role, enter your credentials,<br>and step into your dedicated workspace.</p>
     <div class="role-list">
-      <div class="role-item ri-admin active" id="rr-Admin" onclick="selectRole('Admin')">
-        <div class="ri-dot adm"></div>
-        <div>
-          <div class="ri-label">Administrator</div>
-          <div class="ri-desc">Full system access · manage all users</div>
-        </div>
+      <div class="role-row" id="rr-Admin" onclick="selectRole('Admin')">
+        <div class="rr-dot adm"></div>
+        <div class="rr-tx"><div class="rr-name">Administrator</div><div class="rr-desc">Full system access · manage all users</div></div>
+        <span class="rr-arr">›</span>
       </div>
-      <div class="role-item ri-teacher" id="rr-Teacher" onclick="selectRole('Teacher')">
-        <div class="ri-dot tea"></div>
-        <div>
-          <div class="ri-label">Teacher</div>
-          <div class="ri-desc">Attendance, exams, study materials</div>
-        </div>
+      <div class="role-row" id="rr-Teacher" onclick="selectRole('Teacher')">
+        <div class="rr-dot tea"></div>
+        <div class="rr-tx"><div class="rr-name">Teacher</div><div class="rr-desc">Attendance, exams, study materials</div></div>
+        <span class="rr-arr">›</span>
       </div>
-      <div class="role-item ri-student" id="rr-Student" onclick="selectRole('Student')">
-        <div class="ri-dot stu"></div>
-        <div>
-          <div class="ri-label">Student</div>
-          <div class="ri-desc">Timetable, marks, notifications</div>
-        </div>
+      <div class="role-row" id="rr-Student" onclick="selectRole('Student')">
+        <div class="rr-dot stu"></div>
+        <div class="rr-tx"><div class="rr-name">Student</div><div class="rr-desc">Timetable, marks, notifications</div></div>
+        <span class="rr-arr">›</span>
       </div>
     </div>
   </div>
-
-  <div class="sidebar-foot">
-    <span>© 2026 CampusCore</span>
-    <span>Secure Role-Based Access</span>
-  </div>
+  <div class="p-foot"><span>© 2026 CampusCore</span><div class="p-sep"></div><span>Secure Role-Based Access</span></div>
 </aside>
 
-<!-- ═══ STAGE ═══════════════════════════════════════════════ -->
 <main class="stage">
-  <div class="card">
-    <div class="card-stripe"></div>
-
-    <!-- hidden tab anchors for JS compatibility -->
-    <button id="tab-Admin"   style="display:none"></button>
-    <button id="tab-Teacher" style="display:none"></button>
-    <button id="tab-Student" style="display:none"></button>
-
-    <!-- In-card role tabs -->
-    <div class="role-tabs">
-      <button type="button" class="role-tab active-admin" id="rtab-Admin" onclick="selectRole('Admin')">
-        <div class="tab-icon">🔐</div>Admin
-      </button>
-      <button type="button" class="role-tab" id="rtab-Teacher" onclick="selectRole('Teacher')">
-        <div class="tab-icon">🏫</div>Teacher
-      </button>
-      <button type="button" class="role-tab" id="rtab-Student" onclick="selectRole('Student')">
-        <div class="tab-icon">🎒</div>Student
-      </button>
-    </div>
-
-    <!-- Header -->
-    <div class="card-head">
-      <div class="role-badge rb-admin" id="roleBadge">Administrator</div>
-      <div class="card-title" id="cardTitle">Welcome back</div>
-      <div class="card-sub"   id="cardSub">Sign in with your Admin credentials</div>
-    </div>
-
-    <!-- Alerts -->
-    <div id="alertBox"></div>
-    <div id="switchHint"></div>
-
-    <!-- Form -->
-    <form onsubmit="handleLogin(event)" novalidate>
-      <div class="field">
-        <label class="field-label" for="userCode">User Code</label>
-        <div class="input-wrap">
-          <span class="input-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
-            </svg>
-          </span>
-          <input type="text" id="userCode" placeholder="e.g. ADMIN001"
-                 autocomplete="username" required>
+  <div class="si">
+    <div class="card">
+      <button id="tab-Admin"   style="display:none"></button>
+      <button id="tab-Teacher" style="display:none"></button>
+      <button id="tab-Student" style="display:none"></button>
+      <div class="role-tabs">
+        <button type="button" class="role-tab active-admin" id="rtab-Admin" onclick="selectRole('Admin')">
+          <div class="t-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>Admin
+        </button>
+        <button type="button" class="role-tab" id="rtab-Teacher" onclick="selectRole('Teacher')">
+          <div class="t-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>Teacher
+        </button>
+        <button type="button" class="role-tab" id="rtab-Student" onclick="selectRole('Student')">
+          <div class="t-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div>Student
+        </button>
+      </div>
+      <div class="card-head">
+        <div class="role-badge rb-admin" id="roleBadge">🔐 &nbsp;Administrator</div>
+        <div class="card-title" id="cardTitle">Welcome back</div>
+        <div class="card-sub"   id="cardSub">Sign in with your Admin credentials</div>
+      </div>
+      <div id="alertBox"></div>
+      <div id="switchHint"></div>
+      <form onsubmit="handleLogin(event)" novalidate>
+        <div class="field">
+          <label for="userCode">User Code</label>
+          <div class="iw">
+            <span class="i-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
+            <input type="text" id="userCode" placeholder="e.g. ADMIN001" autocomplete="username" required>
+          </div>
         </div>
-      </div>
-
-      <div class="field">
-        <label class="field-label" for="password">Password</label>
-        <div class="input-wrap">
-          <span class="input-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-          </span>
-          <input type="password" id="password" placeholder="Enter your password"
-                 autocomplete="current-password" required>
-          <button type="button" class="eye-btn" id="pwToggle" onclick="togglePw()" aria-label="Toggle password visibility">
-            <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
-          </button>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="iw">
+            <span class="i-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required>
+            <button type="button" class="pw-eye" id="pwToggle" onclick="togglePw()" aria-label="Toggle password visibility">
+              <svg id="eyeOpen" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg id="eyeShut" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
-
-      <button type="submit" class="btn btn-admin" id="loginBtn">Sign In as Admin</button>
-    </form>
-
-    <!-- Hint footer -->
-    <div class="hint-foot">
-      <div class="hint-label" id="hintLabel">Default Credentials</div>
-      <div class="hint-body" id="hintBody">
-        User Code: <span class="code">ADMIN001</span><br>
-        First-login password: Date of Birth as <span class="code">DD-MM-YYYY</span>
+        <button type="submit" class="btn btn-admin" id="loginBtn">Sign In as Admin</button>
+      </form>
+      <div class="hint-foot">
+        <div class="hint-label" id="hintLabel">Default Credentials</div>
+        <div class="hint-body" id="hintBody">User Code: <span class="code">ADMIN001</span><br>First-login password: Date of Birth as <span class="code">DD-MM-YYYY</span></div>
       </div>
     </div>
-
+    <div class="pg-foot">© 2026 CampusCore &nbsp;·&nbsp; Secure Role-Based Access</div>
   </div>
 </main>
 
 <script>
-const API = (function() {
-  const stored = localStorage.getItem('api_base');
-  if (stored) return stored.replace(/\/$/, '');
-  return window.location.origin;
-})();
-
-let selectedRole = 'Admin';
-
-const ROLES = {
-  Admin: {
-    badge: 'Administrator', badgeClass: 'rb-admin',
-    title: 'Welcome back',  sub: 'Sign in with your Admin credentials',
-    btnClass: 'btn-admin',  btnText: 'Sign In as Admin',
-    placeholder: 'e.g. ADMIN001',
-    hintTitle: 'Admin Login',
-    hint: 'User Code: <span class="code">ADMIN001</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',
-    redirect: 'admin.html'
-  },
-  Teacher: {
-    badge: 'Teacher', badgeClass: 'rb-teacher',
-    title: 'Teacher Portal', sub: 'Sign in with your Teacher credentials',
-    btnClass: 'btn-teacher', btnText: 'Sign In as Teacher',
-    placeholder: 'e.g. TID001',
-    hintTitle: 'Teacher Login',
-    hint: 'User Code: <span class="code">TID001</span> – <span class="code">TID050</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',
-    redirect: 'teacher.html'
-  },
-  Student: {
-    badge: 'Student', badgeClass: 'rb-student',
-    title: 'Student Portal', sub: 'Sign in with your Roll Number',
-    btnClass: 'btn-student', btnText: 'Sign In as Student',
-    placeholder: 'e.g. D1S1N01',
-    hintTitle: 'Student Login',
-    hint: 'Roll Number: <span class="code">D1S1N01</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',
-    redirect: 'student.html'
-  }
+const API=(function(){const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');return window.location.origin;})();
+let selectedRole='Admin';
+const ROLES={
+  Admin:{badge:'🔐 &nbsp;Administrator',badgeClass:'rb-admin',title:'Welcome back',sub:'Sign in with your Admin credentials',btnClass:'btn-admin',btnText:'Sign In as Admin',placeholder:'e.g. ADMIN001',hintTitle:'Admin Login',hint:'User Code: <span class="code">ADMIN001</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',redirect:'admin.html'},
+  Teacher:{badge:'🏫 &nbsp;Teacher',badgeClass:'rb-teacher',title:'Teacher Portal',sub:'Sign in with your Teacher credentials',btnClass:'btn-teacher',btnText:'Sign In as Teacher',placeholder:'e.g. TID001',hintTitle:'Teacher Login',hint:'User Code: <span class="code">TID001</span> – <span class="code">TID050</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',redirect:'teacher.html'},
+  Student:{badge:'🎒 &nbsp;Student',badgeClass:'rb-student',title:'Student Portal',sub:'Sign in with your Roll Number',btnClass:'btn-student',btnText:'Sign In as Student',placeholder:'e.g. D1S1N01',hintTitle:'Student Login',hint:'Roll Number: <span class="code">D1S1N01</span><br>First-login password: <span class="code">DD-MM-YYYY</span> (your Date of Birth)',redirect:'student.html'}
 };
-
-function updateCardTabs(role) {
-  ['Admin','Teacher','Student'].forEach(r => {
-    const t = document.getElementById('rtab-' + r);
-    if (!t) return;
-    t.className = 'role-tab';
-    if (r === role) {
-      t.classList.add('active-' + role.toLowerCase());
-    }
-  });
-}
-
-function selectRole(role) {
-  updateCardTabs(role);
-  selectedRole = role;
-  const cfg = ROLES[role];
-
-  document.body.setAttribute('data-role', role);
-
-  // tabs (hidden anchors)
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-' + role).classList.add('active');
-
-  // sidebar rows
-  document.querySelectorAll('.role-item').forEach(r => r.classList.remove('active'));
-  const rr = document.getElementById('rr-' + role);
-  if (rr) rr.classList.add('active');
-
-  // badge
-  const badge = document.getElementById('roleBadge');
-  badge.textContent  = cfg.badge;
-  badge.className    = 'role-badge ' + cfg.badgeClass;
-
-  document.getElementById('cardTitle').textContent = cfg.title;
-  document.getElementById('cardSub').textContent   = cfg.sub;
-
-  const btn = document.getElementById('loginBtn');
-  btn.className   = 'btn ' + cfg.btnClass;
-  btn.textContent = cfg.btnText;
-
-  document.getElementById('userCode').placeholder = cfg.placeholder;
-  document.getElementById('hintLabel').textContent = cfg.hintTitle;
-  document.getElementById('hintBody').innerHTML    = cfg.hint;
-
+function updateCardTabs(role){['Admin','Teacher','Student'].forEach(r=>{const t=document.getElementById('rtab-'+r);if(!t)return;t.className='role-tab';if(r===role)t.classList.add('active-'+role.toLowerCase());});}
+function selectRole(role){
+  updateCardTabs(role);selectedRole=role;const cfg=ROLES[role];
+  document.body.setAttribute('data-role',role);
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+role).classList.add('active');
+  document.querySelectorAll('.role-row').forEach(r=>r.classList.remove('active'));
+  const rr=document.getElementById('rr-'+role);if(rr)rr.classList.add('active');
+  const badge=document.getElementById('roleBadge');badge.innerHTML=cfg.badge;badge.className='role-badge '+cfg.badgeClass;
+  document.getElementById('cardTitle').textContent=cfg.title;
+  document.getElementById('cardSub').textContent=cfg.sub;
+  const btn=document.getElementById('loginBtn');btn.className='btn '+cfg.btnClass;btn.textContent=cfg.btnText;
+  document.getElementById('userCode').placeholder=cfg.placeholder;
+  document.getElementById('hintLabel').textContent=cfg.hintTitle;
+  document.getElementById('hintBody').innerHTML=cfg.hint;
   clearAlerts();
-  document.getElementById('userCode').value = '';
-  document.getElementById('password').value = '';
-  document.getElementById('userCode').classList.remove('err');
-  document.getElementById('password').classList.remove('err');
+  document.getElementById('userCode').value='';document.getElementById('password').value='';
+  document.getElementById('userCode').classList.remove('err');document.getElementById('password').classList.remove('err');
 }
-
-function togglePw() {
-  const inp = document.getElementById('password');
-  const btn = document.getElementById('pwToggle');
-  inp.type = inp.type === 'password' ? 'text' : 'password';
-  btn.setAttribute('aria-pressed', inp.type === 'text');
-  document.getElementById('eyeIcon').innerHTML = inp.type === 'password'
-    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
-    : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+function togglePw(){
+  const inp=document.getElementById('password');inp.type=inp.type==='password'?'text':'password';
+  const v=inp.type==='text';
+  document.getElementById('eyeOpen').style.display=v?'none':'';
+  document.getElementById('eyeShut').style.display=v?'':'none';
 }
-
-function showAlert(type, msg) {
-  const icons = {
-    error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
-    success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
-    info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
-  };
-  document.getElementById('alertBox').innerHTML =
-    `<div class="alert alert-${type}">
-       <span class="alert-icon">${icons[type] || icons.info}</span>
-       <span>${msg}</span>
-     </div>`;
-}
-
-function showSwitchHint(actualRole) {
-  document.getElementById('switchHint').innerHTML =
-    `<div class="switch-hint">
-       <div class="sh-text">This is a <strong>${actualRole}</strong> account. Switch to the correct tab.</div>
-       <button class="sh-btn" onclick="selectRole('${actualRole}')">Switch</button>
-     </div>`;
-}
-
-function clearAlerts() {
-  document.getElementById('alertBox').innerHTML   = '';
-  document.getElementById('switchHint').innerHTML = '';
-}
-
-async function handleLogin(e) {
-  e.preventDefault();
-  clearAlerts();
-
-  const userCode = document.getElementById('userCode').value.trim();
-  const password = document.getElementById('password').value;
-  const btn      = document.getElementById('loginBtn');
-  const cfg      = ROLES[selectedRole];
-
-  if (!userCode) {
-    showAlert('error', 'Please enter your User Code.');
-    document.getElementById('userCode').classList.add('err');
-    document.getElementById('userCode').focus();
-    return;
-  }
-  if (!password) {
-    showAlert('error', 'Please enter your Password.');
-    document.getElementById('password').classList.add('err');
-    document.getElementById('password').focus();
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spin"></div>&nbsp;Signing in…';
-
-  try {
-    const res = await fetch(API + '/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userCode, password, loginAs: selectedRole })
-    });
-    let data;
-    try { data = await res.json(); } catch { throw new Error('Server returned an invalid response.'); }
-
-    if (!data.success) {
-      document.getElementById('password').value = '';
-      if (data.actualRole) {
-        showSwitchHint(data.actualRole);
-      } else {
-        showAlert('error', data.error || data.message || 'Invalid credentials. Please try again.');
-        document.getElementById('userCode').classList.add('err');
-        document.getElementById('password').classList.add('err');
-      }
+function showAlert(type,msg){const icons={error:'⚠️',success:'✅',info:'ℹ️'};document.getElementById('alertBox').innerHTML=`<div class="alert alert-${type}"><span class="alert-icon">${icons[type]||'ℹ️'}</span><span>${msg}</span></div>`;}
+function showSwitchHint(actualRole){document.getElementById('switchHint').innerHTML=`<div class="switch-hint"><div class="sh-text">This is a <strong>${actualRole}</strong> account. Switch to the correct tab.</div><button class="sh-btn" onclick="selectRole('${actualRole}')">Switch</button></div>`;}
+function clearAlerts(){document.getElementById('alertBox').innerHTML='';document.getElementById('switchHint').innerHTML='';}
+async function handleLogin(e){
+  e.preventDefault();clearAlerts();
+  const userCode=document.getElementById('userCode').value.trim();
+  const password=document.getElementById('password').value;
+  const btn=document.getElementById('loginBtn');const cfg=ROLES[selectedRole];
+  if(!userCode){showAlert('error','Please enter your User Code.');document.getElementById('userCode').classList.add('err');document.getElementById('userCode').focus();return;}
+  if(!password){showAlert('error','Please enter your Password.');document.getElementById('password').classList.add('err');document.getElementById('password').focus();return;}
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div>&nbsp;Signing in…';
+  try{
+    const res=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userCode,password,loginAs:selectedRole})});
+    let data;try{data=await res.json();}catch{throw new Error('Server returned an invalid response.');}
+    if(!data.success){
+      document.getElementById('password').value='';
+      if(data.actualRole){showSwitchHint(data.actualRole);}
+      else{showAlert('error',data.error||data.message||'Invalid credentials. Please try again.');document.getElementById('userCode').classList.add('err');document.getElementById('password').classList.add('err');}
       return;
     }
-
-    const returnedType = (data.user?.userType || data.userType || '').trim();
-    if (returnedType && returnedType.toLowerCase() !== selectedRole.toLowerCase()) {
-      document.getElementById('password').value = '';
-      showSwitchHint(returnedType);
-      return;
-    }
-
-    const token = data.token || data.access_token || '';
-    localStorage.setItem('token',       token);
-    localStorage.setItem('accessToken', token);
-    localStorage.setItem('user',        JSON.stringify(data.user || {}));
-    localStorage.setItem('userType',    selectedRole);
-    localStorage.setItem('loginRole',   selectedRole);
-
-    if (data.isFirstLogin || data.user?.isFirstLogin) {
-      showAlert('success', 'First login detected! Redirecting to set your password…');
-      setTimeout(() => { location.href = 'change_password.html'; }, 900);
-      return;
-    }
-    showAlert('success', `Welcome, ${data.user?.fullName || userCode}! Redirecting…`);
-    setTimeout(() => { location.href = cfg.redirect; }, 750);
-
-  } catch (err) {
-    console.error('[login]', err);
-    showAlert('error', 'Cannot connect to server. Check your internet connection or try refreshing the page.');
-  } finally {
-    btn.disabled = false;
-    btn.className = 'btn ' + ROLES[selectedRole].btnClass;
-    btn.textContent = ROLES[selectedRole].btnText;
-  }
+    const returnedType=(data.user?.userType||data.userType||'').trim();
+    if(returnedType&&returnedType.toLowerCase()!==selectedRole.toLowerCase()){document.getElementById('password').value='';showSwitchHint(returnedType);return;}
+    const token=data.token||data.access_token||'';
+    localStorage.setItem('token',token);localStorage.setItem('accessToken',token);
+    localStorage.setItem('user',JSON.stringify(data.user||{}));
+    localStorage.setItem('userType',selectedRole);localStorage.setItem('loginRole',selectedRole);
+    if(data.isFirstLogin||data.user?.isFirstLogin){showAlert('success','First login detected! Redirecting to set your password…');setTimeout(()=>{location.href='change_password.html';},900);return;}
+    showAlert('success',`Welcome, ${data.user?.fullName||userCode}! Redirecting…`);setTimeout(()=>{location.href=cfg.redirect;},750);
+  }catch(err){console.error('[login]',err);showAlert('error','Cannot connect to server. Check your internet connection or try refreshing the page.');}
+  finally{btn.disabled=false;btn.className='btn '+ROLES[selectedRole].btnClass;btn.textContent=ROLES[selectedRole].btnText;}
 }
-
-// Auto-redirect if already logged in
-(function() {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    if (!user || !user.userType || !ROLES[user.userType]) { localStorage.clear(); return; }
-    const parts = token.split('.');
-    if (parts.length !== 3) { localStorage.clear(); return; }
-    let payload;
-    try { payload = JSON.parse(atob(parts[1])); } catch { localStorage.clear(); return; }
-    if (payload.exp && Date.now() / 1000 > payload.exp) { localStorage.clear(); return; }
-    if (user.isFirstLogin == true) {
-      location.href = 'change_password.html';
-    } else {
-      location.href = ROLES[user.userType].redirect;
-    }
-  } catch { localStorage.clear(); }
+(function(){
+  try{
+    const token=localStorage.getItem('token');if(!token)return;
+    const user=JSON.parse(localStorage.getItem('user')||'null');
+    if(!user||!user.userType||!ROLES[user.userType]){localStorage.clear();return;}
+    const parts=token.split('.');if(parts.length!==3){localStorage.clear();return;}
+    let payload;try{payload=JSON.parse(atob(parts[1]));}catch{localStorage.clear();return;}
+    if(payload.exp&&Date.now()/1000>payload.exp){localStorage.clear();return;}
+    if(user.isFirstLogin==true){location.href='change_password.html';}else{location.href=ROLES[user.userType].redirect;}
+  }catch{localStorage.clear();}
 })();
-
-// Keyboard UX
-document.getElementById('userCode').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('password').focus(); }
-});
-['userCode', 'password'].forEach(id => {
-  document.getElementById(id).addEventListener('input', () => {
-    document.getElementById(id).classList.remove('err');
-  });
-});
-
-// init active row
+document.getElementById('userCode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('password').focus();}});
+['userCode','password'].forEach(id=>{document.getElementById(id).addEventListener('input',()=>{document.getElementById(id).classList.remove('err');});});
 document.getElementById('rr-Admin').classList.add('active');
 </script>
 </body>
