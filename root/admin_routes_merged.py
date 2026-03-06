@@ -112,6 +112,14 @@ def get_dashboard():
         r = db.execute_query("SELECT COUNT(*) AS count FROM Subjects", fetch_one=True)
         stats['totalSubjects'] = r['count'] if r else 0
 
+        # Timetable count — works for both MySQL (ClassID-based) and SQLite schemas
+        r = db.execute_query("SELECT COUNT(*) AS count FROM Timetable", fetch_one=True)
+        stats['totalTimetable'] = r['count'] if r else 0
+
+        # FeeStructure count — column name differs per schema (FeeStructureID vs FeeID)
+        r = db.execute_query("SELECT COUNT(*) AS count FROM FeeStructure", fetch_one=True)
+        stats['totalFeeStructure'] = r['count'] if r else 0
+
         r = db.execute_query("SELECT COUNT(*) AS count FROM Users WHERE UserType='Student' AND IsActive=0", fetch_one=True)
         stats['inactiveStudents'] = r['count'] if r else 0
 
@@ -272,15 +280,15 @@ def add_student():
             VALUES ('Student', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)
         """, (
             user_code,
-            s['fullName'],
-            s.get('email', ''),
-            s.get('phone', ''),
+            data['fullName'],
+            data.get('email', ''),
+            data.get('phone', ''),
             dob_db,
-            s.get('gender', ''),
+            data.get('gender', ''),
             pw_hash,
-            s.get('departmentId') or None,
-            s.get('semester') or None,
-            s.get('address', ''),
+            data.get('departmentId') or None,
+            data.get('semester') or None,
+            data.get('address', ''),
         ))
         return jsonify({
             'success': True,
@@ -765,14 +773,25 @@ def delete_department(dept_id):
 @jwt_required()
 def get_subjects():
     try:
-        subjects = serialize_rows(db.execute_query("""
-            SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
-                   s.IsLab, s.DepartmentID, s.Semester, d.DepartmentName
-            FROM Subjects s
-            JOIN Departments d ON s.DepartmentID = d.DepartmentID
-            ORDER BY d.DepartmentName, s.Semester, s.SubjectName
-        """))
-        return jsonify({'success': True, 'subjects': subjects}), 200
+        # Try with IsLab first (SQLite schema); fall back without it (MySQL schema)
+        for query in [
+            """SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
+                      s.IsLab, s.DepartmentID, s.Semester, d.DepartmentName
+               FROM Subjects s
+               JOIN Departments d ON s.DepartmentID = d.DepartmentID
+               ORDER BY d.DepartmentName, s.Semester, s.SubjectName""",
+            """SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
+                      0 AS IsLab, s.DepartmentID, s.Semester, d.DepartmentName
+               FROM Subjects s
+               JOIN Departments d ON s.DepartmentID = d.DepartmentID
+               ORDER BY d.DepartmentName, s.Semester, s.SubjectName""",
+        ]:
+            try:
+                subjects = serialize_rows(db.execute_query(query))
+                return jsonify({'success': True, 'subjects': subjects}), 200
+            except Exception:
+                continue
+        return jsonify({'success': True, 'subjects': []}), 200
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
 
@@ -787,12 +806,22 @@ def add_subject():
         for f in ['subjectName', 'subjectCode', 'departmentId', 'semester']:
             if not data.get(f):
                 return jsonify({'error': f'{f} is required', 'success': False}), 400
-        db.execute_non_query(
-            "INSERT INTO Subjects (SubjectName, SubjectCode, Credits, IsLab, DepartmentID, Semester) VALUES (?,?,?,?,?,?)",
-            (data['subjectName'], data['subjectCode'], data.get('credits', 4),
-             int(data.get('isLab', 0)), data['departmentId'], data['semester'])
-        )
-        return jsonify({'success': True, 'message': 'Subject added'}), 201
+        # Try inserting with IsLab (SQLite schema); fall back without it (MySQL schema)
+        for sql, params in [
+            ("INSERT INTO Subjects (SubjectName, SubjectCode, Credits, IsLab, DepartmentID, Semester) VALUES (?,?,?,?,?,?)",
+             (data['subjectName'], data['subjectCode'], data.get('credits', 4),
+              int(data.get('isLab', 0)), data['departmentId'], data['semester'])),
+            ("INSERT INTO Subjects (SubjectName, SubjectCode, Credits, DepartmentID, Semester) VALUES (?,?,?,?,?)",
+             (data['subjectName'], data['subjectCode'], data.get('credits', 4),
+              data['departmentId'], data['semester'])),
+        ]:
+            try:
+                db.execute_non_query(sql, params)
+                return jsonify({'success': True, 'message': 'Subject added'}), 201
+            except Exception as e:
+                if 'IsLab' in str(e) or 'Unknown column' in str(e) or 'no column named' in str(e).lower():
+                    continue
+                raise
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
 
@@ -863,39 +892,74 @@ def get_timetable():
         dept_id  = request.args.get('departmentId')
         semester = request.args.get('semester')
 
-        # Try Users join first (MSSQL), fallback to Teachers table (SQLite)
-        for teacher_join, teacher_cols in [
-            ("JOIN Users u ON t.TeacherID = u.UserID",
-             "u.FullName AS TeacherName, u.UserCode AS TeacherCode"),
-            ("JOIN Teachers u ON t.TeacherID = u.TeacherID",
-             "u.FullName AS TeacherName, u.TeacherCode AS TeacherCode"),
-        ]:
+        # Try multiple schema variants in order:
+        # 1. MySQL/MSSQL schema: Timetable → ClassID → Classes (has DepartmentID, Semester)
+        # 2. SQLite schema: Timetable has DepartmentID + Semester directly, teacher = Teachers
+        # 3. SQLite schema: same but teacher from Users
+        query_variants = [
+            # MySQL/MSSQL: ClassID-based, teacher from Users
+            ("""
+                SELECT t.TimetableID, t.DayOfWeek,
+                       0 AS PeriodNumber,
+                       t.StartTime, t.EndTime,
+                       COALESCE(t.RoomNumber, t.Room, 'TBD') AS RoomNumber,
+                       c.Semester, t.AcademicYear, 0 AS IsLab,
+                       s.SubjectName, s.SubjectCode,
+                       u.FullName AS TeacherName, u.UserCode AS TeacherCode,
+                       d.DepartmentName, c.DepartmentID, c.ClassName, c.Section
+                FROM Timetable t
+                JOIN Classes     c ON t.ClassID     = c.ClassID
+                JOIN Subjects    s ON t.SubjectID   = s.SubjectID
+                JOIN Users       u ON t.TeacherID   = u.UserID
+                JOIN Departments d ON c.DepartmentID = d.DepartmentID
+                WHERE 1=1
+            """, 'dept_col', 'c'),
+            # SQLite: DepartmentID directly on Timetable, teacher from Teachers table
+            ("""
+                SELECT t.TimetableID, t.DayOfWeek,
+                       COALESCE(t.PeriodNumber, 0) AS PeriodNumber,
+                       t.StartTime, t.EndTime,
+                       COALESCE(t.RoomNumber, 'TBD') AS RoomNumber,
+                       t.Semester, t.AcademicYear, COALESCE(t.IsLab, 0) AS IsLab,
+                       s.SubjectName, s.SubjectCode,
+                       tc.FullName AS TeacherName, tc.TeacherCode AS TeacherCode,
+                       d.DepartmentName, t.DepartmentID, '' AS ClassName, '' AS Section
+                FROM Timetable t
+                JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
+                JOIN Teachers    tc ON t.TeacherID    = tc.TeacherID
+                JOIN Departments d  ON t.DepartmentID = d.DepartmentID
+                WHERE 1=1
+            """, 'dept_col', 't'),
+            # SQLite: DepartmentID directly on Timetable, teacher from Users
+            ("""
+                SELECT t.TimetableID, t.DayOfWeek,
+                       COALESCE(t.PeriodNumber, 0) AS PeriodNumber,
+                       t.StartTime, t.EndTime,
+                       COALESCE(t.RoomNumber, 'TBD') AS RoomNumber,
+                       t.Semester, t.AcademicYear, COALESCE(t.IsLab, 0) AS IsLab,
+                       s.SubjectName, s.SubjectCode,
+                       u.FullName AS TeacherName, u.UserCode AS TeacherCode,
+                       d.DepartmentName, t.DepartmentID, '' AS ClassName, '' AS Section
+                FROM Timetable t
+                JOIN Subjects    s ON t.SubjectID    = s.SubjectID
+                JOIN Users       u ON t.TeacherID    = u.UserID
+                JOIN Departments d ON t.DepartmentID = d.DepartmentID
+                WHERE 1=1
+            """, 'dept_col', 't'),
+        ]
+
+        for base_query, _flag, alias in query_variants:
             try:
-                query = f"""
-                    SELECT t.TimetableID, t.DayOfWeek,
-                           0 AS PeriodNumber,
-                           t.StartTime, t.EndTime,
-                           COALESCE(t.RoomNumber, t.Room, 'TBD') AS RoomNumber,
-                           c.Semester, t.AcademicYear, 0 AS IsLab,
-                           s.SubjectName, s.SubjectCode,
-                           {teacher_cols}, d.DepartmentName,
-                           c.Semester, c.DepartmentID, c.ClassName, c.Section
-                    FROM Timetable t
-                    JOIN Classes     c  ON t.ClassID      = c.ClassID
-                    JOIN Subjects    s  ON t.SubjectID    = s.SubjectID
-                    {teacher_join}
-                    JOIN Departments d  ON c.DepartmentID = d.DepartmentID
-                    WHERE 1 = 1
-                """
+                query = base_query
                 params = []
-                if dept_id:  query += ' AND c.DepartmentID = ?'; params.append(dept_id)
-                if semester: query += ' AND c.Semester = ?';     params.append(semester)
+                if dept_id:  query += f' AND {alias}.DepartmentID = ?'; params.append(dept_id)
+                if semester: query += f' AND {alias}.Semester = ?';     params.append(semester)
                 query += ' ORDER BY t.DayOfWeek, t.StartTime'
 
                 entries = serialize_rows(db.execute_query(query, tuple(params) if params else ()))
                 return jsonify({'success': True, 'timetable': entries}), 200
             except Exception as e:
-                print(f'[Timetable GET] join failed, trying next: {e}')
+                print(f'[Timetable GET] variant failed, trying next: {e}')
                 continue
 
         return jsonify({'success': True, 'timetable': []}), 200

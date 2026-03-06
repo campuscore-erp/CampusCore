@@ -503,6 +503,20 @@ tbody tr:hover{background:rgba(37,99,235,.025);}
             <div class="sc-label">Departments</div>
           </div>
         </div>
+        <div class="sc sc-teal" style="--sc-teal:#0d9488;background:linear-gradient(135deg,#0d9488 0%,#14b8a6 100%)">
+          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+          <div class="sc-body">
+            <div class="sc-value" id="s-timetable">—</div>
+            <div class="sc-label">Timetable Entries</div>
+          </div>
+        </div>
+        <div class="sc sc-rose" style="background:linear-gradient(135deg,#be185d 0%,#ec4899 100%)">
+          <div class="sc-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <div class="sc-body">
+            <div class="sc-value" id="s-fees">—</div>
+            <div class="sc-label">Fee Structures</div>
+          </div>
+        </div>
       </div>
 
       <div class="section-grid">
@@ -1037,6 +1051,7 @@ async function loadDashboard(){
   if(!d.success){toast(d.error||'Dashboard error','error');return;}
   const s=d.stats||{};
   const totalStu=s.totalStudents??0;const totalTea=s.totalTeachers??0;const totalSub=s.totalSubjects??0;const totalDep=s.totalDepartments??0;
+  const totalTimetable=s.totalTimetable??0;const totalFees=s.totalFeeStructure??0;
   const inactiveStu=s.inactiveStudents??0;const inactiveTea=s.inactiveTeachers??0;
   document.getElementById('s-students').textContent=totalStu;
   document.getElementById('s-students-sub').textContent=inactiveStu?`${inactiveStu} inactive`:'All active';
@@ -1044,6 +1059,8 @@ async function loadDashboard(){
   document.getElementById('s-teachers-sub').textContent=inactiveTea?`${inactiveTea} inactive`:'All active';
   document.getElementById('s-subjects').textContent=totalSub;
   document.getElementById('s-depts').textContent=totalDep;
+  document.getElementById('s-timetable').textContent=totalTimetable;
+  document.getElementById('s-fees').textContent=totalFees;
   const maxStu=Math.max(totalStu+inactiveStu,1);
   document.querySelector('#page-dashboard .sc-fill').style.width=Math.round(totalStu/maxStu*100)+'%';
   const rs=s.recentStudents||[];
