@@ -47,7 +47,7 @@ body{font-family:var(--bd);background:var(--bg);color:var(--ink);display:flex;mi
 .sb-header{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative;z-index:1;}
 .sb-brand{display:flex;align-items:center;gap:.75rem;}
 .sb-logo{width:36px;height:36px;flex-shrink:0;}
-.sb-brand-text{}
+.sb-brand-text{display:flex;flex-direction:column;}
 .sb-brand-name{font-family:var(--hd);font-size:1rem;font-weight:700;color:#fff;letter-spacing:-.02em;line-height:1;}
 .sb-brand-sub{font-size:.58rem;color:rgba(255,255,255,.28);letter-spacing:.1em;text-transform:uppercase;margin-top:.18rem;}
 
@@ -1193,22 +1193,22 @@ async function addTimetable(){
   const sem=parseInt(document.getElementById('tt-sem').value);
   const subjId=document.getElementById('tt-subj').value;
   const teacherId=document.getElementById('tt-teacher').value;
-  if(!deptId||!subjId||!teacherId){toast('Department, Subject, Teacher required','error');return;}
+  if(!deptId||!subjId||!teacherId){toast('Department, Subject and Teacher are required','error');return;}
   const body={
     departmentId:deptId,
     semester:sem,
     subjectId:subjId,
     teacherId:teacherId,
     dayOfWeek:document.getElementById('tt-day').value,
-    periodNumber:parseInt(document.getElementById('tt-period').value),
+    periodNumber:parseInt(document.getElementById('tt-period').value)||1,
     startTime:document.getElementById('tt-start').value,
     endTime:document.getElementById('tt-end').value,
-    roomNumber:document.getElementById('tt-room').value,
-    isLab:parseInt(document.getElementById('tt-islab').value),
+    roomNumber:document.getElementById('tt-room').value||'TBD',
+    isLab:parseInt(document.getElementById('tt-islab').value)||0,
     academicYear:'2024-25'
   };
   const d=await api('/api/admin/timetable',{method:'POST',body:JSON.stringify(body)});
-  if(d?.success){toast('Entry added');closeModal('addTimetableModal');loadTimetable();}else toast(d?.error||'Failed','error');
+  if(d?.success){toast('Timetable entry added');closeModal('addTimetableModal');loadTimetable();}else toast(d?.error||'Failed to add entry','error');
 }
 async function deleteTimetable(id){if(!confirm('Delete this timetable entry?'))return;const d=await api(`/api/admin/timetable/${id}`,{method:'DELETE'});if(d?.success){toast('Entry deleted');loadTimetable();}else toast(d?.error||'Failed','error');}
 
@@ -1221,11 +1221,20 @@ async function loadFees(){
     const sports=parseFloat(f.SportsFee||0);
     const other=parseFloat(f.OtherFees||f.OtherCharges||0);
     const total=f.TotalFee?parseFloat(f.TotalFee):(tuition+lab+library+sports+other);
-    return `<tr><td>${f.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${f.Semester||''}</span></td><td>${f.AcademicYear||''}</td><td>₹${tuition.toLocaleString()}</td><td>₹${lab.toLocaleString()}</td><td>₹${library.toLocaleString()}</td><td>₹${sports.toLocaleString()}</td><td>₹${other.toLocaleString()}</td><td><b>₹${total.toLocaleString()}</b></td></tr>`;
-  }).join(''):'<tr><td colspan="9" class="empty-state"><span class="ei">💰</span>No fee structures</td></tr>';
+    return `<tr><td>${f.DepartmentName||'—'}</td><td><span class="badge b-blue">Sem ${f.Semester||''}</span></td><td>${f.AcademicYear||''}</td><td>₹${tuition.toLocaleString('en-IN')}</td><td>₹${lab.toLocaleString('en-IN')}</td><td>₹${library.toLocaleString('en-IN')}</td><td>₹${sports.toLocaleString('en-IN')}</td><td>₹${other.toLocaleString('en-IN')}</td><td><b style="color:var(--blue)">₹${total.toLocaleString('en-IN')}</b></td></tr>`;
+  }).join(''):'<tr><td colspan="9" class="empty-state"><span class="ei">💰</span>No fee structures found</td></tr>';
 }
 async function addFee(){
-  const body={departmentId:document.getElementById('fee-dept').value,semester:document.getElementById('fee-sem').value,academicYear:document.getElementById('fee-year').value,tuitionFee:parseFloat(document.getElementById('fee-tuition').value)||0,labFee:parseFloat(document.getElementById('fee-lab').value)||0,libraryFee:parseFloat(document.getElementById('fee-lib').value)||0,sportsFee:parseFloat(document.getElementById('fee-exam').value)||0,otherFees:parseFloat(document.getElementById('fee-other').value)||0};
+  const body={
+    departmentId:document.getElementById('fee-dept').value,
+    semester:document.getElementById('fee-sem').value,
+    academicYear:document.getElementById('fee-year').value,
+    tuitionFee:parseFloat(document.getElementById('fee-tuition').value)||0,
+    labFee:parseFloat(document.getElementById('fee-lab').value)||0,
+    libraryFee:parseFloat(document.getElementById('fee-lib').value)||0,
+    sportsFee:parseFloat(document.getElementById('fee-exam').value)||0,
+    otherFees:parseFloat(document.getElementById('fee-other').value)||0
+  };
   if(!body.departmentId){toast('Select a department','error');return;}
   const d=await api('/api/admin/fee-structure',{method:'POST',body:JSON.stringify(body)});
   if(d?.success){toast('Fee structure added');closeModal('addFeeModal');loadFees();}else toast(d?.error||'Failed','error');
