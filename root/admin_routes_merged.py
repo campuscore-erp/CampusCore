@@ -3,7 +3,7 @@ admin_routes_merged.py  —  University ERP
 ==========================================
 Blueprint: bp_admin  →  /api/admin/*
 
-UPDATED v2.0.0:
+UPDATED v2.1.0:
   FIXED:
     - activity-logs: was hardcoded to 'Action' column; SQLite uses 'Activity'.
       Now tries 'Activity' first, falls back to 'Action' (MSSQL). HTTP 500 is gone.
@@ -16,6 +16,20 @@ UPDATED v2.0.0:
       Fixed: SELECT before INSERT; returns HTTP 409 Conflict on duplicate.
     - dashboard recentStudents/recentTeachers: LIMIT not supported in MSSQL.
       Fixed: multi-fallback with TOP N.
+    - dashboard missing totalTimetable + totalFeeStructure counts.
+      Fixed: added COUNT queries for both tables.
+    - get_departments: TotalSemesters column missing in MySQL schema → HTTP 500.
+      Fixed: fallback query uses 8 AS TotalSemesters when column absent.
+    - add_department / update_department: TotalSemesters/IsShared missing in MySQL.
+      Fixed: fallback INSERT/UPDATE without those columns.
+    - get_subjects: IsLab column missing in MySQL Subjects schema → HTTP 500.
+      Fixed: fallback query uses 0 AS IsLab when column absent.
+    - add_subject: INSERT with IsLab fails on MySQL.
+      Fixed: fallback INSERT without IsLab.
+    - get_timetable: only tried Classes-join variants; failed on SQLite schema.
+      Fixed: three ordered variants — MySQL ClassID, SQLite Teachers, SQLite Users.
+    - add_student: used undefined variable s['fullName'] instead of data['fullName'].
+      Fixed: all references corrected to data[...].
   NEW:
     - GET  /api/admin/fee-payments         — view all student fee payment records
     - POST /api/admin/notifications        — broadcast notifications to users
@@ -112,11 +126,9 @@ def get_dashboard():
         r = db.execute_query("SELECT COUNT(*) AS count FROM Subjects", fetch_one=True)
         stats['totalSubjects'] = r['count'] if r else 0
 
-        # Timetable count — works for both MySQL (ClassID-based) and SQLite schemas
         r = db.execute_query("SELECT COUNT(*) AS count FROM Timetable", fetch_one=True)
         stats['totalTimetable'] = r['count'] if r else 0
 
-        # FeeStructure count — column name differs per schema (FeeStructureID vs FeeID)
         r = db.execute_query("SELECT COUNT(*) AS count FROM FeeStructure", fetch_one=True)
         stats['totalFeeStructure'] = r['count'] if r else 0
 
@@ -126,7 +138,7 @@ def get_dashboard():
         r = db.execute_query("SELECT COUNT(*) AS count FROM Users WHERE UserType='Teacher' AND IsActive=0", fetch_one=True)
         stats['inactiveTeachers'] = r['count'] if r else 0
 
-        # Recent students — FIXED: multi-fallback for TOP N vs LIMIT
+        # Recent students — multi-fallback for TOP N vs LIMIT
         stats['recentStudents'] = []
         for q in [
             """SELECT TOP 8 u.UserID, u.UserCode, u.FullName, u.Email, u.Semester,
@@ -146,7 +158,7 @@ def get_dashboard():
             except Exception:
                 pass
 
-        # Recent teachers — FIXED: multi-fallback for TOP N vs LIMIT
+        # Recent teachers — multi-fallback for TOP N vs LIMIT
         stats['recentTeachers'] = []
         for q in [
             """SELECT TOP 8 u.UserID, u.UserCode, u.FullName, u.Email,
@@ -259,7 +271,6 @@ def add_student():
 
         user_code = data['userCode'].upper().strip()
 
-        # FIXED: check for duplicate UserCode before INSERT
         existing = db.execute_query(
             "SELECT UserID FROM Users WHERE UPPER(UserCode) = UPPER(?)",
             (user_code,), fetch_one=True
@@ -301,16 +312,10 @@ def add_student():
         return jsonify({'error': str(e), 'success': False}), 500
 
 
-# ── NEW: Bulk import students ──────────────────────────────────────────────────
+# ── Bulk import students ───────────────────────────────────────────────────────
 @bp_admin.route('/students/bulk-import', methods=['POST'])
 @jwt_required()
 def bulk_import_students():
-    """
-    Batch import up to 200 students.
-    Body: { "students": [ { userCode, fullName, dateOfBirth, email, phone,
-                             gender, departmentId, semester, address }, ... ] }
-    Returns: { success, imported, skipped, errors }
-    """
     err = admin_required()
     if err: return err
     try:
@@ -334,7 +339,6 @@ def bulk_import_students():
                     skipped += 1
                     continue
 
-                # Skip duplicates
                 existing = db.execute_query(
                     "SELECT UserID FROM Users WHERE UPPER(UserCode) = UPPER(?)",
                     (user_code,), fetch_one=True
@@ -512,7 +516,6 @@ def add_teacher():
 
         user_code = data['userCode'].upper().strip()
 
-        # FIXED: check for duplicate UserCode before INSERT
         existing = db.execute_query(
             "SELECT UserID FROM Users WHERE UPPER(UserCode) = UPPER(?)",
             (user_code,), fetch_one=True
@@ -660,7 +663,6 @@ def reset_password(user_id):
             new_pw  = dob_str if dob_str else 'password123'
             pw_hash = hash_password(new_pw)
 
-        # FIXED: also set IsFirstLogin=1 so user is forced to change password on next login
         db.execute_non_query(
             "UPDATE Users SET PasswordHash = ?, IsFirstLogin = 1 WHERE UserID = ?",
             (pw_hash, user_id)
@@ -677,14 +679,16 @@ def reset_password(user_id):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DEPARTMENTS
+# DEPARTMENTS  — FIXED: TotalSemesters/IsShared missing in MySQL schema
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bp_admin.route('/departments', methods=['GET'])
 @jwt_required()
 def get_departments():
     try:
-        departments = serialize_rows(db.execute_query("""
+        # Try with TotalSemesters (SQLite schema); fallback without it (MySQL schema)
+        for query in [
+            """
             SELECT d.DepartmentID, d.DepartmentCode, d.DepartmentName,
                    COALESCE(d.TotalSemesters, 8) AS TotalSemesters,
                    COUNT(CASE WHEN u.UserType='Student' AND u.IsActive=1 THEN 1 END) AS StudentCount,
@@ -693,8 +697,26 @@ def get_departments():
             LEFT JOIN Users u ON d.DepartmentID = u.DepartmentID
             GROUP BY d.DepartmentID, d.DepartmentCode, d.DepartmentName, d.TotalSemesters
             ORDER BY d.DepartmentName
-        """))
-        return jsonify({'success': True, 'departments': departments}), 200
+            """,
+            """
+            SELECT d.DepartmentID, d.DepartmentCode, d.DepartmentName,
+                   8 AS TotalSemesters,
+                   COUNT(CASE WHEN u.UserType='Student' AND u.IsActive=1 THEN 1 END) AS StudentCount,
+                   COUNT(CASE WHEN u.UserType='Teacher' AND u.IsActive=1 THEN 1 END) AS TeacherCount
+            FROM Departments d
+            LEFT JOIN Users u ON d.DepartmentID = u.DepartmentID
+            GROUP BY d.DepartmentID, d.DepartmentCode, d.DepartmentName
+            ORDER BY d.DepartmentName
+            """,
+        ]:
+            try:
+                departments = serialize_rows(db.execute_query(query))
+                return jsonify({'success': True, 'departments': departments}), 200
+            except Exception:
+                continue
+
+        return jsonify({'success': True, 'departments': []}), 200
+
     except Exception as e:
         print(f'[Departments GET] Error: {e}')
         return jsonify({'error': str(e), 'success': False}), 500
@@ -709,11 +731,29 @@ def add_department():
         data = request.get_json(silent=True) or {}
         if not data.get('departmentCode') or not data.get('departmentName'):
             return jsonify({'error': 'departmentCode and departmentName are required', 'success': False}), 400
-        db.execute_non_query(
-            "INSERT INTO Departments (DepartmentCode, DepartmentName, TotalSemesters, IsShared) VALUES (?, ?, ?, 0)",
-            (data['departmentCode'].upper(), data['departmentName'], data.get('totalSemesters', 8))
-        )
-        return jsonify({'success': True, 'message': 'Department added successfully'}), 201
+
+        code = data['departmentCode'].upper()
+        name = data['departmentName']
+        sems = data.get('totalSemesters', 8)
+
+        # Try with TotalSemesters + IsShared (SQLite); fallback to MySQL schema
+        for sql, params in [
+            ("INSERT INTO Departments (DepartmentCode, DepartmentName, TotalSemesters, IsShared) VALUES (?, ?, ?, 0)",
+             (code, name, sems)),
+            ("INSERT INTO Departments (DepartmentCode, DepartmentName) VALUES (?, ?)",
+             (code, name)),
+        ]:
+            try:
+                db.execute_non_query(sql, params)
+                return jsonify({'success': True, 'message': 'Department added successfully'}), 201
+            except Exception as e:
+                err_msg = str(e).lower()
+                if 'totalsemesters' in err_msg or 'isshared' in err_msg or 'unknown column' in err_msg or 'no column' in err_msg:
+                    continue
+                raise
+
+        return jsonify({'error': 'Failed to add department', 'success': False}), 500
+
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
 
@@ -725,13 +765,29 @@ def update_department(dept_id):
     if err: return err
     try:
         data = request.get_json(silent=True) or {}
-        rows = db.execute_non_query(
-            "UPDATE Departments SET DepartmentName = ?, TotalSemesters = ? WHERE DepartmentID = ?",
-            (data.get('departmentName', ''), data.get('totalSemesters', 8), dept_id)
-        )
-        if rows == 0:
-            return jsonify({'error': 'Department not found', 'success': False}), 404
-        return jsonify({'success': True, 'message': 'Department updated'}), 200
+        name = data.get('departmentName', '')
+        sems = data.get('totalSemesters', 8)
+
+        # Try with TotalSemesters (SQLite); fallback without it (MySQL)
+        for sql, params in [
+            ("UPDATE Departments SET DepartmentName = ?, TotalSemesters = ? WHERE DepartmentID = ?",
+             (name, sems, dept_id)),
+            ("UPDATE Departments SET DepartmentName = ? WHERE DepartmentID = ?",
+             (name, dept_id)),
+        ]:
+            try:
+                rows = db.execute_non_query(sql, params)
+                if rows == 0:
+                    return jsonify({'error': 'Department not found', 'success': False}), 404
+                return jsonify({'success': True, 'message': 'Department updated'}), 200
+            except Exception as e:
+                err_msg = str(e).lower()
+                if 'totalsemesters' in err_msg or 'unknown column' in err_msg or 'no column' in err_msg:
+                    continue
+                raise
+
+        return jsonify({'error': 'Failed to update department', 'success': False}), 500
+
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
 
@@ -742,7 +798,6 @@ def delete_department(dept_id):
     err = admin_required()
     if err: return err
     try:
-        # FIXED: check BOTH students AND teachers before deleting
         result = db.execute_query(
             "SELECT COUNT(*) AS count FROM Users WHERE DepartmentID = ? AND UserType = 'Student' AND IsActive=1",
             (dept_id,), fetch_one=True
@@ -766,14 +821,14 @@ def delete_department(dept_id):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SUBJECTS
+# SUBJECTS  — FIXED: IsLab column missing in MySQL schema
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bp_admin.route('/subjects', methods=['GET'])
 @jwt_required()
 def get_subjects():
     try:
-        # Try with IsLab first (SQLite schema); fall back without it (MySQL schema)
+        # Try with IsLab (SQLite schema); fallback without it (MySQL schema)
         for query in [
             """SELECT s.SubjectID, s.SubjectName, s.SubjectCode, s.Credits,
                       s.IsLab, s.DepartmentID, s.Semester, d.DepartmentName
@@ -806,7 +861,8 @@ def add_subject():
         for f in ['subjectName', 'subjectCode', 'departmentId', 'semester']:
             if not data.get(f):
                 return jsonify({'error': f'{f} is required', 'success': False}), 400
-        # Try inserting with IsLab (SQLite schema); fall back without it (MySQL schema)
+
+        # Try with IsLab (SQLite); fallback without it (MySQL)
         for sql, params in [
             ("INSERT INTO Subjects (SubjectName, SubjectCode, Credits, IsLab, DepartmentID, Semester) VALUES (?,?,?,?,?,?)",
              (data['subjectName'], data['subjectCode'], data.get('credits', 4),
@@ -819,18 +875,20 @@ def add_subject():
                 db.execute_non_query(sql, params)
                 return jsonify({'success': True, 'message': 'Subject added'}), 201
             except Exception as e:
-                if 'IsLab' in str(e) or 'Unknown column' in str(e) or 'no column named' in str(e).lower():
+                err_msg = str(e).lower()
+                if 'islab' in err_msg or 'unknown column' in err_msg or 'no column' in err_msg:
                     continue
                 raise
+
+        return jsonify({'error': 'Failed to add subject', 'success': False}), 500
+
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
 
 
-# ── NEW: Update subject ────────────────────────────────────────────────────────
 @bp_admin.route('/subjects/<int:subject_id>', methods=['PUT'])
 @jwt_required()
 def update_subject(subject_id):
-    """Update an existing subject. Was missing — only add/delete existed."""
     err = admin_required()
     if err: return err
     try:
@@ -882,7 +940,7 @@ def delete_subject(subject_id):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TIMETABLE
+# TIMETABLE  — FIXED: multi-variant query for MySQL + SQLite schemas
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bp_admin.route('/timetable', methods=['GET'])
@@ -892,12 +950,10 @@ def get_timetable():
         dept_id  = request.args.get('departmentId')
         semester = request.args.get('semester')
 
-        # Try multiple schema variants in order:
-        # 1. MySQL/MSSQL schema: Timetable → ClassID → Classes (has DepartmentID, Semester)
-        # 2. SQLite schema: Timetable has DepartmentID + Semester directly, teacher = Teachers
-        # 3. SQLite schema: same but teacher from Users
+        # Variant 1: MySQL/MSSQL — Timetable has ClassID → Classes (DepartmentID, Semester)
+        # Variant 2: SQLite — Timetable has DepartmentID/Semester directly, teacher = Teachers
+        # Variant 3: SQLite — Timetable has DepartmentID/Semester directly, teacher = Users
         query_variants = [
-            # MySQL/MSSQL: ClassID-based, teacher from Users
             ("""
                 SELECT t.TimetableID, t.DayOfWeek,
                        0 AS PeriodNumber,
@@ -908,13 +964,12 @@ def get_timetable():
                        u.FullName AS TeacherName, u.UserCode AS TeacherCode,
                        d.DepartmentName, c.DepartmentID, c.ClassName, c.Section
                 FROM Timetable t
-                JOIN Classes     c ON t.ClassID     = c.ClassID
-                JOIN Subjects    s ON t.SubjectID   = s.SubjectID
-                JOIN Users       u ON t.TeacherID   = u.UserID
+                JOIN Classes     c ON t.ClassID      = c.ClassID
+                JOIN Subjects    s ON t.SubjectID    = s.SubjectID
+                JOIN Users       u ON t.TeacherID    = u.UserID
                 JOIN Departments d ON c.DepartmentID = d.DepartmentID
                 WHERE 1=1
-            """, 'dept_col', 'c'),
-            # SQLite: DepartmentID directly on Timetable, teacher from Teachers table
+            """, 'c'),
             ("""
                 SELECT t.TimetableID, t.DayOfWeek,
                        COALESCE(t.PeriodNumber, 0) AS PeriodNumber,
@@ -929,8 +984,7 @@ def get_timetable():
                 JOIN Teachers    tc ON t.TeacherID    = tc.TeacherID
                 JOIN Departments d  ON t.DepartmentID = d.DepartmentID
                 WHERE 1=1
-            """, 'dept_col', 't'),
-            # SQLite: DepartmentID directly on Timetable, teacher from Users
+            """, 't'),
             ("""
                 SELECT t.TimetableID, t.DayOfWeek,
                        COALESCE(t.PeriodNumber, 0) AS PeriodNumber,
@@ -945,10 +999,10 @@ def get_timetable():
                 JOIN Users       u ON t.TeacherID    = u.UserID
                 JOIN Departments d ON t.DepartmentID = d.DepartmentID
                 WHERE 1=1
-            """, 'dept_col', 't'),
+            """, 't'),
         ]
 
-        for base_query, _flag, alias in query_variants:
+        for base_query, alias in query_variants:
             try:
                 query = base_query
                 params = []
@@ -976,10 +1030,8 @@ def create_timetable():
     if err: return err
     try:
         data = request.get_json(silent=True) or {}
-        # SQL Timetable: ClassID, SubjectID, TeacherID, DayOfWeek, StartTime, EndTime, RoomNumber, AcademicYear
         class_id = data.get('classId')
         if not class_id:
-            # Derive ClassID from DepartmentID + Semester if classId not provided
             cls = db.execute_query(
                 "SELECT ClassID FROM Classes WHERE DepartmentID=? AND Semester=? LIMIT 1",
                 (data.get('departmentId'), data.get('semester')), fetch_one=True
@@ -1046,8 +1098,7 @@ def create_fee_structure():
     err = admin_required()
     if err: return err
     try:
-        data = request.get_json(silent=True) or {}
-        # SQL FeeStructure: TuitionFee, LibraryFee, LabFee, SportsFee, OtherFees
+        data    = request.get_json(silent=True) or {}
         tuition = float(data.get('tuitionFee', 0))
         library = float(data.get('libraryFee', 0))
         lab     = float(data.get('labFee', 0))
@@ -1067,22 +1118,21 @@ def create_fee_structure():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: FEE PAYMENTS
+# FEE PAYMENTS
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bp_admin.route('/fee-payments', methods=['GET'])
 @jwt_required()
 def get_fee_payments():
-    """View all student fee payment records. Was completely missing before."""
     err = admin_required()
     if err: return err
     try:
-        dept_id  = request.args.get('departmentId')
-        search   = request.args.get('search', '')
+        dept_id = request.args.get('departmentId')
+        search  = request.args.get('search', '')
 
         query = """
             SELECT fp.PaymentID, fp.StudentID, fp.AmountPaid, fp.PaymentDate,
-                   fp.PaymentMode, fp.TransactionID, fp.Description,
+                   fp.PaymentMode, fp.TransactionID,
                    u.UserCode, u.FullName, d.DepartmentName
             FROM FeePayments fp
             JOIN Users u ON fp.StudentID = u.UserID
@@ -1101,10 +1151,10 @@ def get_fee_payments():
         total    = sum(float(p.get('AmountPaid', 0) or 0) for p in payments)
 
         return jsonify({
-            'success':      True,
-            'payments':     payments,
-            'totalAmount':  total,
-            'count':        len(payments),
+            'success':     True,
+            'payments':    payments,
+            'totalAmount': total,
+            'count':       len(payments),
         }), 200
 
     except Exception as e:
@@ -1113,21 +1163,12 @@ def get_fee_payments():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NEW: NOTIFICATIONS BROADCAST
+# NOTIFICATIONS BROADCAST
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bp_admin.route('/notifications', methods=['POST'])
 @jwt_required()
 def broadcast_notification():
-    """
-    Broadcast a notification to students, teachers, or all users.
-    Body: {
-      title:        str  (required)
-      message:      str  (required)
-      targetType:   'Student' | 'Teacher' | 'All'  (default: 'All')
-      departmentId: int  (optional — limit to one department)
-    }
-    """
     err = admin_required()
     if err: return err
     try:
@@ -1140,7 +1181,6 @@ def broadcast_notification():
         if not title or not message:
             return jsonify({'error': 'title and message are required', 'success': False}), 400
 
-        # Resolve target user IDs
         query  = "SELECT UserID FROM Users WHERE IsActive=1"
         params = []
         if target_type in ('Student', 'Teacher'):
@@ -1154,7 +1194,6 @@ def broadcast_notification():
 
         for u in users:
             uid = u['UserID']
-            # Try UserID column first (MSSQL), then StudentID (SQLite)
             for ins_sql, ins_params in [
                 ("INSERT INTO Notifications (UserID, Title, Message, IsRead, CreatedAt) VALUES (?,?,?,0,?)",
                  (uid, title, message, now)),
@@ -1180,7 +1219,7 @@ def broadcast_notification():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ACTIVITY LOGS  — FIXED
+# ACTIVITY LOGS
 # ══════════════════════════════════════════════════════════════════════════════
 
 @bp_admin.route('/activity-logs', methods=['GET'])
@@ -1192,17 +1231,10 @@ def get_activity_logs():
         limit = min(int(request.args.get('limit', 100)), 500)
         logs  = []
 
-        # FIXED: Try all column-name + LIMIT syntax combinations:
-        #   SQLite schema uses 'Activity'; MSSQL schema uses 'Action'.
-        #   SQLite uses LIMIT N; MSSQL uses TOP N.
         for q, p in [
-            # MSSQL + Activity column
             (f"SELECT TOP {limit} al.LogID, al.Activity AS Action, al.Details, al.CreatedAt, u.FullName, u.UserCode, u.UserType FROM ActivityLogs al LEFT JOIN Users u ON al.UserID = u.UserID ORDER BY al.CreatedAt DESC", ()),
-            # MSSQL + Action column
             (f"SELECT TOP {limit} al.LogID, al.Action, al.Details, al.CreatedAt, u.FullName, u.UserCode, u.UserType FROM ActivityLogs al LEFT JOIN Users u ON al.UserID = u.UserID ORDER BY al.CreatedAt DESC", ()),
-            # SQLite + Activity column
             ("SELECT al.LogID, al.Activity AS Action, al.Details, al.CreatedAt, u.FullName, u.UserCode, u.UserType FROM ActivityLogs al LEFT JOIN Users u ON al.UserID = u.UserID ORDER BY al.CreatedAt DESC LIMIT ?", (limit,)),
-            # SQLite + Action column
             ("SELECT al.LogID, al.Action, al.Details, al.CreatedAt, u.FullName, u.UserCode, u.UserType FROM ActivityLogs al LEFT JOIN Users u ON al.UserID = u.UserID ORDER BY al.CreatedAt DESC LIMIT ?", (limit,)),
         ]:
             try:
