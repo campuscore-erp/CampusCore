@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CampusCore — Student Portal</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
+<!-- Face Registration uses native browser APIs — no external library needed -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -206,8 +206,8 @@ th{font-size:.67rem;font-weight:700;color:var(--text3);text-transform:uppercase;
 .mk-val{text-align:center;font-family:var(--mono);font-weight:700}
 .mk-na{color:var(--text3);text-align:center}
 
-#qrVideo{width:100%;border-radius:var(--r);background:#000;max-height:300px;object-fit:cover}
-#qrCanvas{display:none}
+#faceRegVideo{width:100%;border-radius:var(--r);background:#000;max-height:300px;object-fit:cover}
+#faceRegCanvas{display:none}
 .fee-row{display:flex;justify-content:space-between;padding:.7rem 0;border-bottom:1px solid var(--border);font-size:.83rem}
 .fee-row:last-child{border:none}
 
@@ -312,7 +312,7 @@ select.form-input option{background:var(--bg3)}
     <div class="nav-sec">
       <div class="nav-sec-title">Academics</div>
       <div class="nav-item" id="nav-attendance" onclick="go('attendance')"><span class="nav-ic">◈</span> Attendance</div>
-      <div class="nav-item" id="nav-scan" onclick="go('scan')"><span class="nav-ic">⊡</span> Scan QR</div>
+      <div class="nav-item" id="nav-scan" onclick="go('scan')"><span class="nav-ic">&#x1F3A6;</span> Face Register</div>
       <div class="nav-item" id="nav-marks" onclick="go('marks')"><span class="nav-ic">◆</span> My Marks</div>
       <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="nav-ic">◻</span> Exams</div>
       <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="nav-ic">◪</span> Study Materials</div>
@@ -402,36 +402,48 @@ select.form-input option{background:var(--bg3)}
       </div>
     </div>
 
-    <!-- SCAN QR -->
+    <!-- FACE REGISTRATION -->
     <div class="view" id="view-scan">
       <div class="card" style="max-width:560px;margin:0 auto">
-        <div class="card-hdr"><div><div class="card-title">📷 Scan QR Code</div><div class="card-sub">Point your camera at the teacher's QR code to mark attendance</div></div></div>
-        <div id="scanCamWrap" style="position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:1/1;margin-bottom:1rem">
-          <video id="qrVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
-          <canvas id="qrCanvas" style="display:none"></canvas>
-          <!-- Scanning overlay -->
-          <div id="scanOverlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-            <div style="position:relative;width:65%;aspect-ratio:1/1">
-              <!-- Corner brackets -->
-              <div style="position:absolute;top:0;left:0;width:28px;height:28px;border-top:3px solid var(--teal);border-left:3px solid var(--teal);border-radius:4px 0 0 0"></div>
-              <div style="position:absolute;top:0;right:0;width:28px;height:28px;border-top:3px solid var(--teal);border-right:3px solid var(--teal);border-radius:0 4px 0 0"></div>
-              <div style="position:absolute;bottom:0;left:0;width:28px;height:28px;border-bottom:3px solid var(--teal);border-left:3px solid var(--teal);border-radius:0 0 0 4px"></div>
-              <div style="position:absolute;bottom:0;right:0;width:28px;height:28px;border-bottom:3px solid var(--teal);border-right:3px solid var(--teal);border-radius:0 0 4px 0"></div>
-              <!-- Scan line animation -->
-              <div id="scanLine" style="position:absolute;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,var(--teal),transparent);animation:scanLine 2s linear infinite;top:0"></div>
-            </div>
-          </div>
-          <!-- Idle state (camera off) -->
-          <div id="scanIdle" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;background:rgba(10,12,18,.95)">
-            <div style="font-size:3.5rem">📷</div>
-            <div style="color:var(--text2);font-size:.9rem;font-weight:600">Camera is off</div>
-            <div style="color:var(--text3);font-size:.75rem">Press Start to begin scanning</div>
+        <div class="card-hdr">
+          <div>
+            <div class="card-title">&#x1F3A6; Face Registration</div>
+            <div class="card-sub">Register your face once for automatic attendance recognition</div>
           </div>
         </div>
-        <div id="scanStatus" style="margin-bottom:.85rem"></div>
-        <div style="display:flex;gap:.6rem">
-          <button class="btn btn-primary" id="btnStart" onclick="startCam()" style="flex:1;font-size:.9rem;padding:.7rem">📷 Start Camera</button>
-          <button class="btn btn-ghost" id="btnStop" onclick="stopCam()" style="padding:.7rem 1.1rem" disabled>■ Stop</button>
+
+        <!-- Status banner -->
+        <div id="faceRegBanner" style="margin-bottom:1rem"></div>
+
+        <!-- Camera area -->
+        <div style="position:relative;width:100%;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;margin-bottom:1rem">
+          <video id="faceRegVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+          <canvas id="faceRegCanvas" style="display:none"></canvas>
+          <!-- Face guide oval -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+            <div style="width:180px;height:220px;border:2px solid var(--teal);border-radius:50%;opacity:.6"></div>
+          </div>
+          <!-- Idle state -->
+          <div id="faceRegIdle" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.85rem;background:rgba(10,12,18,.95)">
+            <div style="font-size:3.5rem">&#x1F9D1;</div>
+            <div style="color:var(--text2);font-size:.9rem;font-weight:600">Camera is off</div>
+            <div style="color:var(--text3);font-size:.75rem;text-align:center;padding:0 2rem">Click Start to capture your face for attendance</div>
+          </div>
+          <!-- Countdown overlay -->
+          <div id="faceRegCountdown" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;background:rgba(10,12,18,.6)">
+            <div id="faceRegCountNum" style="font-size:5rem;font-weight:900;color:#fff;text-shadow:0 0 20px rgba(99,179,237,.8)">3</div>
+          </div>
+        </div>
+
+        <div id="faceRegStatus" style="margin-bottom:.85rem"></div>
+
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+          <button class="btn btn-primary" id="faceRegStartBtn" onclick="startFaceRegistration()" style="flex:1;font-size:.9rem;padding:.7rem">&#x1F4F7; Start Camera</button>
+          <button class="btn btn-ghost" id="faceRegStopBtn" onclick="stopFaceRegistration()" style="padding:.7rem 1.1rem;display:none">&#x23F9; Stop</button>
+        </div>
+
+        <div style="margin-top:1rem;padding:.75rem;background:var(--bg3);border-radius:var(--r);font-size:.75rem;color:var(--text3)">
+          <strong>&#x2139;&#xFE0F; Instructions:</strong> Look directly at the camera in good lighting. The system captures 5 photos automatically. You only need to do this <strong>once</strong> — your attendance will then be marked automatically by your teachers.
         </div>
       </div>
     </div>
@@ -571,7 +583,7 @@ select.form-input option{background:var(--bg3)}
 
 <script>
 const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');return window.location.origin;})();
-let token='',camStream=null,scanInt=null,selectedPayMethod='',feePendingAmt=0;
+let token='',faceRegStream=null,faceRegCaptureInt=null,selectedPayMethod='',feePendingAmt=0;
 
 function getToken(){token=localStorage.getItem('accessToken')||localStorage.getItem('token')||sessionStorage.getItem('accessToken')||'';if(!token){window.location.href='auth.html';return false}return true}
 function hdrs(){return{'Content-Type':'application/json','Authorization':'Bearer '+token}}
@@ -587,7 +599,7 @@ function toast(msg,type='info'){
 }
 function closeMdl(id){document.getElementById(id).classList.remove('open')}
 
-const TITLES={dashboard:['Dashboard','Your academic overview'],profile:['My Profile','Personal information'],timetable:['Timetable','Weekly schedule with teachers'],subjects:['My Subjects','Enrolled subjects'],teachers:['My Teachers','Your faculty'],attendance:['Attendance','Your attendance records'],scan:['Scan QR','Mark attendance via QR code — camera only'],marks:['My Marks','Academic performance'],exams:['Exams','Online assessments'],materials:['Study Materials','Resources from teachers'],online:['Online Classes','Virtual sessions'],fees:['Fee Details','Fee structure and payments'],notifications:['Notifications','Alerts from your teachers']};
+const TITLES={dashboard:['Dashboard','Your academic overview'],profile:['My Profile','Personal information'],timetable:['Timetable','Weekly schedule with teachers'],subjects:['My Subjects','Enrolled subjects'],teachers:['My Teachers','Your faculty'],attendance:['Attendance','Your attendance records'],scan:['Face Registration','Register your face for automatic attendance'],marks:['My Marks','Academic performance'],exams:['Exams','Online assessments'],materials:['Study Materials','Resources from teachers'],online:['Online Classes','Virtual sessions'],fees:['Fee Details','Fee structure and payments'],notifications:['Notifications','Alerts from your teachers']};
 
 function go(v){
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
@@ -595,12 +607,13 @@ function go(v){
   const el=document.getElementById('view-'+v),nav=document.getElementById('nav-'+v);
   if(el)el.classList.add('active');if(nav)nav.classList.add('active');
   const[t,s]=TITLES[v]||[v,''];document.getElementById('pageTitle').textContent=t;document.getElementById('pageSub').textContent=s;
-  if(v!=='scan')stopCam();
+  if(v!=='scan')stopFaceRegistration();
   loadView(v);
 }
 function loadView(v){
   if(v==='dashboard')loadDash();else if(v==='profile')loadProfile();else if(v==='timetable')loadTT();
   else if(v==='subjects')loadSubjs();else if(v==='teachers')loadTeachers();else if(v==='attendance')loadAtt();
+  else if(v==='scan')checkAndPromptFaceRegistration();
   else if(v==='marks')loadMarks();else if(v==='exams')loadExams();else if(v==='materials')loadMats();
   else if(v==='online')loadOC();else if(v==='fees')loadFees();else if(v==='notifications')loadNotifications();
 }
@@ -612,6 +625,8 @@ async function init(){
   document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',month:'long',day:'numeric'});
   // Load dashboard immediately — don't wait for profile
   loadDash();
+  // Check face registration status (shows prompt if not registered)
+  setTimeout(checkAndPromptFaceRegistration, 1500);
   // Load profile in parallel
   try{
     const pr=await api('/api/student/profile');
@@ -854,47 +869,106 @@ async function loadAtt(){
   else el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Subject</th><th>Status</th></tr></thead><tbody>${recs.slice(0,60).map(a=>`<tr><td style="font-family:var(--mono);font-size:.78rem">${a.AttendanceDate||''}</td><td>${a.SubjectName||''} <span style="color:var(--text3)">(${a.SubjectCode||''})</span></td><td><span class="badge ${a.Status==='Present'?'badge-green':a.Status==='Late'?'badge-amber':'badge-red'}">${a.Status||''}</span></td></tr>`).join('')}</tbody></table></div>`;
 }
 
-async function startCam(){
-  const idle=document.getElementById('scanIdle');
-  const bs=document.getElementById('btnStart'),bx=document.getElementById('btnStop');
-  document.getElementById('scanStatus').innerHTML='';
-  try{
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:1280}}});
-    const v=document.getElementById('qrVideo');const c=document.getElementById('qrCanvas');const ctx=c.getContext('2d');
-    v.srcObject=camStream;await v.play();
-    if(idle)idle.style.display='none';
-    if(bs){bs.disabled=true;bs.innerHTML='🟢 Scanning…';}
-    if(bx)bx.disabled=false;
-    scanInt=setInterval(()=>{
-      if(v.readyState===v.HAVE_ENOUGH_DATA){
-        c.height=v.videoHeight;c.width=v.videoWidth;
-        ctx.drawImage(v,0,0,c.width,c.height);
-        const img=ctx.getImageData(0,0,c.width,c.height);
-        const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-        if(code){stopCam();handleQR(code.data);}
+/* ── FACE REGISTRATION ── */
+
+async function checkAndPromptFaceRegistration(){
+  try {
+    const d = await api('/api/student/face-status');
+    const banner = document.getElementById('faceRegBanner');
+    if(d && !d.hasFaceData){
+      const dashEl = document.getElementById('view-dashboard');
+      const existing = document.getElementById('facePromptBanner');
+      if(!existing && dashEl){
+        const prompt = document.createElement('div');
+        prompt.id = 'facePromptBanner';
+        prompt.className = 'alert alert-warning';
+        prompt.style.cssText = 'margin-bottom:1rem;cursor:pointer';
+        prompt.innerHTML = '&#x1F3A6; <strong>Face not registered yet!</strong> Register your face once for automatic attendance. <span style="text-decoration:underline">Click here →</span>';
+        prompt.onclick = ()=>go('scan');
+        dashEl.prepend(prompt);
       }
-    },200);
+      if(banner) banner.innerHTML = '<div class="alert alert-info">&#x1F4F7; Your face is not registered yet. Click Start Camera below to register.</div>';
+    } else if(d && d.hasFaceData){
+      if(banner) banner.innerHTML = '<div class="alert alert-success">&#x2705; Face registered. Attendance is being marked automatically.</div>';
+    }
+  } catch(e){ console.log('[FaceReg] status error:', e); }
+}
+
+async function startFaceRegistration(){
+  const idle=document.getElementById('faceRegIdle');
+  const startBtn=document.getElementById('faceRegStartBtn');
+  const stopBtn=document.getElementById('faceRegStopBtn');
+  document.getElementById('faceRegStatus').innerHTML='<div class="alert alert-info">&#x1F4F7; Starting camera...</div>';
+  try{
+    faceRegStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}}});
+    const v=document.getElementById('faceRegVideo');
+    v.srcObject=faceRegStream; await v.play();
+    if(idle) idle.style.display='none';
+    if(startBtn) startBtn.style.display='none';
+    if(stopBtn)  stopBtn.style.display='inline-flex';
+    document.getElementById('faceRegStatus').innerHTML='<div class="alert alert-info">&#x1F7E2; Capturing 5 images — please look at camera...</div>';
+    const capturedFrames=[]; let captureCount=0;
+    const canvas=document.getElementById('faceRegCanvas');
+    const ctx=canvas.getContext('2d');
+    const countdownEl=document.getElementById('faceRegCountdown');
+    const countNumEl=document.getElementById('faceRegCountNum');
+    if(countdownEl && countNumEl){
+      countdownEl.style.display='flex'; let c=3; countNumEl.textContent=c;
+      const cint=setInterval(()=>{
+        c--;
+        if(c>0){ countNumEl.textContent=c; }
+        else{
+          clearInterval(cint); countdownEl.style.display='none';
+          faceRegCaptureInt=setInterval(()=>{
+            if(!faceRegStream){ clearInterval(faceRegCaptureInt); return; }
+            canvas.width=v.videoWidth; canvas.height=v.videoHeight;
+            ctx.drawImage(v,0,0);
+            capturedFrames.push(canvas.toDataURL('image/jpeg',0.85));
+            captureCount++;
+            document.getElementById('faceRegStatus').innerHTML=`<div class="alert alert-info">&#x1F4F8; Captured ${captureCount}/5...</div>`;
+            if(captureCount>=5){ clearInterval(faceRegCaptureInt); faceRegCaptureInt=null; submitFaceRegistration(capturedFrames); }
+          }, 600);
+        }
+      },1000);
+    }
   }catch(e){
-    if(idle)idle.style.display='flex';
-    document.getElementById('scanStatus').innerHTML=`<div class="alert alert-error">📵 Camera error: ${e.message}<br><small>Allow camera access in browser settings.</small></div>`;
-    if(bs){bs.disabled=false;bs.innerHTML='📷 Start Camera';}
-    if(bx)bx.disabled=true;
+    document.getElementById('faceRegStatus').innerHTML=`<div class="alert alert-error">&#x1F6AB; Camera error: ${e.message}<br><small>Allow camera access in browser settings.</small></div>`;
+    if(startBtn) startBtn.style.display='inline-flex';
+    if(stopBtn)  stopBtn.style.display='none';
   }
 }
-function stopCam(){
-  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
-  if(scanInt){clearInterval(scanInt);scanInt=null;}
-  const idle=document.getElementById('scanIdle');
-  const bs=document.getElementById('btnStart'),bx=document.getElementById('btnStop');
-  if(idle)idle.style.display='flex';
-  if(bs){bs.disabled=false;bs.innerHTML='📷 Start Camera';}
-  if(bx)bx.disabled=true;
+
+function stopFaceRegistration(){
+  if(faceRegStream){ faceRegStream.getTracks().forEach(t=>t.stop()); faceRegStream=null; }
+  if(faceRegCaptureInt){ clearInterval(faceRegCaptureInt); faceRegCaptureInt=null; }
+  const idle=document.getElementById('faceRegIdle');
+  const startBtn=document.getElementById('faceRegStartBtn');
+  const stopBtn=document.getElementById('faceRegStopBtn');
+  const cntDn=document.getElementById('faceRegCountdown');
+  if(idle) idle.style.display='flex';
+  if(startBtn) startBtn.style.display='inline-flex';
+  if(stopBtn)  stopBtn.style.display='none';
+  if(cntDn)    cntDn.style.display='none';
+  const v=document.getElementById('faceRegVideo');
+  if(v) v.srcObject=null;
 }
-async function handleQR(data){
-  document.getElementById('scanStatus').innerHTML=`<div class="alert alert-info">🔍 Processing QR code…</div>`;
-  const d=await api('/api/student/attendance/scan-qr',{method:'POST',body:JSON.stringify({qrToken:data})});
-  if(d.success){document.getElementById('scanStatus').innerHTML=`<div class="alert alert-success">✅ ${d.message}</div>`;toast(d.message,'success');}
-  else{document.getElementById('scanStatus').innerHTML=`<div class="alert alert-error">❌ ${d.error||'Could not mark attendance'}</div><button class="btn btn-primary btn-sm" onclick="startCam()" style="margin-top:.75rem">Try Again</button>`;toast(d.error||'Could not mark attendance','error');}
+
+async function submitFaceRegistration(frames){
+  stopFaceRegistration();
+  document.getElementById('faceRegStatus').innerHTML='<div class="alert alert-info">&#x23F3; Processing face — please wait...</div>';
+  const startBtn=document.getElementById('faceRegStartBtn');
+  if(startBtn) startBtn.disabled=true;
+  const d=await api('/api/student/register-face',{method:'POST',body:JSON.stringify({images:frames})});
+  if(startBtn){ startBtn.disabled=false; startBtn.style.display='inline-flex'; }
+  if(d.success){
+    document.getElementById('faceRegStatus').innerHTML=`<div class="alert alert-success">&#x2705; ${d.message}</div>`;
+    document.getElementById('faceRegBanner').innerHTML=`<div class="alert alert-success">&#x2705; Face registered! Attendance will now be marked automatically.</div>`;
+    const prompt=document.getElementById('facePromptBanner'); if(prompt) prompt.remove();
+    toast('Face registered successfully!','success');
+  } else {
+    document.getElementById('faceRegStatus').innerHTML=`<div class="alert alert-error">&#x274C; ${d.error||'Registration failed — please try again.'}</div>`;
+    toast(d.error||'Face registration failed','error');
+  }
 }
 
 async function loadMarks(){

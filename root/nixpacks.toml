@@ -1,5 +1,24 @@
+# nixpacks.toml — CampusCore University ERP (Railway deployment)
+# Updated for Face Recognition support (dlib/face_recognition require cmake + build tools)
+
+[phases.setup]
+nixPkgs = [
+  "python311",
+  "gcc",
+  "cmake",         # Required to compile dlib (used by face_recognition)
+  "boost",         # dlib dependency
+  "libffi",
+  "openssl",
+  "zlib",
+  "libjpeg",       # Required by Pillow / OpenCV
+  "libpng",        # Required by OpenCV
+]
+
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install -r requirements.txt"
+]
 
 [start]
-cmd = "gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT --timeout 120 --log-level info"
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"

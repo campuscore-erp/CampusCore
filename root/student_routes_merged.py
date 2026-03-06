@@ -13,8 +13,14 @@ FIXES IN THIS VERSION:
   4. Exams query uses only safe columns; skips missing IsActive/ExamName/StartTime etc.
   5. Notifications use StudentID (SQLite) with fallback to UserID (MSSQL).
   6. Dashboard exams counter is safe/optional.
-  7. QR scan works camera-only (manual token entry removed from UI).
-  8. Fee payment endpoint added for UPI/Net Banking/Card payments.
+  7. Fee payment endpoint added for UPI/Net Banking/Card payments.
+
+FACE RECOGNITION UPDATE (replaces QR scan):
+  8. REMOVED: /attendance/scan-qr, /attendance/qr  — QR code scanning endpoints deleted.
+     ADDED:   /register-face    — Student registers their face (POST, multiple base64 images)
+              /face-status      — Check if student has face data registered (GET)
+  9. On first login, student portal checks /face-status and opens webcam for face capture.
+  10. Face encodings stored as LONGBLOB in student_face_data MySQL table.
 """
 
 import json, traceback
@@ -867,117 +873,123 @@ def get_attendance():
         return jsonify({'error': str(e), 'success': False}), 500
 
 
-@bp_student.route('/attendance/scan-qr', methods=['POST'])
-@bp_student.route('/attendance/qr', methods=['POST'])
+@bp_student.route('/register-face', methods=['POST'])
 @jwt_required()
-def scan_qr_attendance():
-    """Mark attendance via QR code scan. Camera-only — no manual token entry in UI."""
+def register_face():
+    """
+    FACE REGISTRATION — Student Portal
+    ====================================
+    Called when a student logs in for the first time (or visits the face
+    registration interface). Accepts multiple base64 webcam frames, averages
+    the face encodings for accuracy, and stores the result in student_face_data.
+
+    If the student already has face data, it is REPLACED (re-registration).
+
+    Request JSON:
+        {
+          "images": [base64_str, ...]   // 3–5 webcam captures recommended
+        }
+
+    Response:
+        { "success": true, "message": "Face registered successfully" }
+    """
     err = student_required()
     if err: return err
     try:
-        user_id = int(get_jwt_identity())
+        user_id    = int(get_jwt_identity())
         student_id, _, _, _ = _resolve(user_id)
-        data = request.json or {}
+        data   = request.get_json() or {}
+        images = data.get('images') or []
 
-        # QR data from camera is: "rawToken|date|subjectId"  (pipe-separated)
-        # DB stores only the raw token part — must split before lookup
-        raw_scan = (data.get('qrToken') or data.get('qrData') or '').strip()
+        if not images:
+            return jsonify({'success': False, 'error': 'No images provided'}), 400
 
-        if not raw_scan:
-            return jsonify({'success': False, 'error': 'QR token is required'}), 400
+        # ── Import face recognition helper ────────────────────────────────────
+        try:
+            from face_recognition_helper import encode_face_from_multiple_images, check_dependencies
+            deps = check_dependencies()
+            if not deps.get('ready'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Face recognition not available on server. Contact admin.',
+                    'deps': deps
+                }), 503
+        except ImportError as e:
+            return jsonify({'success': False, 'error': f'face_recognition_helper not found: {e}'}), 503
 
-        # Parse pipe-separated format produced by teacher portal
-        parts = raw_scan.split('|')
-        raw_token  = parts[0].strip()          # actual DB token
-        att_date   = parts[1].strip() if len(parts) > 1 else datetime.now().strftime('%Y-%m-%d')
-        subject_id_from_qr = parts[2].strip() if len(parts) > 2 else None
+        # ── Encode face from multiple captures ────────────────────────────────
+        encoding_blob = encode_face_from_multiple_images(images)
+        if encoding_blob is None:
+            return jsonify({
+                'success': False,
+                'error': 'No face detected in any of the captured images. '
+                         'Ensure your face is clearly visible and well-lit.'
+            }), 400
 
-        print(f'[QR Scan] raw_scan={raw_scan!r} → token={raw_token!r} date={att_date} subj={subject_id_from_qr}')
-
-        if not raw_token:
-            return jsonify({'success': False, 'error': 'Invalid QR code format'}), 400
-
-        # MySQL QRCodes columns: QRCodeID, TeacherID, SubjectID, ClassID, QRToken, ExpiresAt, IsUsed, CreatedAt
-        # NO TimetableID, NO IsActive — use IsUsed and ClassID instead
-        qr = None
-        for sql in [
-            "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt, IsUsed FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
-            "SELECT QRCodeID, SubjectID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
-        ]:
+        # ── Store in student_face_data table (MySQL LONGBLOB) ─────────────────
+        # Use INSERT ... ON DUPLICATE KEY UPDATE to handle re-registration
+        try:
+            db.execute_non_query(
+                """INSERT INTO student_face_data (student_id, face_encoding, created_at)
+                   VALUES (?, ?, NOW())
+                   ON DUPLICATE KEY UPDATE
+                       face_encoding = VALUES(face_encoding),
+                       updated_at    = NOW()""",
+                (student_id, encoding_blob)
+            )
+        except Exception as e:
+            print(f'[RegisterFace] DB insert error: {e}')
+            # Fallback: delete existing and insert fresh
             try:
-                qr = db.execute_query(sql, (raw_token,), fetch_one=True)
-                if qr: break
-            except Exception as e:
-                print(f'[QR Scan] lookup err: {e}')
+                db.execute_non_query(
+                    "DELETE FROM student_face_data WHERE student_id = ?",
+                    (student_id,))
+                db.execute_non_query(
+                    "INSERT INTO student_face_data (student_id, face_encoding) VALUES (?, ?)",
+                    (student_id, encoding_blob))
+            except Exception as e2:
+                print(f'[RegisterFace] Fallback insert error: {e2}')
+                return jsonify({'success': False, 'error': f'Could not save face data: {e2}'}), 500
 
-        # Fallback: try full pipe-separated string as token
-        if not qr:
-            for sql in [
-                "SELECT QRCodeID, SubjectID, ClassID, ExpiresAt, IsUsed FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
-                "SELECT QRCodeID, SubjectID, ExpiresAt FROM QRCodes WHERE QRToken=? ORDER BY QRCodeID DESC LIMIT 1",
-            ]:
-                try:
-                    qr = db.execute_query(sql, (raw_scan,), fetch_one=True)
-                    if qr: break
-                except Exception:
-                    pass
+        print(f'[RegisterFace] Face registered for student_id={student_id}')
+        return jsonify({'success': True, 'message': 'Face registered successfully! Attendance can now be marked automatically.'}), 200
 
-        if not qr:
-            print(f'[QR Scan] No match in DB for token={raw_token!r}')
-            return jsonify({'success': False, 'error': 'Invalid QR code. Ask your teacher to show a new one.'}), 400
-        if int(qr.get('IsUsed') or 0) == 1:
-            return jsonify({'success': False, 'error': 'This QR code has already been used.'}), 400
-
-        try:
-            expires = datetime.fromisoformat(str(qr['ExpiresAt']))
-            if datetime.now() > expires:
-                return jsonify({'success': False, 'error': 'QR code expired. Ask your teacher for a new one.'}), 400
-        except Exception:
-            pass
-
-        today = datetime.now().strftime('%Y-%m-%d')
-        try:
-            already = db.execute_query(
-                "SELECT AttendanceID FROM Attendance WHERE StudentID=? AND SubjectID=? AND AttendanceDate=?",
-                (student_id, qr['SubjectID'], today), fetch_one=True)
-            if already:
-                return jsonify({'success': False, 'error': 'Attendance already marked for today.'}), 400
-        except Exception:
-            pass
-
-        # MySQL Attendance exact cols: StudentID, SubjectID, ClassID (nullable), QRCodeID (nullable), AttendanceDate, Status
-        # NO TimetableID, NO MarkedBy in MySQL schema
-        class_id = qr.get('ClassID')
-        inserted = False
-        for ins_sql, ins_vals in [
-            ("INSERT INTO Attendance (StudentID,SubjectID,ClassID,QRCodeID,AttendanceDate,Status) VALUES (?,?,?,?,?,'Present')",
-             (student_id, qr['SubjectID'], class_id, qr['QRCodeID'], today)),
-            ("INSERT INTO Attendance (StudentID,SubjectID,QRCodeID,AttendanceDate,Status) VALUES (?,?,?,?,'Present')",
-             (student_id, qr['SubjectID'], qr['QRCodeID'], today)),
-            ("INSERT INTO Attendance (StudentID,SubjectID,AttendanceDate,Status) VALUES (?,?,?,'Present')",
-             (student_id, qr['SubjectID'], today)),
-        ]:
-            try:
-                db.execute_non_query(ins_sql, ins_vals)
-                inserted = True
-                break
-            except Exception as ie:
-                print(f'[QR Scan] INSERT attempt failed: {ie}')
-        if not inserted:
-            return jsonify({'success': False, 'error': 'Failed to save attendance. Please try again.'}), 500
-
-        subj_name = 'the class'
-        try:
-            subj = db.execute_query("SELECT SubjectName FROM Subjects WHERE SubjectID=?", (qr['SubjectID'],), fetch_one=True)
-            if subj: subj_name = subj['SubjectName']
-        except Exception:
-            pass
-
-        return jsonify({'success': True, 'message': f'Attendance marked for {subj_name}!'}), 200
     except Exception as e:
-        print(f'[QR] Error: {e}')
+        print(f'[RegisterFace] Error: {e}')
         traceback.print_exc()
-        return jsonify({'error': str(e), 'success': False}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp_student.route('/face-status', methods=['GET'])
+@jwt_required()
+def face_status():
+    """
+    Check if the current student has face data registered.
+    Called on student portal login to prompt face registration if missing.
+
+    Response:
+        { "success": true, "hasFaceData": bool, "registeredAt": "ISO-datetime" }
+    """
+    err = student_required()
+    if err: return err
+    try:
+        user_id    = int(get_jwt_identity())
+        student_id, _, _, _ = _resolve(user_id)
+
+        row = db.execute_query(
+            "SELECT face_id, created_at FROM student_face_data WHERE student_id = ?",
+            (student_id,), fetch_one=True)
+
+        return jsonify({
+            'success':      True,
+            'hasFaceData':  row is not None,
+            'registeredAt': row['created_at'] if row else None,
+            'studentId':    student_id,
+        }), 200
+    except Exception as e:
+        print(f'[FaceStatus] Error: {e}')
+        # student_face_data table might not exist yet — treat as not registered
+        return jsonify({'success': True, 'hasFaceData': False, 'registeredAt': None}), 200
 
 
 # ══════════════════════════════════════════════════════════════════════════════

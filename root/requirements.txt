@@ -9,3 +9,12 @@ Werkzeug>=3.0.0
 gunicorn>=21.0.0
 pymysql>=1.1.0
 cryptography>=41.0.0
+
+# ── Face Recognition Attendance System ──────────────────────────
+# face_recognition uses dlib (compiled C++) — see nixpacks.toml for
+# build dependencies required on Railway (cmake, dlib, boost).
+# Use 'opencv-python-headless' NOT 'opencv-python' for Railway/servers
+# (headless = no display/GUI dependencies needed).
+numpy>=1.24.0
+opencv-python-headless>=4.8.0
+face_recognition>=1.3.0
