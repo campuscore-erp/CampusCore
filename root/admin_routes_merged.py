@@ -286,9 +286,10 @@ def add_student():
         db.execute_non_query("""
             INSERT INTO Users
                 (UserType, UserCode, FullName, Email, Phone, DateOfBirth,
-                 Gender, PasswordHash, IsFirstLogin,
+                 Gender, FatherName, MotherName, JoinDate,
+                 PasswordHash, IsFirstLogin,
                  DepartmentID, Semester, Address, IsActive)
-            VALUES ('Student', ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)
+            VALUES ('Student', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)
         """, (
             user_code,
             data['fullName'],
@@ -296,6 +297,9 @@ def add_student():
             data.get('phone', ''),
             dob_db,
             data.get('gender', ''),
+            data.get('fatherName', '') or None,
+            data.get('motherName', '') or None,
+            data.get('joinDate', '') or None,
             pw_hash,
             data.get('departmentId') or None,
             data.get('semester') or None,

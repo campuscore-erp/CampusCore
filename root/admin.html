@@ -731,12 +731,19 @@ tbody tr:hover{background:rgba(37,99,235,.025);}
         <div class="form-field"><label>Date of Birth * <small style="color:var(--muted);text-transform:none;letter-spacing:0">(default password DD-MM-YYYY)</small></label><input id="st-dob" type="date"></div>
         <div class="form-field"><label>Gender</label><select id="st-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
       </div>
+      <div class="form-row">
+        <div class="form-field"><label>Father's Name</label><input id="st-father" type="text" placeholder="Father's full name"></div>
+        <div class="form-field"><label>Mother's Name</label><input id="st-mother" type="text" placeholder="Mother's full name"></div>
+      </div>
       <div class="form-section">Academic Information</div>
       <div class="form-row">
         <div class="form-field"><label>Department *</label><select id="st-dept"><option value="">Select…</option></select></div>
         <div class="form-field"><label>Current Semester</label><select id="st-sem"><option value="1">Semester 1</option><option value="2">Semester 2</option><option value="3">Semester 3</option><option value="4">Semester 4</option><option value="5">Semester 5</option><option value="6">Semester 6</option><option value="7">Semester 7</option><option value="8">Semester 8</option></select></div>
       </div>
-      <div class="form-field"><label>Address</label><input id="st-address" type="text" placeholder="Full address"></div>
+      <div class="form-row">
+        <div class="form-field"><label>Join Date</label><input id="st-joindate" type="date"></div>
+        <div class="form-field"><label>Address</label><input id="st-address" type="text" placeholder="Full address"></div>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('addStudentModal')">Cancel</button>
@@ -1086,12 +1093,25 @@ async function saveStudent(){
   if(d?.success){toast('Student updated successfully');closeModal('editStudentModal');loadStudents();loadDashboard();}else toast(d?.error||'Failed to update','error');
 }
 async function addStudent(){
-  const body={userCode:document.getElementById('st-code').value.trim().toUpperCase(),fullName:document.getElementById('st-name').value.trim(),email:document.getElementById('st-email').value.trim(),phone:document.getElementById('st-phone').value.trim(),gender:document.getElementById('st-gender').value,dateOfBirth:document.getElementById('st-dob').value,departmentId:document.getElementById('st-dept').value||null,semester:document.getElementById('st-sem').value,address:document.getElementById('st-address').value.trim()};
+  const body={
+    userCode:document.getElementById('st-code').value.trim().toUpperCase(),
+    fullName:document.getElementById('st-name').value.trim(),
+    email:document.getElementById('st-email').value.trim(),
+    phone:document.getElementById('st-phone').value.trim(),
+    gender:document.getElementById('st-gender').value,
+    dateOfBirth:document.getElementById('st-dob').value,
+    fatherName:document.getElementById('st-father').value.trim(),
+    motherName:document.getElementById('st-mother').value.trim(),
+    joinDate:document.getElementById('st-joindate').value,
+    departmentId:document.getElementById('st-dept').value||null,
+    semester:document.getElementById('st-sem').value,
+    address:document.getElementById('st-address').value.trim()
+  };
   if(!body.userCode||!body.fullName||!body.dateOfBirth){toast('Name, Code, and Date of Birth are required','error');return;}
   const d=await api('/api/admin/students',{method:'POST',body:JSON.stringify(body)});
   if(d?.success){toast(d.message||'Student added');closeModal('addStudentModal');clearStudentForm();loadStudents();loadDashboard();}else toast(d?.error||'Failed to add student','error');
 }
-function clearStudentForm(){['st-code','st-name','st-email','st-phone','st-address'].forEach(id=>document.getElementById(id).value='');document.getElementById('st-dob').value='';document.getElementById('st-gender').value='';document.getElementById('st-dept').value='';}
+function clearStudentForm(){['st-code','st-name','st-email','st-phone','st-address','st-father','st-mother'].forEach(id=>document.getElementById(id).value='');document.getElementById('st-dob').value='';document.getElementById('st-joindate').value='';document.getElementById('st-gender').value='';document.getElementById('st-dept').value='';}
 async function toggleStudent(id,currentlyActive){
   const action=currentlyActive?'deactivate':'activate';
   if(!confirm(`Are you sure you want to ${action} this student?\n\n${currentlyActive?'They will NOT be able to log in.':'They will be able to log in again.'}`))return;
