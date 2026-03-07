@@ -489,126 +489,230 @@ def attendance_history():
 
 
 # =============================================================================
-# ATTENDANCE — GENERATE QR
+
+# =============================================================================
+# ATTENDANCE — FACE RECOGNITION (replaces QR-based attendance)
+# =============================================================================
+# Flow:
+#   1. POST /attendance/face/start   — teacher opens face session (returns session token)
+#   2. POST /attendance/face/submit  — submit per-student recognised results from browser
+#   3. GET  /attendance/face/status  — live count of recognised students in session
+#   4. POST /attendance/mark-absent  — mark anyone not yet recorded as Absent
 # =============================================================================
 
-@bp_teacher.route('/attendance/generate-qr', methods=['POST'])
+import base64, hashlib
+
+# In-memory face sessions: { session_token: { subjectId, date, teacherUid, recognised: set() } }
+_face_sessions = {}
+
+
+@bp_teacher.route('/attendance/face/start', methods=['POST'])
 @jwt_required()
-def generate_qr():
+def face_attendance_start():
+    """
+    Open a face-recognition attendance session for a subject + date.
+    Returns a session token the browser uses to tag subsequent submissions.
+    """
     uid, err = _get_teacher_user_id()
     if err: return err
+
     data       = request.get_json() or {}
     subject_id = data.get('subjectId')
     att_date   = data.get('attendanceDate', date.today().isoformat())
     if not subject_id: return _err('subjectId required')
 
-    # MySQL schema: QRCodes.TeacherID -> FK to Users(UserID)  => uid is correct, no translation needed
-    # MySQL schema: QRCodes.ClassID   -> NOT NULL FK to Classes(ClassID) => must fetch from Timetable
-    # MySQL schema: NO TimetableID column, NO IsActive column in QRCodes
+    # Verify teacher teaches this subject
+    tt = _try_queries([
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
+    ], fetch_one=True)
+    if not tt: return _err('You do not teach this subject', 403)
+
+    # Generate a lightweight session token
+    raw = f'{uid}|{subject_id}|{att_date}|{secrets.token_urlsafe(8)}'
+    session_token = hashlib.sha1(raw.encode()).hexdigest()[:20]
+
+    _face_sessions[session_token] = {
+        'subjectId':  subject_id,
+        'date':       att_date,
+        'teacherUid': uid,
+        'recognised': set(),    # StudentIDs confirmed present so far
+    }
+
+    # How many students are in this class?
+    dept_sem = _try_queries([
+        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
+        ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+    ], fetch_one=True)
+    total = 0
+    if dept_sem:
+        total = _safe_scalar(
+            "SELECT COUNT(*) FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
+            (dept_sem['DepartmentID'], dept_sem['Semester'])
+        )
+
+    return _ok({
+        'sessionToken': session_token,
+        'subjectId':    subject_id,
+        'attendanceDate': att_date,
+        'totalStudents': total,
+        'message': 'Face recognition session started',
+    })
+
+
+@bp_teacher.route('/attendance/face/submit', methods=['POST'])
+@jwt_required()
+def face_attendance_submit():
+    """
+    Receive face-recognition results from the browser.
+    The browser sends one or more recognised studentIds; this endpoint
+    immediately writes Present records and updates the in-memory session.
+
+    Body: {
+        sessionToken: str,
+        subjectId:    int,
+        attendanceDate: str,       (fallback if no session)
+        records: [ { studentId, status } ]   -- status: 'Present' | 'Absent' | 'Unknown'
+    }
+    """
+    uid, err = _get_teacher_user_id()
+    if err: return err
+
+    data          = request.get_json() or {}
+    session_token = data.get('sessionToken', '')
+    subject_id    = data.get('subjectId')
+    records       = data.get('records', [])
+
+    # Resolve attendance date from session or body
+    session = _face_sessions.get(session_token, {})
+    att_date = session.get('date') or data.get('attendanceDate', date.today().isoformat())
+
+    if not subject_id or not records:
+        return _err('subjectId and records are required')
+
+    # Resolve ClassID for Attendance FK
     class_id = None
     tt = _try_queries([
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
         ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
     if tt: class_id = tt.get('ClassID')
-    print(f'[generate_qr] uid={uid} subject_id={subject_id} class_id={class_id}')
 
-    if not class_id:
-        return _err('Could not find class for this subject. Check timetable setup.')
-
-    qr_token   = secrets.token_urlsafe(24)
-    expires_at = (datetime.now() + timedelta(seconds=45)).isoformat()
-
-    # QRCodes exact MySQL columns: TeacherID, SubjectID, ClassID, QRToken, ExpiresAt, IsUsed, CreatedAt
-    inserted = False
-    for cols, vals in [
-        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt,IsUsed,CreatedAt',
-         (uid, subject_id, class_id, qr_token, expires_at, 0, datetime.now())),
-        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt,CreatedAt',
-         (uid, subject_id, class_id, qr_token, expires_at, datetime.now())),
-        ('TeacherID,SubjectID,ClassID,QRToken,ExpiresAt',
-         (uid, subject_id, class_id, qr_token, expires_at)),
-    ]:
+    saved = 0
+    for rec in records:
+        student_id = rec.get('studentId')
+        status     = rec.get('status', 'Present')
+        if not student_id or status == 'Unknown':
+            continue
         try:
-            ph = ','.join(['?']*len(vals))
-            db.execute_non_query(f'INSERT INTO QRCodes ({cols}) VALUES ({ph})', vals)
-            inserted = True
-            break
+            existing = _try_queries([
+                ('SELECT AttendanceID FROM Attendance WHERE StudentID=? AND SubjectID=? AND AttendanceDate=?',
+                 (student_id, subject_id, att_date)),
+            ], fetch_one=True)
+
+            if existing:
+                for upd, uv in [
+                    ('UPDATE Attendance SET Status=?,MarkedAt=? WHERE AttendanceID=?',
+                     (status, datetime.now(), existing['AttendanceID'])),
+                    ('UPDATE Attendance SET Status=? WHERE AttendanceID=?',
+                     (status, existing['AttendanceID'])),
+                ]:
+                    try: db.execute_non_query(upd, uv); break
+                    except Exception: pass
+                saved += 1
+            else:
+                ok, _ = _try_inserts('Attendance', [
+                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                     (student_id, subject_id, class_id, att_date, status)),
+                    ('StudentID,SubjectID,AttendanceDate,Status',
+                     (student_id, subject_id, att_date, status)),
+                ])
+                if ok: saved += 1
+
+            # Track recognised students in-memory session
+            if session and status == 'Present':
+                session['recognised'].add(str(student_id))
+
         except Exception as e:
-            print(f'[QR Insert] cols={cols} err={e}')
-    if not inserted:
-        return _err('Could not save QR code to database')
+            print(f'[face_attendance_submit] row err: {e}')
+
+    recognised_count = len(session.get('recognised', set())) if session else saved
     return _ok({
-        'qrToken': f'{qr_token}|{att_date}|{subject_id}',
-        'qrData':  f'{qr_token}|{att_date}|{subject_id}',
-        'message': 'QR code generated'
+        'message': f'Face attendance saved for {saved} student(s)',
+        'saved': saved,
+        'recognisedCount': recognised_count,
+        'sessionToken': session_token,
+    })
+
+
+@bp_teacher.route('/attendance/face/status')
+@jwt_required()
+def face_attendance_status():
+    """
+    Live status of an ongoing face-recognition session.
+    GET /api/teacher/attendance/face/status?token=<sessionToken>
+    """
+    uid, err = _get_teacher_user_id()
+    if err: return err
+
+    token   = request.args.get('token', '').strip()
+    session = _face_sessions.get(token, {})
+
+    subject_id = session.get('subjectId') or request.args.get('subjectId')
+    att_date   = session.get('date')      or request.args.get('date', date.today().isoformat())
+
+    recognised = len(session.get('recognised', set()))
+
+    # Live DB counts
+    present = _safe_scalar(
+        "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
+        (subject_id, att_date)) if subject_id else 0
+    absent  = _safe_scalar(
+        "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Absent'",
+        (subject_id, att_date)) if subject_id else 0
+
+    # Total class size
+    total = 0
+    dept_sem = _try_queries([
+        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE SubjectID=?', (subject_id,)),
+        ('SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? LIMIT 1', (subject_id,)),
+    ], fetch_one=True) if subject_id else None
+    if dept_sem:
+        total = _safe_scalar(
+            "SELECT COUNT(*) FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
+            (dept_sem['DepartmentID'], dept_sem['Semester'])
+        )
+
+    return _ok({
+        'recognised':   recognised,
+        'present':      present,
+        'absent':       absent,
+        'total':        total,
+        'pending':      max(0, total - present - absent),
+        'sessionToken': token,
     })
 
 
 # =============================================================================
-# ATTENDANCE — QR STATUS + SESSION STATS
-# =============================================================================
-
-@bp_teacher.route('/attendance/qr-status')
-@jwt_required()
-def qr_status():
-    uid, err = _get_teacher_user_id()
-    if err: return err
-    token = request.args.get('token', '').strip()
-    if not token: return _err('token required')
-    parts = token.split('|')
-    subject_id = parts[2] if len(parts) >= 3 else None
-    att_date   = parts[1] if len(parts) >= 2 else date.today().isoformat()
-    try:
-        scanned = db.execute_scalar(
-            "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present' AND MarkedBy=?",
-            (subject_id, att_date, str(uid))) or 0
-    except Exception:
-        scanned = 0
-    return _ok({'scanned': scanned, 'token': token})
-
-
-@bp_teacher.route('/attendance/session-stats')
-@jwt_required()
-def session_stats():
-    uid, err = _get_teacher_user_id()
-    if err: return err
-    subject_id = request.args.get('subjectId')
-    att_date   = request.args.get('date', date.today().isoformat())
-    if not subject_id: return _err('subjectId required')
-
-    total = 0
-    tt = _try_queries([
-        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-    ], fetch_one=True)
-    if tt:
-        total = _safe_scalar(
-            "SELECT COUNT(*) FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
-            (tt['DepartmentID'], tt['Semester']))
-
-    present = _safe_scalar("SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'", (subject_id, att_date))
-    absent  = _safe_scalar("SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Absent'", (subject_id, att_date))
-    late    = _safe_scalar("SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Late'", (subject_id, att_date))
-
-    return _ok({'total': total, 'scanned': present+late, 'present': present,
-                'absent': absent, 'late': late, 'pending': max(0, total-present-absent-late)})
-
-
-# =============================================================================
-# ATTENDANCE — MARK ABSENT
+# ATTENDANCE — MARK ABSENT (unchanged — used to finalise face session too)
 # =============================================================================
 
 @bp_teacher.route('/attendance/mark-absent', methods=['POST'])
 @jwt_required()
 def mark_absent_non_scanners():
+    """
+    Mark every student not yet recorded as Absent.
+    Used at end of face-recognition session to finalise.
+    Body: { subjectId, attendanceDate, sessionToken? }
+    """
     uid, err = _get_teacher_user_id()
     if err: return err
-    data       = request.get_json() or {}
-    subject_id = data.get('subjectId')
-    att_date   = data.get('attendanceDate', date.today().isoformat())
-    dept_id    = data.get('departmentId')
-    semester   = data.get('semester')
+    data          = request.get_json() or {}
+    subject_id    = data.get('subjectId')
+    att_date      = data.get('attendanceDate', date.today().isoformat())
+    dept_id       = data.get('departmentId')
+    semester      = data.get('semester')
+    session_token = data.get('sessionToken', '')
     if not subject_id: return _err('subjectId required')
 
     if not dept_id or not semester:
@@ -624,9 +728,9 @@ def mark_absent_non_scanners():
         "SELECT UserID AS StudentID FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
         (dept_id, semester)) or []
     already = {r['StudentID'] for r in (db.execute_query(
-        'SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=?', (subject_id, att_date)) or [])}
+        'SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=?',
+        (subject_id, att_date)) or [])}
 
-    # MySQL Attendance: ClassID nullable, NO TimetableID, NO MarkedBy
     class_id = None
     tt2 = _try_queries([
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
@@ -646,10 +750,13 @@ def mark_absent_non_scanners():
             ])
             if ok: absent_count += 1
 
+    # Clean up in-memory session
+    if session_token and session_token in _face_sessions:
+        del _face_sessions[session_token]
+
     return _ok({'message': f'{absent_count} students marked absent', 'absentCount': absent_count})
 
 
-# =============================================================================
 # EXAMS — LIST
 # =============================================================================
 

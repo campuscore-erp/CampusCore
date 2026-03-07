@@ -4,473 +4,240 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CampusCore — Teacher Portal</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --blue:#2563EB;--blue-d:#1D4ED8;--blue-dd:#1e3a8a;--blue-lt:#eff6ff;--blue-mid:#dbeafe;--blue-ring:rgba(37,99,235,.18);
-  --green:#22C55E;--green-d:#16a34a;--green-lt:#dcfce7;--green-bg:#f0fdf4;
-  --amber:#FACC15;--amber-d:#d97706;--amber-lt:#fef9c3;--amber-bg:#fffbeb;
-  --red:#EF4444;--red-d:#dc2626;--red-lt:#fee2e2;--red-bg:#fef2f2;
-  --purple:#a855f7;--purple-lt:#f3e8ff;--purple-bg:#faf5ff;
-  --teal:#14b8a6;--teal-lt:#ccfbf1;
-  --sidebar:#1E293B;--sidebar-hover:rgba(255,255,255,.06);--sidebar-active:rgba(37,99,235,.2);
-  --bg:#F8FAFC;--white:#fff;
-  --ink:#0f172a;--ink2:#1e293b;--ink3:#334155;
-  --muted:#64748b;--muted-l:#94a3b8;
-  --border:#e2e8f0;--border2:#f1f5f9;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.05);
-  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.05);
-  --shadow-lg:0 4px 6px rgba(0,0,0,.05),0 10px 40px rgba(0,0,0,.1);
-  --r:10px;--r-lg:14px;--r-xl:18px;
-  --sidebar-w:265px;--topbar-h:64px;
-  --font-hd:'Poppins',system-ui,sans-serif;--font-bd:'Inter',system-ui,sans-serif;--font-mono:'Courier New',monospace;
-}
-
-html,body{height:100%}
-body{font-family:var(--font-bd);background:var(--bg);color:var(--ink);display:flex;min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
-button{font-family:var(--font-bd);cursor:pointer;border:none;outline:none}
-input,select,textarea{font-family:var(--font-bd);outline:none}
+:root{--bg:#080d18;--bg2:#0f1623;--bg3:#161f2e;--bg4:#1b2438;--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.11);--text:#dce8f5;--text2:#8fa5bf;--text3:#5a7290;--blue:#3b82f6;--blue2:#60a5fa;--blue-bg:rgba(59,130,246,.09);--green:#22c55e;--green-bg:rgba(34,197,94,.09);--amber:#f59e0b;--amber-bg:rgba(245,158,11,.09);--red:#ef4444;--red-bg:rgba(239,68,68,.09);--purple:#a855f7;--purple-bg:rgba(168,85,247,.09);--orange:#f97316;--orange-bg:rgba(249,115,22,.09);--teal:#14b8a6;--teal-bg:rgba(20,184,166,.09);--r:10px;--r-sm:7px;--r-lg:14px;--font:'Sora',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--sw:260px}
+html{height:100%}body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none}
+input,select,textarea{font-family:var(--font);outline:none}
 a{text-decoration:none;color:inherit}
 
-/* ── PAGE TRANSITION ── */
-@keyframes pgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-@keyframes slideIn{from{transform:translateX(120%)}to{transform:translateX(0)}}
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sw);background:linear-gradient(175deg,#0f1e40 0%,#162d5e 60%,#0f2347 100%);border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;z-index:100;overflow-y:auto}
+.sb-brand{padding:1.25rem 1.2rem .75rem;display:flex;align-items:center;gap:.75rem;border-bottom:1px solid var(--border)}
+.brand-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#1e40af,#f97316);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.brand-name{font-weight:700;font-size:.95rem}.brand-role{font-size:.7rem;color:var(--orange);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.sb-user{padding:.85rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem}
+.user-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--orange),#f59e0b);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:800;flex-shrink:0;color:#fff}
+.user-name{font-size:.83rem;font-weight:700}.user-code{font-size:.7rem;color:var(--text3);font-family:var(--mono)}
+.sb-nav{flex:1;padding:.75rem}
+.nav-sec{margin-bottom:1.25rem}.nav-sec-title{font-size:.62rem;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;padding:.25rem .5rem .6rem}
+.nav-item{display:flex;align-items:center;gap:.65rem;padding:.6rem .75rem;border-radius:var(--r-sm);font-size:.83rem;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;margin-bottom:.15rem}
+.nav-item:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.nav-item.active{background:rgba(249,115,22,.18);color:#fdba74;font-weight:700;border-left:3px solid var(--orange)}
+.nav-item .ic{font-size:1rem;width:20px;text-align:center;flex-shrink:0}
+.sb-footer{padding:.85rem 1.2rem;border-top:1px solid var(--border)}
+.btn-logout{width:100%;padding:.55rem;border-radius:var(--r-sm);background:var(--red-bg);color:var(--red);font-size:.78rem;font-weight:600;border:1px solid rgba(239,68,68,.2);transition:all .15s}
+.btn-logout:hover{background:var(--red);color:#fff}
 
-/* ── SIDEBAR ── */
-.sidebar{
-  width:var(--sidebar-w);background:var(--sidebar);
-  position:fixed;top:0;left:0;height:100vh;
-  display:flex;flex-direction:column;z-index:100;
-  transition:transform .28s cubic-bezier(.4,0,.2,1);overflow:hidden;
-}
-.sidebar::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at top left,rgba(37,99,235,.12),transparent 60%);pointer-events:none}
+/* MAIN */
+.main{margin-left:var(--sw);min-height:100vh;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(8,13,24,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:.85rem 1.75rem;display:flex;align-items:center;justify-content:space-between}
+.topbar h2{font-size:1.1rem;font-weight:700}.topbar p{font-size:.75rem;color:var(--text3);margin-top:.1rem}
+.t-badge{padding:.35rem .8rem;border-radius:100px;background:var(--orange-bg);color:var(--orange);font-size:.72rem;font-weight:700;border:1px solid rgba(249,115,22,.2)}
+.content{flex:1;padding:1.75rem}
 
-.sb-header{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0;position:relative;z-index:1}
-.sb-brand{display:flex;align-items:center;gap:.75rem}
-.sb-logo{width:38px;height:38px;flex-shrink:0}
-.sb-brand-name{font-family:var(--font-hd);font-size:.95rem;font-weight:700;color:#fff;line-height:1;letter-spacing:-.02em}
-.sb-brand-sub{font-size:.62rem;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;margin-top:.2rem}
+/* VIEWS */
+.view{display:none}.view.active{display:block}
 
-.sb-user{padding:.85rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:.75rem;position:relative;z-index:1}
-.u-av{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--blue),var(--blue-d));display:flex;align-items:center;justify-content:center;font-family:var(--font-hd);font-size:.88rem;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(37,99,235,.4)}
-.u-name{font-size:.82rem;font-weight:600;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.u-code{font-size:.65rem;color:rgba(255,255,255,.3);font-family:var(--font-mono)}
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.5rem}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem}
+.card-title{font-size:.92rem;font-weight:700}.card-sub{font-size:.75rem;color:var(--text3);margin-top:.15rem}
 
-.sb-nav{flex:1;overflow-y:auto;padding:.75rem 0;scrollbar-width:none;position:relative;z-index:1}
-.sb-nav::-webkit-scrollbar{display:none}
-.nav-sec-title{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.22);padding:.6rem 1.25rem .4rem;margin-top:.35rem}
-.nav-item{
-  display:flex;align-items:center;gap:.7rem;padding:.62rem 1.25rem;margin:0 .5rem .1rem;
-  border-radius:9px;cursor:pointer;color:rgba(255,255,255,.52);font-size:.82rem;font-weight:500;
-  transition:all .16s;position:relative
-}
-.nav-item:hover{background:var(--sidebar-hover);color:rgba(255,255,255,.85)}
-.nav-item.active{background:var(--sidebar-active);color:#fff;font-weight:600}
-.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:60%;background:var(--blue);border-radius:0 2px 2px 0}
-.nav-item .ic{font-size:.95rem;width:20px;text-align:center;flex-shrink:0}
-
-.sb-footer{padding:.85rem 1.25rem;border-top:1px solid rgba(255,255,255,.07);position:relative;z-index:1}
-.btn-logout-sb{width:100%;padding:.55rem;border-radius:9px;background:rgba(239,68,68,.12);color:#f87171;font-size:.78rem;font-weight:600;border:1px solid rgba(239,68,68,.2);transition:all .15s;font-family:var(--font-bd)}
-.btn-logout-sb:hover{background:var(--red);color:#fff}
-
-/* ── HAMBURGER ── */
-.hamburger{display:none;position:fixed;top:.9rem;left:.9rem;z-index:200;width:40px;height:40px;border-radius:10px;border:none;background:var(--white);box-shadow:var(--shadow);cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:5px}
-.hamburger span{display:block;width:18px;height:2px;background:var(--ink);border-radius:2px;transition:all .25s}
-.hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
-.hamburger.open span:nth-child(2){opacity:0}
-.hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
-.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;backdrop-filter:blur(2px)}
-.mobile-overlay.active{display:block}
-
-/* ── MAIN ── */
-main{margin-left:var(--sidebar-w);flex:1;display:flex;flex-direction:column;min-height:100vh;min-width:0}
-
-/* ── TOPBAR ── */
-.topbar{
-  position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
-  border-bottom:1px solid var(--border);height:var(--topbar-h);
-  display:flex;align-items:center;padding:0 1.75rem;gap:1rem;box-shadow:var(--shadow-sm)
-}
-.tb-left{flex:1;min-width:0}
-.page-title{font-family:var(--font-hd);font-size:1.05rem;font-weight:700;color:var(--ink);letter-spacing:-.02em}
-.page-sub{font-size:.72rem;color:var(--muted);margin-top:.08rem}
-.tb-right{display:flex;align-items:center;gap:.65rem;flex-shrink:0}
-.tb-date-badge{padding:.32rem .8rem;border-radius:100px;background:var(--blue-lt);color:var(--blue-d);font-size:.72rem;font-weight:700;border:1px solid var(--blue-mid)}
-.tb-avatar{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--blue),var(--blue-d));display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-hd);font-size:.78rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.3)}
-.tb-divider{width:1px;height:22px;background:var(--border)}
-
-.tb-bell{position:relative;width:36px;height:36px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:all .17s}
-.tb-bell:hover{background:var(--blue-lt);border-color:var(--blue-mid);color:var(--blue)}
-.tb-bell-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;background:var(--red);border-radius:50%;border:2px solid #fff}
-.tb-user-chip{display:flex;align-items:center;gap:.55rem;padding:.35rem .65rem .35rem .35rem;border-radius:100px;border:1.5px solid var(--border);background:var(--white);cursor:pointer;transition:all .17s}
-.tb-user-chip:hover{border-color:var(--blue-mid);background:var(--blue-lt)}
-.tb-username{font-size:.78rem;font-weight:600;color:var(--ink3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-
-/* ── CONTENT ── */
-.content{flex:1;padding:1.75rem;overflow-x:hidden}
-
-/* ── VIEWS ── */
-.view{display:none}
-.view.active{display:block;animation:pgIn .28s cubic-bezier(.16,1,.3,1)}
-
-/* ── STAT CARDS ── */
+/* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
-.sc{
-  background:var(--white);border-radius:var(--r-lg);padding:1.25rem 1.35rem;
-  border:1px solid var(--border);box-shadow:var(--shadow-sm);
-  display:flex;align-items:flex-start;gap:1rem;position:relative;overflow:hidden;
-  transition:box-shadow .2s,transform .2s
-}
-.sc:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
-.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--r-lg) var(--r-lg) 0 0}
-.sc-blue::after{background:linear-gradient(90deg,var(--blue),var(--blue-d))}
-.sc-green::after{background:linear-gradient(90deg,var(--green),var(--green-d))}
-.sc-amber::after{background:linear-gradient(90deg,var(--amber),var(--amber-d))}
-.sc-red::after{background:linear-gradient(90deg,var(--red),var(--red-d))}
-.sc-purple::after{background:linear-gradient(90deg,var(--purple),#7c3aed)}
-.sc-icon{width:44px;height:44px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.25rem}
-.sc-blue .sc-icon{background:var(--blue-lt);color:var(--blue)}
-.sc-green .sc-icon{background:var(--green-lt);color:var(--green-d)}
-.sc-amber .sc-icon{background:var(--amber-lt);color:var(--amber-d)}
-.sc-red .sc-icon{background:var(--red-lt);color:var(--red-d)}
-.sc-purple .sc-icon{background:var(--purple-lt);color:var(--purple)}
-.sc-body{flex:1;min-width:0}
-.sc-value{font-family:var(--font-hd);font-size:1.8rem;font-weight:800;color:var(--ink);line-height:1;letter-spacing:-.03em}
-.sc-label{font-size:.72rem;font-weight:600;color:var(--muted);margin-top:.22rem;text-transform:uppercase;letter-spacing:.04em}
-.sc-sub{font-size:.7rem;color:var(--muted-l);margin-top:.15rem}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem;transition:transform .15s}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-icon{font-size:1.4rem;margin-bottom:.35rem}.stat-label{font-size:.72rem;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em}.stat-value{font-size:1.8rem;font-weight:800;line-height:1}
 
-/* ── CARDS ── */
-.card{background:var(--white);border-radius:var(--r-lg);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden}
-.card-head{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.35rem;border-bottom:1px solid var(--border2);flex-wrap:wrap;gap:.75rem}
-.card-title{font-family:var(--font-hd);font-size:.88rem;font-weight:700;color:var(--ink);letter-spacing:-.01em}
-.card-sub{font-size:.72rem;color:var(--muted);margin-top:.1rem}
-.card-body{padding:1.1rem 1.35rem}
-
-/* ── TABLES ── */
-.table-wrap{overflow-x:auto}
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:var(--r)}
 table{width:100%;border-collapse:collapse}
-thead th{background:var(--bg);padding:.65rem 1rem;font-family:var(--font-hd);font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap;text-align:left;position:sticky;top:0}
-tbody td{padding:.75rem 1rem;border-bottom:1px solid var(--border2);font-size:.82rem;color:var(--ink3);vertical-align:middle}
-tbody tr:last-child td{border-bottom:none}
-tbody tr{transition:background .1s}
-tbody tr:hover{background:rgba(37,99,235,.025)}
+th{font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:.65rem 1rem;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border)}
+td{font-size:.82rem;color:var(--text);padding:.7rem 1rem;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
 
-/* ── BADGES ── */
-.badge{display:inline-flex;align-items:center;padding:.2rem .6rem;border-radius:100px;font-size:.68rem;font-weight:700;font-family:var(--font-hd);white-space:nowrap}
-.badge-blue{background:var(--blue-lt);color:var(--blue-d)}
-.badge-green{background:var(--green-lt);color:var(--green-d)}
-.badge-amber{background:var(--amber-lt);color:var(--amber-d)}
-.badge-red{background:var(--red-lt);color:var(--red-d)}
-.badge-purple{background:var(--purple-lt);color:var(--purple)}
-.badge-teal{background:var(--teal-lt);color:var(--teal)}
-.badge-gray{background:var(--border2);color:var(--muted)}
-.badge-orange{background:#fff7ed;color:#c2410c}
-
-/* ── BUTTONS ── */
-.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1rem;border-radius:9px;border:none;cursor:pointer;font-family:var(--font-hd);font-size:.8rem;font-weight:600;transition:all .17s;white-space:nowrap}
-.btn-primary{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3)}
-.btn-primary:hover{background:var(--blue-d);box-shadow:0 4px 14px rgba(37,99,235,.4);transform:translateY(-1px)}
-.btn-ghost{background:var(--white);color:var(--ink3);border:1.5px solid var(--border)}
-.btn-ghost:hover{background:var(--bg);border-color:var(--blue);color:var(--blue)}
-.btn-success{background:var(--green-lt);color:var(--green-d);border:1.5px solid rgba(34,197,94,.3)}
-.btn-success:hover{background:var(--green);color:#fff}
-.btn-danger{background:var(--red-lt);color:var(--red-d);border:1.5px solid rgba(239,68,68,.3)}
-.btn-danger:hover{background:var(--red);color:#fff}
-.btn-warning{background:var(--amber-lt);color:var(--amber-d);border:1.5px solid rgba(250,204,21,.3)}
-.btn-teal{background:var(--teal-lt);color:var(--teal);border:1.5px solid rgba(20,184,166,.3)}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.1rem;border-radius:var(--r-sm);font-size:.8rem;font-weight:600;transition:all .15s;border:1px solid transparent;cursor:pointer}
+.btn-primary{background:var(--orange);color:#fff;border-color:var(--orange)}.btn-primary:hover{background:#ea580c}
+.btn-teal{background:var(--teal);color:#fff;border-color:var(--teal)}.btn-teal:hover{background:#0f9e8e}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text2);border-color:var(--border)}.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-success{background:var(--green-bg);color:var(--green);border-color:rgba(34,197,94,.25)}.btn-success:hover{background:var(--green);color:#fff}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:rgba(239,68,68,.25)}.btn-danger:hover{background:var(--red);color:#fff}
 .btn-sm{padding:.35rem .7rem;font-size:.74rem}
-.btn-xs{padding:.25rem .55rem;font-size:.7rem;border-radius:7px}
-.btn-lg{padding:.75rem 1.5rem;font-size:.88rem}
 
-/* ── FORMS ── */
-.form-group{margin-bottom:1rem}
-.form-label{font-size:.72rem;font-weight:600;color:var(--ink3);margin-bottom:.38rem;display:block;font-family:var(--font-hd);letter-spacing:.03em;text-transform:uppercase}
-.form-input{width:100%;background:var(--border2);border:1.5px solid var(--border);border-radius:9px;color:var(--ink);font-size:.84rem;padding:.62rem .88rem;transition:border-color .17s,box-shadow .17s,background .17s;font-family:var(--font-bd)}
-.form-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-ring);background:var(--white)}
-.form-input::placeholder{color:var(--muted-l)}
-select.form-input option{background:#fff;color:var(--ink)}
-textarea.form-input{resize:vertical;min-height:80px}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
-.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:.2rem .6rem;border-radius:100px;font-size:.68rem;font-weight:700}
+.badge-green{background:var(--green-bg);color:var(--green)}.badge-red{background:var(--red-bg);color:var(--red)}.badge-blue{background:var(--blue-bg);color:var(--blue2)}.badge-amber{background:var(--amber-bg);color:var(--amber)}.badge-purple{background:var(--purple-bg);color:var(--purple)}.badge-teal{background:var(--teal-bg);color:var(--teal)}.badge-orange{background:var(--orange-bg);color:var(--orange)}
 
-/* ── ALERTS ── */
-.alert{padding:.75rem 1rem;border-radius:var(--r);font-size:.82rem;margin-bottom:1rem;border:1px solid transparent}
-.alert-info{background:var(--blue-lt);color:var(--blue-d);border-color:var(--blue-mid)}
-.alert-success{background:var(--green-lt);color:var(--green-d);border-color:rgba(34,197,94,.25)}
-.alert-error{background:var(--red-lt);color:var(--red-d);border-color:rgba(239,68,68,.2)}
-.alert-warning{background:var(--amber-lt);color:var(--amber-d);border-color:rgba(250,204,21,.3)}
+/* LOADING / EMPTY */
+.loading{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem;color:var(--text3);font-size:.85rem}
+.spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:3rem 1rem;color:var(--text3)}
+.empty-icon{font-size:2.5rem;margin-bottom:.75rem}.empty-text{font-size:.9rem;font-weight:600;color:var(--text2)}.empty-sub{font-size:.8rem;margin-top:.35rem}
 
-/* ── MODALS ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center;padding:1rem}
+/* ALERTS */
+.alert{padding:.75rem 1rem;border-radius:var(--r-sm);font-size:.82rem;margin-bottom:1rem}
+.alert-info{background:var(--blue-bg);color:var(--blue2);border:1px solid rgba(59,130,246,.2)}
+.alert-success{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.alert-error{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.alert-warning{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
 .modal-overlay.open{display:flex}
-.modal{background:var(--white);border-radius:var(--r-xl);width:100%;max-width:620px;max-height:90vh;box-shadow:0 25px 60px rgba(0,0,0,.18),0 0 0 1px rgba(0,0,0,.05);display:flex;flex-direction:column;transform:scale(.96) translateY(8px);transition:transform .25s cubic-bezier(.16,1,.3,1);overflow:hidden}
-.modal-overlay.open .modal{transform:none}
-.modal-lg{max-width:720px}
-.modal-hdr{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;background:var(--white);z-index:10}
-.modal-hdr h3{font-family:var(--font-hd);font-size:1rem;font-weight:700;color:var(--ink)}
-.btn-close{width:30px;height:30px;border-radius:8px;border:none;background:var(--border2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .15s}
-.btn-close:hover{background:var(--border);color:var(--ink)}
-.modal-body{padding:1.5rem;overflow-y:auto;flex:1}
-.modal-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.6rem;flex-shrink:0;background:var(--bg)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);width:min(620px,95vw);max-height:90vh;overflow-y:auto}
+.modal-hdr{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg2);z-index:10}
+.modal-hdr h3{font-size:1rem;font-weight:700}
+.btn-close{background:none;color:var(--text3);font-size:1.25rem;padding:.25rem;border-radius:var(--r-sm);cursor:pointer;border:none}
+.btn-close:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.modal-body{padding:1.5rem}
+.modal-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.75rem}
 
-/* ── EMPTY / LOADING ── */
-.empty{text-align:center;padding:3rem 1rem;color:var(--muted)}
-.empty-icon{font-size:2.2rem;margin-bottom:.75rem;display:block}
-.empty-text{font-size:.88rem;font-weight:600;color:var(--ink3)}
-.empty-sub{font-size:.78rem;margin-top:.35rem;color:var(--muted-l)}
-.loading-wrap{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:2.5rem;color:var(--muted);font-size:.85rem}
-.spinner{width:22px;height:22px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+/* FORM */
+.form-group{margin-bottom:1rem}
+.form-label{font-size:.76rem;font-weight:700;color:var(--text2);margin-bottom:.4rem;display:block}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--text);font-size:.84rem;padding:.6rem .85rem;transition:border-color .15s}
+.form-input:focus{border-color:var(--orange)}
+.form-input::placeholder{color:var(--text3)}
+select.form-input option{background:var(--bg3)}
+textarea.form-input{resize:vertical;min-height:80px}
 
-/* ── SKELETON ── */
-.skel{background:linear-gradient(90deg,var(--border2) 25%,var(--border) 50%,var(--border2) 75%);background-size:200% 100%;animation:pulse 1.5s ease-in-out infinite;border-radius:6px;height:16px;width:100%}
-.skel-sm{height:12px}
-.skel-lg{height:24px}
+/* TIMETABLE */
+.tt-grid{display:grid;grid-template-columns:90px repeat(5,1fr);gap:2px}
+.tt-hdr{background:var(--bg3);padding:.55rem .6rem;font-size:.72rem;font-weight:700;color:var(--text2);text-align:center;border-radius:var(--r-sm)}
+.tt-time{background:var(--bg3);padding:.45rem;font-size:.66rem;color:var(--text3);text-align:center;border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--mono);gap:.15rem}
+.tt-cell{background:var(--bg4);border-radius:var(--r-sm);min-height:80px;border:1px solid var(--border)}
+.tt-has{background:var(--orange-bg);border-color:rgba(249,115,22,.25);padding:.65rem;cursor:default}
+.tt-lab{background:var(--purple-bg);border-color:rgba(168,85,247,.3)}
+.tt-subj{font-weight:700;color:var(--orange);font-size:.76rem;line-height:1.3}.tt-lab .tt-subj{color:var(--purple)}
+.tt-class{color:var(--text2);margin-top:.2rem;font-size:.7rem}
+.tt-room{color:var(--text3);font-size:.66rem;font-family:var(--mono);margin-top:.1rem}
 
-/* ── TIMETABLE ── */
-.tt-grid{display:grid;grid-template-columns:90px repeat(5,1fr);gap:3px;border-radius:var(--r);overflow:hidden}
-.tt-hdr{background:var(--bg);padding:.6rem .75rem;font-size:.7rem;font-weight:700;color:var(--muted);text-align:center;font-family:var(--font-hd);letter-spacing:.04em;text-transform:uppercase}
-.tt-time{background:var(--bg);padding:.5rem;font-size:.68rem;color:var(--muted-l);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--font-mono);gap:.12rem}
-.tt-time strong{color:var(--ink3);font-size:.74rem}
-.tt-cell{background:var(--border2);min-height:88px;border:1px solid var(--border)}
-.tt-has{padding:.7rem;cursor:default;border-radius:0}
-.tt-cell-done{background:rgba(220,252,231,.7);border-color:rgba(34,197,94,.3)}
-.tt-cell-today{background:rgba(254,249,195,.7);border-color:rgba(250,204,21,.4)}
-.tt-cell-missed{background:rgba(254,226,226,.7);border-color:rgba(239,68,68,.3)}
-.tt-cell-upcoming{background:rgba(239,246,255,.7);border-color:rgba(147,197,253,.4)}
-.tt-subj{font-weight:700;font-size:.75rem;line-height:1.3;margin-bottom:.22rem}
-.tt-cell-done .tt-subj{color:var(--green-d)}
-.tt-cell-today .tt-subj{color:#92400e}
-.tt-cell-missed .tt-subj{color:var(--red-d)}
-.tt-cell-upcoming .tt-subj{color:var(--blue)}
-.tt-meta{font-size:.66rem;color:var(--muted);margin-top:.18rem;font-family:var(--font-mono)}
-.tt-badge{margin-top:.35rem}
+/* ATTENDANCE ROSTER */
+.roster-row{display:grid;grid-template-columns:40px 1.5fr 1.2fr auto;gap:.75rem;align-items:center;padding:.6rem 1rem;border-bottom:1px solid var(--border);font-size:.82rem}
+.roster-row:hover{background:rgba(255,255,255,.02)}
+.att-btn{padding:.3rem .8rem;border-radius:100px;font-size:.73rem;font-weight:700;border:2px solid transparent;cursor:pointer;transition:all .15s;background:var(--bg4);color:var(--text3)}
+.att-btn.present{background:var(--green-bg);color:var(--green);border-color:var(--green)}
+.att-btn.absent{background:var(--red-bg);color:var(--red);border-color:var(--red)}
+.att-btn.late{background:var(--amber-bg);color:var(--amber);border-color:var(--amber)}
 
-/* ── ATTENDANCE ROSTER ── */
+/* MARKS INPUT TABLE */
+.marks-row{display:grid;grid-template-columns:35px 1.8fr 1fr repeat(7,1fr);gap:.4rem;align-items:center;padding:.5rem .75rem;border-bottom:1px solid var(--border);font-size:.8rem}
+.marks-hdr{background:var(--bg3);font-size:.68rem;font-weight:700;color:var(--text3);text-transform:uppercase;border-bottom:2px solid var(--border)}
+.mk-input{width:100%;background:var(--bg4);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.78rem;padding:.3rem .4rem;text-align:center;font-family:var(--mono)}
+.mk-input:focus{border-color:var(--orange);background:var(--bg3)}
 
-.stu-av{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--font-hd);font-size:.72rem;font-weight:700;color:#fff;flex-shrink:0;text-transform:uppercase}
+/* QR CODE */
 
-.roster-row{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.62rem 1rem;border-bottom:1px solid var(--border2);transition:background .1s}
-.roster-row:hover{background:var(--border2)}
-.att-toggle{padding:.3rem .85rem;border-radius:100px;font-size:.72rem;font-weight:700;border:2px solid transparent;cursor:pointer;transition:all .15s;font-family:var(--font-hd)}
-.att-toggle.present{background:var(--green-lt);color:var(--green-d);border-color:var(--green-d)}
-.att-toggle.present:hover{background:var(--green);color:#fff}
-.att-toggle.absent{background:var(--red-lt);color:var(--red-d);border-color:var(--red-d)}
-.att-toggle.absent:hover{background:var(--red);color:#fff}
-.att-toggle.neutral{background:var(--border2);color:var(--muted);border-color:var(--border)}
+/* FACE RECOGNITION CAMERA */
+.face-cam-wrap{position:relative;width:100%;max-width:480px;margin:0 auto;border-radius:var(--r-lg);overflow:hidden;background:#000;aspect-ratio:4/3}
+#faceVideo{width:100%;height:100%;object-fit:cover;display:block}
+.face-overlay{position:absolute;inset:0;pointer-events:none}
+.face-scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:faceScan 2s ease-in-out infinite;top:30%}
+@keyframes faceScan{0%,100%{top:20%;opacity:0}50%{opacity:1}to{top:80%}}
+.face-corner{position:absolute;width:28px;height:28px;border-color:var(--green);border-style:solid;border-width:0}
+.face-corner.tl{top:12px;left:12px;border-top-width:3px;border-left-width:3px;border-radius:4px 0 0 0}
+.face-corner.tr{top:12px;right:12px;border-top-width:3px;border-right-width:3px;border-radius:0 4px 0 0}
+.face-corner.bl{bottom:12px;left:12px;border-bottom-width:3px;border-left-width:3px;border-radius:0 0 0 4px}
+.face-corner.br{bottom:12px;right:12px;border-bottom-width:3px;border-right-width:3px;border-radius:0 0 4px 0}
+.face-status-pill{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#fff;font-size:.72rem;font-weight:700;padding:.3rem .85rem;border-radius:100px;white-space:nowrap;backdrop-filter:blur(6px)}
+.face-recognised-list{max-height:220px;overflow-y:auto;border-radius:var(--r-sm);background:var(--bg3);border:1px solid var(--border)}
+.face-rec-row{display:flex;align-items:center;gap:.65rem;padding:.5rem .85rem;border-bottom:1px solid var(--border);font-size:.81rem}
+.face-rec-row:last-child{border-bottom:none}
+.face-rec-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--green),#16a34a);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;flex-shrink:0}
 
-/* ── MARKS INPUT ── */
-.mk-input{width:100%;background:var(--border2);border:1.5px solid var(--border);border-radius:7px;color:var(--ink);font-size:.82rem;padding:.35rem .5rem;text-align:center;font-family:var(--font-mono);transition:border-color .15s}
-.mk-input:focus{border-color:var(--blue);background:var(--white)}
+/* PROGRESS BAR */
+.progress-bar-wrap{background:var(--bg3);border-radius:100px;height:7px;overflow:hidden}
+.progress-bar{height:100%;border-radius:100px;transition:width .5s ease}
 
-/* ── PASSWORD TOGGLE ── */
-.pw-wrap{position:relative}
-.pw-wrap .form-input{padding-right:2.5rem}
-.pw-toggle{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;padding:0;line-height:1}
-.pw-toggle:hover{color:var(--ink)}
+/* MOBILE */
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.6rem;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:fixed;top:1rem;left:1rem;z-index:300}
+.hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all .3s}
+.hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.open span:nth-child(2){opacity:0}
+.hamburger.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;opacity:0;pointer-events:none;transition:opacity .3s}
+.mobile-overlay.active{opacity:1;pointer-events:all}
 
-/* ── PROFILE ── */
-.profile-avatar{width:80px;height:80px;border-radius:20px;background:linear-gradient(135deg,var(--blue),var(--blue-d));display:flex;align-items:center;justify-content:center;font-family:var(--font-hd);font-size:2rem;font-weight:800;color:#fff;flex-shrink:0;box-shadow:0 4px 16px rgba(37,99,235,.35)}
-.profile-info-row{display:flex;flex-direction:column;gap:.12rem;padding:.65rem 0;border-bottom:1px solid var(--border2)}
-.profile-info-row:last-child{border-bottom:none}
-.pir-label{font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-hd)}
-.pir-value{font-size:.88rem;color:var(--ink2);font-weight:500;margin-top:.1rem}
-
-/* ── TOOLBAR ── */
-.toolbar{display:flex;align-items:center;gap:.75rem;margin-bottom:1.1rem;flex-wrap:wrap}
-.toolbar-left{flex:1;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;min-width:0}
-.search-wrap{position:relative;flex:1;min-width:180px;max-width:300px}
-.search-wrap svg{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:var(--muted-l);pointer-events:none}
-.search-input{width:100%;padding:.56rem .85rem .56rem 2.25rem;border:1.5px solid var(--border);border-radius:9px;font-family:var(--font-bd);font-size:.82rem;color:var(--ink);background:var(--white);outline:none;transition:border-color .18s,box-shadow .18s}
-.search-input::placeholder{color:var(--muted-l)}
-.search-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-ring)}
-.filter-select{padding:.54rem .85rem;border:1.5px solid var(--border);border-radius:9px;font-family:var(--font-bd);font-size:.82rem;color:var(--ink);background:var(--white);outline:none;cursor:pointer;transition:border-color .18s}
-.filter-select:focus{border-color:var(--blue)}
-
-/* ── SUBJECT CARDS ── */
-.subjects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
-.subj-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem;position:relative;overflow:hidden;transition:box-shadow .2s,transform .2s}
-.subj-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
-.subj-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--blue-d))}
-.subj-code{font-family:var(--font-mono);font-size:.72rem;font-weight:700;color:var(--blue);background:var(--blue-lt);padding:.18rem .5rem;border-radius:5px;display:inline-block;margin-bottom:.6rem}
-.subj-name{font-family:var(--font-hd);font-size:.9rem;font-weight:700;color:var(--ink);margin-bottom:.5rem;line-height:1.3}
-.subj-meta{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem}
-
-/* ── CLASS CARDS ── */
-.classes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem}
-.class-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem;transition:box-shadow .2s,transform .2s}
-.class-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
-.class-name{font-family:var(--font-hd);font-size:.92rem;font-weight:700;color:var(--blue);margin-bottom:.5rem}
-
-/* ── PROGRESS BAR ── */
-.progress-wrap{background:var(--border2);border-radius:100px;height:6px;overflow:hidden;margin-top:.3rem}
-.progress-fill{height:100%;border-radius:100px;transition:width .5s ease}
-
-/* ── TOASTS ── */
-.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:9000;display:flex;flex-direction:column;gap:.5rem}
-.toast{background:var(--sidebar);color:#fff;padding:.7rem 1.1rem;border-radius:11px;font-size:.8rem;font-weight:500;box-shadow:var(--shadow-lg);transform:translateX(120%);transition:transform .3s cubic-bezier(.16,1,.3,1);max-width:300px;border-left:3px solid var(--blue)}
-.toast.show{transform:none}
-.toast.error{border-left-color:var(--red)}
-.toast.success{border-left-color:var(--green)}
-.toast.warning{border-left-color:var(--amber)}
-
-/* ── RESPONSIVE ── */
-@media(max-width:1200px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:900px){.form-row,.form-row-3{grid-template-columns:1fr}.tt-grid{grid-template-columns:70px repeat(5,1fr)}}
+@media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.tt-grid{grid-template-columns:70px repeat(5,1fr)}.marks-row{grid-template-columns:30px 1.5fr repeat(7,1fr)}}
 @media(max-width:768px){
-  .sidebar{transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
-  .sidebar.open{transform:none;box-shadow:var(--shadow-lg)}
-  main{margin-left:0}
-  .hamburger{display:flex}
-  .topbar{padding-left:4rem}
-  .stats-grid{grid-template-columns:1fr 1fr}
-  .content{padding:1rem}
-  .tb-date-badge,.tb-divider{display:none}
-  .tb-username{display:none}
+  .sidebar{transform:translateX(-100%);transition:transform .3s ease;z-index:200}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0!important}
+  .hamburger{display:flex!important}
+  .mobile-overlay.active{opacity:1;pointer-events:all}
 }
-@media(max-width:480px){
-  .stats-grid{grid-template-columns:1fr}
-  .toolbar{flex-direction:column;align-items:stretch}
-  .search-wrap{max-width:100%}
-}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 
-<!-- Hamburger -->
 <button class="hamburger" id="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
 <div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
 
-<!-- ── SIDEBAR ── -->
 <aside class="sidebar" id="sidebar">
-  <div class="sb-header">
-    <div class="sb-brand">
-      <svg class="sb-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-        <defs>
-          <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#3b82f6"/></linearGradient>
-          <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fdba74"/><stop offset="100%" stop-color="#f97316"/></linearGradient>
-        </defs>
-        <path d="M24 3L42 10.5V29Q42 41 24 47Q6 41 6 29V10.5Z" fill="url(#g1)"/>
-        <path d="M24 3L42 10.5V16L24 8.5L6 16V10.5Z" fill="url(#g2)"/>
-        <rect x="10" y="21" width="10" height="14" rx="2" fill="white" opacity=".9"/>
-        <rect x="28" y="21" width="10" height="14" rx="2" fill="white" opacity=".55"/>
-        <polygon points="24,10 34,16 24,22 14,16" fill="url(#g2)"/>
-        <line x1="34" y1="16" x2="34" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="34" cy="23.5" r="2.5" fill="#f97316"/>
-      </svg>
-      <div>
-        <div class="sb-brand-name">CampusCore</div>
-        <div class="sb-brand-sub">Teacher Portal</div>
-      </div>
-    </div>
+  <div class="sb-brand">
+    <svg width="38" height="38" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#2563eb"/></linearGradient><linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient></defs><path d="M24 2 L41 9 L41 27 Q41 39 24 46 Q7 39 7 27 L7 9 Z" fill="url(#g1)"/><path d="M24 2 L41 9 L41 15 L24 8 L7 15 L7 9 Z" fill="url(#g2)"/><rect x="13" y="20" width="9" height="13" rx="2" fill="white" opacity="0.92"/><rect x="26" y="20" width="9" height="13" rx="2" fill="white" opacity="0.65"/><polygon points="24,11 33,16 24,21 15,16" fill="url(#g2)"/><line x1="33" y1="16" x2="33" y2="22" stroke="#f97316" stroke-width="2" stroke-linecap="round"/><circle cx="33" cy="23" r="2" fill="#f97316"/></svg>
+    <div><div class="brand-name">CampusCore</div><div class="brand-role">Teacher Portal</div></div>
   </div>
-
   <div class="sb-user">
-    <div class="u-av" id="av">T</div>
-    <div style="min-width:0;flex:1">
-      <div class="u-name" id="sbName">Loading…</div>
-      <div class="u-code" id="sbCode"></div>
-    </div>
+    <div class="user-av" id="av">T</div>
+    <div><div class="user-name" id="sbName">Loading…</div><div class="user-code" id="sbCode"></div></div>
   </div>
-
   <nav class="sb-nav">
-    <div class="nav-sec-title">Main</div>
-    <div class="nav-item active" id="nav-dashboard" onclick="go('dashboard')"><span class="ic">📊</span> Dashboard</div>
-    <div class="nav-item" id="nav-profile" onclick="go('profile')"><span class="ic">👤</span> My Profile</div>
-    <div class="nav-item" id="nav-timetable" onclick="go('timetable')"><span class="ic">📅</span> My Timetable</div>
-    <div class="nav-item" id="nav-subjects" onclick="go('subjects')"><span class="ic">📚</span> My Subjects</div>
-    <div class="nav-item" id="nav-classes" onclick="go('classes')"><span class="ic">🏫</span> My Classes</div>
-    <div class="nav-item" id="nav-students" onclick="go('students')"><span class="ic">👥</span> My Students</div>
-    <div class="nav-sec-title">Academics</div>
-    <div class="nav-item" id="nav-marks" onclick="go('marks')"><span class="ic">📝</span> Marks Entry</div>
-    <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="ic">📄</span> Exams</div>
-    <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="ic">📁</span> Study Materials</div>
-    <div class="nav-item" id="nav-online" onclick="go('online')"><span class="ic">💻</span> Online Classes</div>
-    <div class="nav-sec-title">Account</div>
-    <div class="nav-item" id="nav-changepassword" onclick="go('changepassword')"><span class="ic">🔑</span> Change Password</div>
+    <div class="nav-sec">
+      <div class="nav-sec-title">Main</div>
+      <div class="nav-item active" id="nav-dashboard" onclick="go('dashboard')"><span class="ic">📊</span> Dashboard</div>
+      <div class="nav-item" id="nav-profile" onclick="go('profile')"><span class="ic">👤</span> My Profile</div>
+      <div class="nav-item" id="nav-timetable" onclick="go('timetable')"><span class="ic">📅</span> My Timetable</div>
+      <div class="nav-item" id="nav-subjects" onclick="go('subjects')"><span class="ic">📚</span> My Subjects</div>
+      <div class="nav-item" id="nav-classes" onclick="go('classes')"><span class="ic">🏫</span> My Classes</div>
+      <div class="nav-item" id="nav-students" onclick="go('students')"><span class="ic">👥</span> My Students</div>
+    </div>
+    <div class="nav-sec">
+      <div class="nav-sec-title">Academics</div>
+      <div class="nav-item" id="nav-marks" onclick="go('marks')"><span class="ic">📝</span> Marks Entry</div>
+      <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="ic">📄</span> Exams</div>
+      <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="ic">📁</span> Study Materials</div>
+      <div class="nav-item" id="nav-online" onclick="go('online')"><span class="ic">💻</span> Online Classes</div>
+    </div>
   </nav>
-
-  <div class="sb-footer">
-    <button class="btn-logout-sb" onclick="logout()">⏻ Sign Out</button>
-  </div>
+  <div class="sb-footer"><button class="btn-logout" onclick="logout()">⏻ Sign Out</button></div>
 </aside>
 
-<!-- ── MAIN ── -->
-<main id="mainContent">
-  <div class="topbar" id="topbar">
-    <div class="tb-left">
-      <div class="page-title" id="pageTitle">Dashboard</div>
-      <div class="page-sub" id="pageSub">Welcome to the Teacher Portal</div>
-    </div>
-    <div class="tb-right">
-      <span class="tb-date-badge" id="dateBadge">Today</span>
-      <div class="tb-divider"></div>
-      <div class="tb-bell" title="Notifications">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span class="tb-bell-dot"></span>
-      </div>
-      <div class="tb-divider"></div>
-      <div class="tb-user-chip">
-        <div class="tb-avatar" id="topAvatar">T</div>
-        <span class="tb-username" id="topName">Teacher</span>
-      </div>
+<main class="main" id="mainContent">
+  <div class="topbar">
+    <div><h2 id="pageTitle">Dashboard</h2><p id="pageSub">Welcome to the Teacher Portal</p></div>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span class="t-badge" id="dateBadge">Today</span>
     </div>
   </div>
-
   <div class="content">
 
-    <!-- ══ DASHBOARD ══ -->
+    <!-- ═══════════════════════════════ DASHBOARD ═══════════════════════════════ -->
     <div class="view active" id="view-dashboard">
       <div class="stats-grid">
-        <div class="sc sc-blue">
-          <div class="sc-icon">📚</div>
-          <div class="sc-body">
-            <div class="sc-value" id="ds-subj"><span class="skel skel-lg" style="width:40px;display:inline-block"></span></div>
-            <div class="sc-label">My Subjects</div>
-          </div>
-        </div>
-        <div class="sc sc-green">
-          <div class="sc-icon">👥</div>
-          <div class="sc-body">
-            <div class="sc-value" id="ds-stu"><span class="skel skel-lg" style="width:50px;display:inline-block"></span></div>
-            <div class="sc-label">Total Students</div>
-          </div>
-        </div>
-        <div class="sc sc-amber">
-          <div class="sc-icon">🗓️</div>
-          <div class="sc-body">
-            <div class="sc-value" id="ds-periods"><span class="skel skel-lg" style="width:40px;display:inline-block"></span></div>
-            <div class="sc-label">Periods / Week</div>
-          </div>
-        </div>
-        <div class="sc sc-purple">
-          <div class="sc-icon">📄</div>
-          <div class="sc-body">
-            <div class="sc-value" id="ds-exm"><span class="skel skel-lg" style="width:40px;display:inline-block"></span></div>
-            <div class="sc-label">Active Exams</div>
-          </div>
-        </div>
+        <div class="stat-card"><div class="stat-icon">📚</div><div class="stat-label">Subjects</div><div class="stat-value" id="ds-subj">—</div></div>
+        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">Students</div><div class="stat-value" id="ds-stu">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🗓️</div><div class="stat-label">Periods/Week</div><div class="stat-value" id="ds-periods">—</div></div>
+        <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-label">Active Exams</div><div class="stat-value" id="ds-exm">—</div></div>
       </div>
-
-      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:1.25rem">
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:1.25rem">
         <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">Today's Schedule</div>
-              <div class="card-sub" id="todayLabel"></div>
-            </div>
-          </div>
-          <div class="card-body" id="todayList">
-            <div style="display:flex;flex-direction:column;gap:.5rem"><div class="skel" style="height:62px;border-radius:var(--r)"></div><div class="skel" style="height:62px;border-radius:var(--r)"></div><div class="skel" style="height:62px;border-radius:var(--r)"></div></div>
-          </div>
+          <div class="card-hdr"><div><div class="card-title">Today's Schedule</div><div class="card-sub" id="todayLabel"></div></div></div>
+          <div id="todayList"><div class="loading"><div class="spinner"></div></div></div>
         </div>
         <div class="card">
-          <div class="card-head"><div class="card-title">Quick Actions</div></div>
-          <div class="card-body" style="display:grid;gap:.65rem">
-            <button class="btn btn-primary btn-lg" style="justify-content:center" onclick="go('timetable')">📅 Timetable &amp; Attendance</button>
+          <div class="card-hdr"><div class="card-title">Quick Actions</div></div>
+          <div style="display:grid;gap:.75rem">
+            <button class="btn btn-primary" style="justify-content:center" onclick="go('timetable')">📅 Timetable &amp; Attendance</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('marks')">📝 Enter Marks</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('exams')">📄 Create Exam</button>
             <button class="btn btn-ghost" style="justify-content:center" onclick="go('materials')">📁 Upload Material</button>
@@ -480,264 +247,274 @@ textarea.form-input{resize:vertical;min-height:80px}
       </div>
     </div>
 
-    <!-- ══ PROFILE ══ -->
+    <!-- ═══════════════════════════════ PROFILE ═══════════════════════════════ -->
     <div class="view" id="view-profile">
-      <div class="card" style="max-width:680px">
-        <div class="card-head"><div class="card-title">My Profile</div></div>
-        <div class="card-body" id="profileData">
-          <div class="loading-wrap"><div class="spinner"></div> Loading…</div>
-        </div>
+      <div class="card" style="max-width:640px">
+        <div class="card-hdr"><div class="card-title">My Profile</div></div>
+        <div id="profileData"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ TIMETABLE ══ -->
+    <!-- ═══════════════════════════════ TIMETABLE ═══════════════════════════════ -->
     <div class="view" id="view-timetable">
       <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="card-title">My Weekly Timetable</div>
-            <div class="card-sub">Click a class cell to take attendance</div>
-          </div>
-          <div style="display:flex;gap:.5rem;font-size:.72rem;flex-wrap:wrap">
-            <span class="badge badge-green">🟢 Done</span>
-            <span class="badge badge-amber">🟡 Today</span>
-            <span class="badge badge-red">🔴 Missed</span>
-            <span class="badge badge-blue">🔵 Upcoming</span>
-          </div>
-        </div>
-        <div class="card-body" id="ttWrap">
-          <div class="loading-wrap"><div class="spinner"></div> Loading…</div>
-        </div>
+        <div class="card-hdr"><div><div class="card-title">My Weekly Timetable</div><div class="card-sub">Your class schedule — subjects, rooms and timings</div></div></div>
+        <div id="ttWrap"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ SUBJECTS ══ -->
+    <!-- ═══════════════════════════════ SUBJECTS ═══════════════════════════════ -->
     <div class="view" id="view-subjects">
-      <div class="card-head" style="background:none;border:none;padding:0;margin-bottom:1rem">
-        <div class="card-title">My Subjects</div>
-      </div>
-      <div id="subjList">
-        <div class="loading-wrap"><div class="spinner"></div> Loading…</div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">My Subjects</div></div>
+        <div id="subjList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ CLASSES ══ -->
+    <!-- ═══════════════════════════════ CLASSES ═══════════════════════════════ -->
     <div class="view" id="view-classes">
-      <div class="card-head" style="background:none;border:none;padding:0;margin-bottom:1rem">
-        <div class="card-title">My Classes</div>
-      </div>
-      <div id="classesList">
-        <div class="loading-wrap"><div class="spinner"></div> Loading…</div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">My Classes</div><div class="card-sub">Departments and semesters you teach</div></div>
+        <div id="classesList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ MY STUDENTS ══ -->
+    <!-- ═══════════════════════════════ MY STUDENTS ═══════════════════════════════ -->
     <div class="view" id="view-students">
       <div class="card">
-        <div class="card-head">
+        <div class="card-hdr">
           <div>
             <div class="card-title">My Students</div>
-            <div class="card-sub" id="studentsSubtitle">All classes</div>
-          </div>
-          <div style="font-size:.82rem;color:var(--muted)">
-            <strong id="studCount" style="color:var(--ink)">0</strong> students
+            <div class="card-sub" id="studentsSubtitle" style="font-size:.8rem;color:var(--text3);margin-top:.15rem">All classes</div>
           </div>
         </div>
-        <div class="card-body" style="border-bottom:1px solid var(--border2);padding-bottom:.85rem">
-          <div class="toolbar" style="margin-bottom:0">
-            <div class="toolbar-left">
-              <div class="search-wrap">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input class="search-input" id="studSearchBox" type="text" placeholder="Search name, email or ID…" oninput="renderStudentTable()">
-              </div>
-              <select id="studClassFilter" class="filter-select" onchange="renderStudentTable()">
-                <option value="">— All Classes —</option>
-              </select>
-            </div>
+        <!-- Filter + Search bar -->
+        <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center">
+          <select id="studClassFilter" class="form-input" style="flex:1;min-width:200px;max-width:300px" onchange="renderStudentTable()">
+            <option value="">— All Classes —</option>
+          </select>
+          <div style="position:relative;flex:1;min-width:180px;max-width:280px">
+            <input id="studSearchBox" class="form-input" type="text" placeholder="🔍  Search name or student ID…" oninput="renderStudentTable()" style="width:100%;padding-right:2rem">
+            <span id="studSearchClear" onclick="document.getElementById('studSearchBox').value='';renderStudentTable()" style="position:absolute;right:.6rem;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);display:none">✕</span>
+          </div>
+          <div style="font-size:.82rem;color:var(--text3);white-space:nowrap">
+            Showing <strong id="studCount" style="color:var(--text)">0</strong> students
           </div>
         </div>
-        <div id="studentsList">
-          <div class="loading-wrap"><div class="spinner"></div> Loading…</div>
-        </div>
+        <div id="studentsList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ ATTENDANCE (opened from timetable) ══ -->
+    <!-- ═══════════════════════════════ ATTENDANCE + QR (opened from timetable) ═══════════════════════════════ -->
     <div class="view" id="view-attendance">
       <div class="card" style="margin-bottom:1.25rem">
-        <div class="card-head">
+        <div class="card-hdr" style="flex-wrap:nowrap;gap:.5rem">
           <div style="min-width:0">
-            <div class="card-title" id="attTitle">📋 Attendance</div>
+            <div class="card-title" id="attTitle">&#x1F4CB; Attendance</div>
             <div class="card-sub" id="attContextSub">Click a class on the timetable to begin</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="go('timetable')">← Timetable</button>
+          <button class="btn btn-ghost btn-sm" onclick="go('timetable')" style="white-space:nowrap;flex-shrink:0">&#x2190; Timetable</button>
         </div>
-        <div class="card-body">
-          <div id="attLockedBanner" class="alert alert-success" style="display:none">✅ Attendance already saved for this session. Shown below in read-only mode.</div>
-          <div id="attTabBar" style="display:none;margin-bottom:1.25rem">
-            <div style="display:inline-flex;gap:.3rem;background:var(--border2);border-radius:10px;padding:.3rem">
-              <button id="tabManualBtn" onclick="switchAttTab('manual')" style="padding:.4rem 1rem;border-radius:8px;font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--blue);color:#fff;font-family:var(--font-hd)">📋 Manual</button>
-              <button id="tabQRBtn" onclick="switchAttTab('qr')" style="padding:.4rem 1rem;border-radius:8px;font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--muted);font-family:var(--font-hd)">📷 QR Code</button>
+
+        <!-- Already-saved banner -->
+        <div id="attLockedBanner" class="alert alert-success" style="display:none;margin-bottom:1rem">
+          &#x2705; Attendance already saved for this session. Shown below in read-only mode.
+        </div>
+
+        <!-- Tab switcher — hidden when locked or not yet loaded -->
+        <div id="attTabBar" style="display:none;margin-bottom:1.25rem">
+          <div style="display:inline-flex;gap:.3rem;background:var(--bg3);border-radius:var(--r-sm);padding:.3rem">
+            <button id="tabManualBtn" onclick="switchAttTab('manual')" style="padding:.4rem .9rem;border-radius:5px;font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:var(--orange);color:#fff">&#x1F4CB; Manual</button>
+            <button id="tabFaceBtn"    onclick="switchAttTab('face')"   style="padding:.4rem .9rem;border-radius:5px;font-size:.78rem;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--text2)">&#x1F9B7; Face Scan</button>
+          </div>
+        </div>
+
+        <!-- MANUAL TAB -->
+        <div id="tabManual">
+          <div id="attRoster">
+            <div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class cell on the timetable to load students</div></div>
+          </div>
+          <div id="attSaveBar" style="display:none;margin-top:1rem;justify-content:flex-end;gap:.75rem">
+            <button class="btn btn-ghost" onclick="go('timetable')">Cancel</button>
+            <button class="btn btn-primary" id="attSaveBtn" onclick="submitAttendance()">&#x1F4BE; Save Attendance</button>
+          </div>
+        </div>
+
+        <!-- FACE RECOGNITION TAB -->
+        <div id="tabFace" style="display:none">
+          <!-- Status bar -->
+          <div id="faceStatusBar" style="margin-bottom:.85rem"></div>
+
+          <!-- Two-column layout: Camera left, recognised list right -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start">
+
+            <!-- Camera panel -->
+            <div>
+              <div class="face-cam-wrap" id="faceCamWrap">
+                <video id="faceVideo" autoplay playsinline muted></video>
+                <canvas id="faceCanvas" style="display:none"></canvas>
+                <div class="face-overlay">
+                  <div class="face-scan-line" id="faceScanLine" style="display:none"></div>
+                  <div class="face-corner tl"></div>
+                  <div class="face-corner tr"></div>
+                  <div class="face-corner bl"></div>
+                  <div class="face-corner br"></div>
+                  <div class="face-status-pill" id="faceCamStatus">Camera off</div>
+                </div>
+              </div>
+              <!-- Camera controls -->
+              <div style="display:flex;gap:.6rem;margin-top:.75rem;flex-wrap:wrap">
+                <button class="btn btn-success btn-sm" id="faceCamStartBtn" onclick="startFaceCamera()" style="flex:1;justify-content:center">&#x1F4F7; Start Camera</button>
+                <button class="btn btn-danger btn-sm"  id="faceCamStopBtn"  onclick="stopFaceCamera()"  style="flex:1;justify-content:center;display:none">&#x23F9; Stop Camera</button>
+              </div>
+              <!-- Live counters -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-top:.75rem;text-align:center">
+                <div style="background:var(--green-bg);border:1px solid rgba(34,197,94,.25);border-radius:var(--r-sm);padding:.65rem .4rem">
+                  <div style="font-size:1.5rem;font-weight:800;color:var(--green)" id="faceCountPresent">0</div>
+                  <div style="font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase">Present</div>
+                </div>
+                <div style="background:var(--red-bg);border:1px solid rgba(239,68,68,.25);border-radius:var(--r-sm);padding:.65rem .4rem">
+                  <div style="font-size:1.5rem;font-weight:800;color:var(--red)" id="faceCountPending">0</div>
+                  <div style="font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase">Pending</div>
+                </div>
+                <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);padding:.65rem .4rem">
+                  <div style="font-size:1.5rem;font-weight:800;color:var(--text)" id="faceCountTotal">0</div>
+                  <div style="font-size:.65rem;color:var(--text3);font-weight:700;text-transform:uppercase">Total</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recognised students list -->
+            <div>
+              <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem">&#x2705; Recognised Students</div>
+              <div id="faceRecognisedList" class="face-recognised-list">
+                <div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:.8rem">No students recognised yet — start camera to begin</div>
+              </div>
+              <!-- Manual override: mark a student present by name -->
+              <div style="margin-top:.75rem">
+                <div style="font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">Manual Mark</div>
+                <div style="display:flex;gap:.5rem">
+                  <select id="faceManualStudent" class="form-input" style="flex:1;font-size:.8rem"><option value="">— Select student —</option></select>
+                  <button class="btn btn-ghost btn-sm" onclick="faceMarkManual()">&#x2714; Mark Present</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div id="tabManual">
-            <div id="attRoster">
-              <div class="empty"><span class="empty-icon">📋</span><div class="empty-text">Click a class on the timetable to load students</div></div>
+
+          <!-- Finalise bar -->
+          <div style="border-top:1px solid var(--border);padding-top:1rem;margin-top:1.25rem">
+            <div class="alert alert-info" style="margin-bottom:.75rem">
+              &#x2139;&#xFE0F; When class ends, click <strong>Finalise</strong>. Recognised students = <strong style="color:var(--green)">Present</strong>, rest = <strong style="color:var(--red)">Absent</strong>.
             </div>
-            <div id="attSaveBar" style="display:none;margin-top:1.25rem;justify-content:flex-end;gap:.75rem">
-              <button class="btn btn-ghost" onclick="go('timetable')">Cancel</button>
-              <button class="btn btn-primary btn-lg" id="attSaveBtn" onclick="submitAttendance()">💾 Save Attendance</button>
-            </div>
-          </div>
-          <div id="tabQR" style="display:none;text-align:center">
-            <div id="qrStatus" style="margin-bottom:.75rem;text-align:left"></div>
-            <div id="qrBox" style="display:inline-block;background:#fff;padding:14px;border-radius:var(--r);margin-bottom:.85rem;box-shadow:var(--shadow)"></div>
-            <div style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem">Students scan this QR from their portal → auto-marked <strong style="color:var(--green-d)">Present</strong></div>
-            <div id="qrCountdown" style="font-size:1.8rem;font-weight:800;color:var(--blue);margin-bottom:.4rem;font-family:var(--font-hd)"></div>
-            <div id="qrStats" style="font-size:.82rem;color:var(--muted);margin-bottom:.75rem"></div>
-            <button class="btn btn-ghost btn-sm" onclick="genQR()" style="margin-bottom:1.25rem">🔄 Regenerate QR</button>
-            <div style="border-top:1px solid var(--border);padding-top:1rem;text-align:left">
-              <div class="alert alert-info" style="margin-bottom:.75rem">ℹ️ When class ends, click <strong>Finalise</strong>. Scanned = <strong style="color:var(--green-d)">Present</strong>, unscanned = <strong style="color:var(--red-d)">Absent</strong>.</div>
-              <button class="btn btn-success btn-lg" style="width:100%;justify-content:center" onclick="finaliseQRAttendance()">✅ Finalise QR Attendance</button>
-            </div>
+            <button class="btn btn-success" style="width:100%;justify-content:center" onclick="finaliseFaceAttendance()">&#x2705; Finalise Face Attendance (Mark Unrecognised as Absent)</button>
           </div>
         </div>
       </div>
+
+      <!-- History -->
       <div class="card">
-        <div class="card-head"><div class="card-title">Attendance History</div></div>
-        <div id="attHistory"><div class="loading-wrap"><div class="spinner"></div> Loading…</div></div>
+        <div class="card-hdr"><div class="card-title">Attendance History</div></div>
+        <div id="attHistory"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ MARKS ══ -->
+    <!-- ═══════════════════════════════ MARKS ═══════════════════════════════ -->
     <div class="view" id="view-marks">
       <div class="card">
-        <div class="card-head">
-          <div>
-            <div class="card-title">📝 Marks Entry</div>
-            <div class="card-sub">Select subject and exam type, then enter marks</div>
-          </div>
+        <div class="card-hdr">
+          <div><div class="card-title">📝 Marks Entry</div><div class="card-sub">Select subject and exam type, then enter marks for each student</div></div>
         </div>
-        <div class="card-body">
-          <div class="form-row" style="margin-bottom:1rem;align-items:end">
-            <div class="form-group" style="margin:0">
-              <label class="form-label">Subject *</label>
-              <select id="marksSubject" class="form-input"><option value="">-- Select Subject --</option></select>
-            </div>
-            <div class="form-group" style="margin:0">
-              <label class="form-label">Exam Type *</label>
-              <select id="marksExamType" class="form-input">
-                <option value="">-- Select Exam Type --</option>
-                <option value="CA1">CA1 (max 10)</option><option value="CA2">CA2 (max 10)</option>
-                <option value="CA3">CA3 (max 10)</option><option value="CA4">CA4 (max 10)</option>
-                <option value="CA5">CA5 (max 10)</option><option value="Midterm">Midterm (max 50)</option>
-                <option value="Endterm">Endterm (max 100)</option>
-              </select>
-            </div>
+        <!-- Step 1: Subject + Exam type selectors -->
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.85rem;margin-bottom:1rem;align-items:end">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Subject *</label>
+            <select id="marksSubject" class="form-input"><option value="">-- Select Subject --</option></select>
           </div>
-          <button class="btn btn-primary" onclick="loadMarksRoster()" style="margin-bottom:1rem">Load Students</button>
-          <div id="marksLockedBanner" class="alert alert-success" style="display:none">✅ Marks already saved — shown in read-only mode.</div>
-          <div id="marksRoster">
-            <div class="empty"><span class="empty-icon">📝</span><div class="empty-text">Select subject and exam type above, then click Load Students</div></div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Exam Type *</label>
+            <select id="marksExamType" class="form-input">
+              <option value="">-- Select Exam Type --</option>
+              <option value="CA1">CA1 (max 10)</option>
+              <option value="CA2">CA2 (max 10)</option>
+              <option value="CA3">CA3 (max 10)</option>
+              <option value="CA4">CA4 (max 10)</option>
+              <option value="CA5">CA5 (max 10)</option>
+              <option value="Midterm">Midterm (max 50)</option>
+              <option value="Endterm">Endterm (max 100)</option>
+            </select>
           </div>
-          <div id="marksSaveBar" style="display:none;margin-top:1rem;justify-content:flex-end;gap:.75rem">
-            <button class="btn btn-ghost" onclick="loadMarksView()">Reset</button>
-            <button class="btn btn-primary btn-lg" id="marksSaveBtn" onclick="saveMarks()">💾 Save Marks</button>
-          </div>
+          <button class="btn btn-primary" onclick="loadMarksRoster()">Load Students</button>
+        </div>
+        <!-- Lock banner -->
+        <div id="marksLockedBanner" class="alert alert-success" style="display:none;margin-bottom:1rem">
+          ✅ Marks already saved for this subject &amp; exam type — shown in read-only mode below.
+        </div>
+        <!-- Roster -->
+        <div id="marksRoster">
+          <div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select subject and exam type above, then click Load Students</div></div>
+        </div>
+        <!-- Save bar -->
+        <div id="marksSaveBar" style="display:none;margin-top:1rem;justify-content:flex-end;gap:.75rem">
+          <button class="btn btn-ghost" onclick="loadMarksView()">Reset</button>
+          <button class="btn btn-primary" id="marksSaveBtn" onclick="saveMarks()">💾 Save Marks</button>
         </div>
       </div>
     </div>
 
-    <!-- ══ EXAMS ══ -->
+    <!-- ═══════════════════════════════ EXAMS ═══════════════════════════════ -->
     <div class="view" id="view-exams">
       <div class="card">
-        <div class="card-head">
+        <div class="card-hdr">
           <div class="card-title">Exams</div>
           <button class="btn btn-primary btn-sm" onclick="openMdl('createExamMdl')">＋ Create Exam</button>
         </div>
-        <div id="examsList"><div class="loading-wrap"><div class="spinner"></div> Loading…</div></div>
+        <div id="examsList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ STUDY MATERIALS ══ -->
+    <!-- ═══════════════════════════════ MATERIALS ═══════════════════════════════ -->
     <div class="view" id="view-materials">
       <div class="card">
-        <div class="card-head">
+        <div class="card-hdr">
           <div class="card-title">Study Materials</div>
           <button class="btn btn-primary btn-sm" onclick="openMdl('addMatMdl')">＋ Add Material</button>
         </div>
-        <div id="matsList"><div class="loading-wrap"><div class="spinner"></div> Loading…</div></div>
+        <div id="matsList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
-    <!-- ══ ONLINE CLASSES ══ -->
+    <!-- ═══════════════════════════════ ONLINE CLASSES ═══════════════════════════════ -->
     <div class="view" id="view-online">
       <div class="card">
-        <div class="card-head">
+        <div class="card-hdr">
           <div class="card-title">Online Classes</div>
           <button class="btn btn-primary btn-sm" onclick="openMdl('addOCMdl')">＋ Schedule Class</button>
         </div>
-        <div id="ocList"><div class="loading-wrap"><div class="spinner"></div> Loading…</div></div>
-      </div>
-    </div>
-
-    <!-- ══ CHANGE PASSWORD ══ -->
-    <div class="view" id="view-changepassword">
-      <div class="card" style="max-width:480px">
-        <div class="card-head">
-          <div class="card-title">🔑 Change Password</div>
-        </div>
-        <div class="card-body">
-          <div id="pwAlert" style="display:none" class="alert"></div>
-          <div class="form-group">
-            <label class="form-label">Current Password</label>
-            <div class="pw-wrap">
-              <input id="pw-current" type="password" class="form-input" placeholder="Enter current password">
-              <button class="pw-toggle" onclick="togglePw('pw-current')">👁</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">New Password</label>
-            <div class="pw-wrap">
-              <input id="pw-new" type="password" class="form-input" placeholder="Min 8 characters">
-              <button class="pw-toggle" onclick="togglePw('pw-new')">👁</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm New Password</label>
-            <div class="pw-wrap">
-              <input id="pw-confirm" type="password" class="form-input" placeholder="Repeat new password">
-              <button class="pw-toggle" onclick="togglePw('pw-confirm')">👁</button>
-            </div>
-          </div>
-          <button class="btn btn-primary btn-lg" style="width:100%;justify-content:center;margin-top:.5rem" onclick="doChangePassword()">Update Password</button>
-        </div>
+        <div id="ocList"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
   </div><!-- /content -->
 </main>
 
-<!-- ══ MODALS ══ -->
-
-<!-- Create Exam -->
+<!-- ═══════════════════════ MODAL: CREATE EXAM ═══════════════════════ -->
 <div class="modal-overlay" id="createExamMdl">
   <div class="modal">
     <div class="modal-hdr"><h3>📄 Create New Exam</h3><button class="btn-close" onclick="closeMdl('createExamMdl')">✕</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Subject *</label><select id="examSubject" class="form-input"><option value="">— Select Subject —</option></select></div>
-      <div class="form-row">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem">
         <div class="form-group"><label class="form-label">Exam Name *</label><input id="examName" class="form-input" type="text" placeholder="e.g. CA1 / Mid Semester"></div>
         <div class="form-group"><label class="form-label">Exam Type</label>
           <select id="examType" class="form-input"><option>CA1</option><option>CA2</option><option>CA3</option><option>Midterm</option><option>Endterm</option><option>Lab</option><option>Quiz</option></select>
         </div>
       </div>
-      <div class="form-row-3">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem">
         <div class="form-group"><label class="form-label">Total Marks *</label><input id="examMarks" class="form-input" type="number" value="100" min="1"></div>
         <div class="form-group"><label class="form-label">Duration (mins)</label><input id="examDuration" class="form-input" type="number" value="60" min="1"></div>
         <div class="form-group"><label class="form-label">Exam Date *</label><input id="examDate" class="form-input" type="date"></div>
       </div>
-      <div class="form-group"><label class="form-label">Instructions</label><textarea id="examInstructions" class="form-input" placeholder="Optional instructions…"></textarea></div>
+      <div class="form-group"><label class="form-label">Instructions</label><textarea id="examInstructions" class="form-input" placeholder="Optional instructions for students…"></textarea></div>
       <div id="examMdlErr" style="display:none" class="alert alert-error"></div>
     </div>
     <div class="modal-footer">
@@ -747,23 +524,23 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- Add Material -->
+<!-- ═══════════════════════ MODAL: ADD MATERIAL ═══════════════════════ -->
 <div class="modal-overlay" id="addMatMdl">
   <div class="modal">
     <div class="modal-hdr"><h3>📁 Add Study Material</h3><button class="btn-close" onclick="closeMdl('addMatMdl')">✕</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Subject *</label><select id="matSubject" class="form-input"><option value="">— Select Subject —</option></select></div>
-      <div class="form-group"><label class="form-label">Title *</label><input id="matTitle" class="form-input" type="text" placeholder="e.g. Unit 1 Notes"></div>
+      <div class="form-group"><label class="form-label">Title *</label><input id="matTitle" class="form-input" type="text" placeholder="e.g. Unit 1 Notes – Data Structures"></div>
       <div class="form-group"><label class="form-label">Description</label><textarea id="matDesc" class="form-input" placeholder="Brief description…"></textarea></div>
-      <div class="form-row">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem">
         <div class="form-group"><label class="form-label">File URL / Link</label><input id="matUrl" class="form-input" type="url" placeholder="https://drive.google.com/…"></div>
         <div class="form-group"><label class="form-label">File Type</label>
           <select id="matType" class="form-input" onchange="updateMatAccept()"><option value="pdf">PDF</option><option value="doc">Word Doc</option><option value="ppt">Presentation</option><option value="video">Video</option><option value="image">Image</option><option value="zip">ZIP / Archive</option><option value="other">Other</option></select>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Or Upload File <span style="color:var(--muted-l);font-weight:400;font-size:.7rem;text-transform:none">(max 50 MB)</span></label>
-        <input id="matFile" class="form-input" type="file" accept=".pdf" style="padding:.42rem" onchange="checkMatSize(this)">
+        <label class="form-label">Or Upload File from Device <span style="color:var(--text3);font-weight:400;font-size:.72rem">(max 50 MB)</span></label>
+        <input id="matFile" class="form-input" type="file" accept=".pdf" style="padding:.45rem" onchange="checkMatSize(this)">
         <div id="matFileSizeInfo" style="font-size:.73rem;margin-top:.3rem;display:none"></div>
       </div>
       <div id="matMdlErr" style="display:none" class="alert alert-error"></div>
@@ -775,19 +552,19 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- Schedule Online Class -->
+<!-- ═══════════════════════ MODAL: SCHEDULE ONLINE CLASS ═══════════════════════ -->
 <div class="modal-overlay" id="addOCMdl">
   <div class="modal">
     <div class="modal-hdr"><h3>💻 Schedule Online Class</h3><button class="btn-close" onclick="closeMdl('addOCMdl')">✕</button></div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label">Subject *</label><select id="ocSubject" class="form-input"><option value="">— Select Subject —</option></select></div>
       <div class="form-group"><label class="form-label">Topic / Title *</label><input id="ocTopic" class="form-input" type="text" placeholder="e.g. Lecture 5 – Sorting Algorithms"></div>
-      <div class="form-row-3">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem">
         <div class="form-group"><label class="form-label">Date *</label><input id="ocDate" class="form-input" type="date"></div>
         <div class="form-group"><label class="form-label">Start Time</label><input id="ocStart" class="form-input" type="time"></div>
         <div class="form-group"><label class="form-label">End Time</label><input id="ocEnd" class="form-input" type="time"></div>
       </div>
-      <div class="form-group"><label class="form-label">Meeting Link *</label><input id="ocLink" class="form-input" type="url" placeholder="https://meet.google.com/…"></div>
+      <div class="form-group"><label class="form-label">Meeting Link (Zoom / Meet / Teams) *</label><input id="ocLink" class="form-input" type="url" placeholder="https://meet.google.com/…"></div>
       <div class="form-group"><label class="form-label">Description</label><textarea id="ocDesc" class="form-input" placeholder="Optional notes…"></textarea></div>
       <div id="ocMdlErr" style="display:none" class="alert alert-error"></div>
     </div>
@@ -798,11 +575,11 @@ textarea.form-input{resize:vertical;min-height:80px}
   </div>
 </div>
 
-<!-- Toast container -->
-<div class="toast-wrap" id="toastWrap"></div>
+<!-- TOASTS -->
+<div id="toasts" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;max-width:340px"></div>
 
 <script>
-/* ══════════════════════════ CORE UTILITIES (UNCHANGED) ══════════════════════════ */
+/* ══════════════════════════ CORE UTILITIES ══════════════════════════ */
 const API=(()=>{const s=localStorage.getItem('api_base');if(s)return s.replace(/\/$/,'');return window.location.origin;})();
 let token='', mySubjects=[];
 
@@ -821,20 +598,16 @@ async function api(ep,opts={}){
 }
 function logout(){api('/api/auth/logout',{method:'POST'}).finally(()=>{localStorage.clear();sessionStorage.clear();window.location.href='auth.html'})}
 
-/* ── TOAST (new style) ── */
 function toast(msg,type='info'){
-  const w=document.getElementById('toastWrap');
-  const t=document.createElement('div');
-  t.className='toast '+(type==='success'?'success':type==='error'?'error':type==='warning'?'warning':'');
-  t.textContent=({success:'✅ ',error:'❌ ',warning:'⚠️ ',info:'ℹ️ '}[type]||'ℹ️ ')+msg;
-  w.appendChild(t);
-  setTimeout(()=>t.classList.add('show'),10);
-  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300)},4000)
+  const c=document.getElementById('toasts');
+  const el=document.createElement('div');
+  const cols={success:'background:#166534;color:#bbf7d0',error:'background:#991b1b;color:#fecaca',info:'background:#163450;color:#93c5fd',warning:'background:#78350f;color:#fde68a'};
+  el.style.cssText=`padding:.75rem 1.1rem;border-radius:10px;font-size:.82rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.4);${cols[type]||cols.info}`;
+  el.textContent=msg;c.appendChild(el);setTimeout(()=>el.remove(),3500)
 }
 function openMdl(id){document.getElementById(id).classList.add('open')}
 function closeMdl(id){document.getElementById(id).classList.remove('open')}
 
-/* ── PAGE TITLES ── */
 const TITLES={
   dashboard:['Dashboard','Your teaching overview'],
   profile:['My Profile','Personal information'],
@@ -843,11 +616,11 @@ const TITLES={
   classes:['My Classes','Departments and semesters'],
   students:['My Students','Students in your classes'],
   attendance:['Attendance','Record student attendance'],
+  qr:['Generate QR','QR-based attendance for class'],
   marks:['Marks Entry','Enter CA, midterm and endterm marks'],
   exams:['Exams','Create and manage online exams'],
   materials:['Study Materials','Upload resources for students'],
   online:['Online Classes','Schedule and manage virtual sessions'],
-  changepassword:['Change Password','Update your account password'],
 };
 
 function go(v){
@@ -860,7 +633,6 @@ function go(v){
   document.getElementById('pageSub').textContent=s;
   stopQR();
   loadView(v);
-  if(window.innerWidth<=768)closeSidebar();
 }
 
 function loadView(v){
@@ -882,6 +654,7 @@ async function init(){
   if(!getToken())return;
   document.getElementById('dateBadge').textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
   document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',month:'long',day:'numeric'});
+  // Load teacher profile for sidebar
   const pr=await api('/api/teacher/profile');
   if(pr.success&&pr.profile){
     const p=pr.profile;
@@ -889,9 +662,8 @@ async function init(){
     document.getElementById('sbName').textContent=n;
     document.getElementById('sbCode').textContent=p.UserCode||p.TeacherCode||'';
     document.getElementById('av').textContent=n.charAt(0).toUpperCase();
-    document.getElementById('topAvatar').textContent=n.charAt(0).toUpperCase();
-    document.getElementById('topName').textContent=n.split(' ')[0]||n;
   }
+  // Pre-load subjects into all selects
   await loadSubjectsIntoSelects();
   loadDash();
 }
@@ -904,12 +676,21 @@ async function loadSubjectsIntoSelects(){
     if(tt.timetable&&tt.timetable.length){
       const seen=new Set();
       tt.timetable.forEach(function(r){
-        if(!seen.has(r.SubjectID)){seen.add(r.SubjectID);mySubjects.push({SubjectID:r.SubjectID,SubjectName:r.SubjectName,SubjectCode:r.SubjectCode,Semester:r.Semester,DepartmentID:r.DepartmentID,DepartmentName:r.DepartmentName,IsLab:r.IsLab||0,Credits:'--'});}
+        if(!seen.has(r.SubjectID)){
+          seen.add(r.SubjectID);
+          mySubjects.push({SubjectID:r.SubjectID,SubjectName:r.SubjectName,SubjectCode:r.SubjectCode,
+            Semester:r.Semester,DepartmentID:r.DepartmentID,DepartmentName:r.DepartmentName,IsLab:r.IsLab||0,Credits:'--'});
+        }
       });
     }
   }
-  const opts='<option value="">-- Select Subject --</option>'+mySubjects.map(function(s){return '<option value="'+s.SubjectID+'">'+s.SubjectName+' ('+(s.SubjectCode||'')+') - Sem '+(s.Semester||'?')+'</option>';}).join('');
-  ['marksSubject','examSubject','matSubject','ocSubject'].forEach(function(id){const sel=document.getElementById(id);if(sel)sel.innerHTML=opts;});
+  const opts='<option value="">-- Select Subject --</option>'+
+    mySubjects.map(function(s){return '<option value="'+s.SubjectID+'">'+s.SubjectName+' ('+( s.SubjectCode||'')+') - Sem '+(s.Semester||'?')+'</option>';}).join('');
+  // Only populate selects that actually exist in the DOM
+  ['marksSubject','examSubject','matSubject','ocSubject'].forEach(function(id){
+    const sel=document.getElementById(id);
+    if(sel) sel.innerHTML=opts;
+  });
 }
 
 /* ══════════════════════════ DASHBOARD ══════════════════════════ */
@@ -924,15 +705,15 @@ async function loadDash(){
   const sched=s.todaysSchedule||[];
   const el=document.getElementById('todayList');
   if(!sched.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">🌴</span><div class="empty-text">No classes today</div><div class="empty-sub">Enjoy your free day!</div></div>';
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">No classes today</div><div class="empty-sub">Enjoy your free day!</div></div>`;
   }else{
-    el.innerHTML=sched.map(c=>`<div style="display:flex;gap:.85rem;padding:.75rem;background:var(--bg);border-radius:var(--r);margin-bottom:.5rem;border:1px solid var(--border)">
-      <div style="background:var(--blue-lt);color:var(--blue);padding:.4rem .7rem;border-radius:8px;font-size:.7rem;font-weight:700;font-family:var(--font-mono);white-space:nowrap;flex-shrink:0">${c.StartTime||''}${c.EndTime?'–'+c.EndTime:''}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:.84rem;font-weight:700;color:var(--ink)">${c.SubjectName||''} <span style="font-family:var(--font-mono);color:var(--muted);font-size:.7rem">(${c.SubjectCode||''})</span></div>
-        <div style="font-size:.72rem;color:var(--muted);margin-top:.1rem">${c.ClassName||''} · Room ${c.RoomNumber||'TBD'}</div>
+    el.innerHTML=sched.map(c=>`<div style="display:flex;gap:.85rem;padding:.75rem;background:var(--bg3);border-radius:var(--r-sm);margin-bottom:.5rem">
+      <div style="background:var(--orange-bg);color:var(--orange);padding:.4rem .7rem;border-radius:var(--r-sm);font-size:.72rem;font-weight:700;font-family:var(--mono);white-space:nowrap">${c.StartTime||''}${c.EndTime?'–'+c.EndTime:''}</div>
+      <div style="flex:1">
+        <div style="font-size:.83rem;font-weight:700">${c.SubjectName||''} <span style="font-family:var(--mono);color:var(--text3);font-size:.72rem">(${c.SubjectCode||''})</span></div>
+        <div style="font-size:.72rem;color:var(--text3)">${c.ClassName||''} · Room ${c.RoomNumber||'TBD'}</div>
       </div>
-      ${c.IsLab?'<span class="badge badge-purple">LAB</span>':'<span class="badge badge-blue">Theory</span>'}
+      ${c.IsLab?'<span class="badge badge-purple">LAB</span>':'<span class="badge badge-orange">Theory</span>'}
     </div>`).join('');
   }
 }
@@ -943,52 +724,38 @@ async function loadProfile(){
   const el=document.getElementById('profileData');
   if(!d.success||!d.profile){el.innerHTML='<div class="alert alert-error">Profile not found</div>';return}
   const p=d.profile;
-  const initials=((p.FullName||'T').split(' ').map(w=>w[0]).join('').slice(0,2)).toUpperCase();
   el.innerHTML=`
-    <div style="display:flex;gap:2rem;align-items:flex-start;flex-wrap:wrap">
-      <!-- LEFT: avatar + identity -->
-      <div style="display:flex;flex-direction:column;align-items:center;gap:.85rem;min-width:180px;padding:1.25rem;background:var(--bg);border-radius:var(--r-lg);border:1px solid var(--border);flex-shrink:0">
-        <div class="profile-avatar" style="font-size:2.2rem;width:90px;height:90px">${initials}</div>
-        <div style="text-align:center">
-          <div style="font-family:var(--font-hd);font-size:1rem;font-weight:800;color:var(--ink);line-height:1.3">${p.FullName||'—'}</div>
-          <div style="font-size:.78rem;color:var(--blue);font-weight:600;margin-top:.3rem">${p.Designation||'Faculty'}</div>
-          <div style="font-size:.68rem;color:var(--muted);font-family:var(--font-mono);margin-top:.2rem;background:var(--border2);padding:.18rem .55rem;border-radius:100px;display:inline-block;margin-top:.4rem">${p.UserCode||p.TeacherCode||'—'}</div>
-        </div>
-        <div style="width:100%;border-top:1px solid var(--border);padding-top:.85rem;display:flex;flex-direction:column;gap:.55rem">
-          <div style="display:flex;align-items:center;gap:.5rem;font-size:.76rem;color:var(--muted)">
-            <span style="font-size:.95rem">📚</span>
-            <span><strong style="color:var(--ink)">${p.subjectCount||'—'}</strong> Subjects</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:.5rem;font-size:.76rem;color:var(--muted)">
-            <span style="font-size:.95rem">🗓️</span>
-            <span><strong style="color:var(--ink)">${p.periodsPerWeek||'—'}</strong> Periods/Week</span>
-          </div>
-        </div>
+    <div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--orange),#f59e0b);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;flex-shrink:0">${(p.FullName||'T').charAt(0)}</div>
+      <div>
+        <div style="font-size:1.1rem;font-weight:800">${p.FullName||'—'}</div>
+        <div style="font-size:.82rem;color:var(--orange);font-weight:600">${p.Designation||'Faculty'}</div>
+        <div style="font-size:.75rem;color:var(--text3);font-family:var(--mono)">${p.UserCode||p.TeacherCode||'—'}</div>
       </div>
-      <!-- RIGHT: details grid -->
-      <div style="flex:1;min-width:240px">
-        <div style="font-family:var(--font-hd);font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.85rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)">Personal Information</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
-          ${[['Full Name',p.FullName],['Teacher ID',p.UserCode||p.TeacherCode],['Email',p.Email],['Phone',p.Phone||'—'],['Department',p.DepartmentName],['Join Date',p.JoiningDate||p.JoinDate||'—'],['Gender',p.Gender||'—'],['Date of Birth',p.DateOfBirth||'—']].map(([l,v])=>`
-            <div class="profile-info-row"><div class="pir-label">${l}</div><div class="pir-value">${v||'—'}</div></div>`).join('')}
-        </div>
-      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem 1.5rem;font-size:.83rem">
+      ${[['Full Name',p.FullName],['Teacher Code',p.UserCode||p.TeacherCode],['Email',p.Email],['Phone',p.Phone||'—'],['Department',p.DepartmentName],['Joining Date',p.JoiningDate||p.JoinDate||'—'],['Gender',p.Gender||'—'],['Date of Birth',p.DateOfBirth||'—'],['Subjects Assigned',p.subjectCount||'—'],['Periods/Week',p.periodsPerWeek||'—']].map(([l,v])=>`
+        <div><div style="font-size:.71rem;color:var(--text3);margin-bottom:.2rem">${l}</div><div style="font-weight:600">${v||'—'}</div></div>`).join('')}
     </div>`;
 }
 
-/* ════════════════════════════ TIMETABLE ════════════════════════════ */
+/* ═══════════════════════ TIMETABLE ═══════════════════════ */
 let _attCache={};
 
 async function loadTT(){
   const wrap=document.getElementById('ttWrap');
-  wrap.innerHTML='<div class="loading-wrap"><div class="spinner"></div> Loading timetable…</div>';
+  wrap.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
   const d=await api('/api/teacher/timetable');
   if(!d.success||!(d.timetable&&d.timetable.length)){
-    wrap.innerHTML='<div class="empty"><span class="empty-icon">📅</span><div class="empty-text">No timetable found</div><div class="empty-sub">Contact admin to assign classes</div></div>';return;
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable found</div><div class="empty-sub">Contact admin to assign classes</div></div>';return;
   }
   const hist=await api('/api/teacher/attendance/history');
   _attCache={};
-  (hist.attendance||[]).forEach(function(a){if(a.SubjectID&&a.AttendanceDate)_attCache[String(a.SubjectID)+'_'+a.AttendanceDate]=true;});
+  // Build a Set of "subjectId_date" strings for fast lookup
+  (hist.attendance||[]).forEach(function(a){
+    if(a.SubjectID && a.AttendanceDate)
+      _attCache[String(a.SubjectID)+'_'+a.AttendanceDate]=true;
+  });
   const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];
   const times=[...new Set(d.timetable.map(function(r){return r.StartTime;}))].sort();
   const mp={};d.timetable.forEach(function(r){mp[r.DayOfWeek+'_'+r.StartTime]=r;});
@@ -1000,43 +767,46 @@ async function loadTT(){
   let h='<div class="tt-grid"><div class="tt-hdr">Time</div>';
   days.forEach(function(day){
     const isT=day===todayName;
-    h+='<div class="tt-hdr" style="color:'+(isT?'var(--blue)':'')+'">'+day.slice(0,3)+(isT?' <span style="font-size:.55rem;background:var(--blue-lt);color:var(--blue);padding:.08rem .3rem;border-radius:100px;margin-left:.2rem;font-family:var(--font-hd)">TODAY</span>':'')+'</div>';
+    h+='<div class="tt-hdr" style="color:'+(isT?'var(--orange)':'var(--text2)')+'">'+day.slice(0,3)+(isT?' <span style="font-size:.55rem;background:var(--orange-bg);color:var(--orange);padding:.1rem .3rem;border-radius:100px;margin-left:.2rem">TODAY</span>':'')+'</div>';
   });
   times.forEach(function(t){
     const tStr=String(t||'').slice(0,5);
-    h+='<div class="tt-time"><strong>'+tStr+'</strong></div>';
+    h+='<div class="tt-time"><span style="font-weight:700">'+tStr+'</span></div>';
     days.forEach(function(day){
       const c=mp[day+'_'+t];
       if(!c){h+='<div class="tt-cell"></div>';return;}
       const dd=getDayDate(day);
       const isT=day===todayName,isPast=dd<todayStr,isFut=dd>todayStr;
       const done=!!_attCache[String(c.SubjectID)+'_'+dd];
-      let cls='tt-cell tt-has',badge='',clickable=false,locked=false;
+      let cs='',tc='',badge='',clickable=false,locked=false;
       if(isFut){
-        cls+=' tt-cell-upcoming';
-        badge='<div class="tt-badge"><span class="badge badge-blue" style="font-size:.58rem">🔵 Upcoming</span></div>';
-      }else if(done){
-        cls+=' tt-cell-done';
-        badge='<div class="tt-badge"><span class="badge badge-green" style="font-size:.58rem">✅ Done</span></div>';
+        cs='background:rgba(30,58,95,.5);border:1px solid rgba(59,130,246,.3);cursor:not-allowed;opacity:.75';tc='color:#60a5fa';
+        badge='<span style="font-size:.55rem;background:rgba(59,130,246,.15);color:#60a5fa;padding:.1rem .35rem;border-radius:100px;font-weight:700">UPCOMING</span>';
+      } else if(done){
+        cs='background:rgba(20,60,35,.6);border:1px solid rgba(34,197,94,.4);cursor:pointer';tc='color:#4ade80';
+        badge='<span style="font-size:.55rem;background:rgba(34,197,94,.15);color:#4ade80;padding:.1rem .35rem;border-radius:100px;font-weight:700">&#x2713; DONE</span>';
         clickable=true;locked=true;
-      }else if(isT){
-        cls+=' tt-cell-today';
-        badge='<div class="tt-badge"><span class="badge badge-amber" style="font-size:.58rem">🟡 Take Now</span></div>';
+      } else if(isT){
+        cs='background:rgba(80,50,0,.55);border:2px solid rgba(245,158,11,.55);cursor:pointer';tc='color:#fbbf24';
+        badge='<span style="font-size:.55rem;background:rgba(245,158,11,.18);color:#fbbf24;padding:.1rem .35rem;border-radius:100px;font-weight:700">TAKE NOW</span>';
         clickable=true;
-      }else if(isPast){
-        cls+=' tt-cell-missed';
-        badge='<div class="tt-badge"><span class="badge badge-red" style="font-size:.58rem">🔴 Missed</span></div>';
+      } else if(isPast){
+        cs='background:rgba(80,15,15,.55);border:1px solid rgba(239,68,68,.35);cursor:pointer';tc='color:#f87171';
+        badge='<span style="font-size:.55rem;background:rgba(239,68,68,.15);color:#f87171;padding:.1rem .35rem;border-radius:100px;font-weight:700">MISSED</span>';
         clickable=true;
       }
-      if(clickable)cls+=';cursor:pointer';
-      const dataAttrs=clickable?'data-sid="'+c.SubjectID+'" data-name="'+encodeURIComponent(c.SubjectName||'')+'" data-date="'+dd+'" data-dept="'+c.DepartmentID+'" data-sem="'+c.Semester+'" data-locked="'+(locked?1:0)+'" onclick="ttCellClick(this)"':'';
-      h+='<div class="'+cls+'" '+dataAttrs+'>'
-        +'<div class="tt-subj">'+(c.SubjectName||'')+'</div>'
-        +'<div class="tt-meta">📍 '+(c.RoomNumber||'TBD')+' · '+tStr+'</div>'
-        +badge+'</div>';
+      const dataAttrs=clickable
+        ? 'data-sid="'+c.SubjectID+'" data-name="'+encodeURIComponent(c.SubjectName||'')+'" data-date="'+dd+'" data-dept="'+c.DepartmentID+'" data-sem="'+c.Semester+'" data-locked="'+(locked?1:0)+'" onclick="ttCellClick(this)"'
+        : '';
+      h+='<div class="tt-cell tt-has '+(c.IsLab?'tt-lab':'')+'" style="'+cs+';padding:.65rem" '+dataAttrs+'>'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.2rem;margin-bottom:.3rem">'+
+        '<div class="tt-subj" style="'+tc+'">'+(c.SubjectName||'')+'</div>'+badge+'</div>'+
+        '<div class="tt-class">&#x1F3EB; '+(c.ClassName||'')+'</div>'+
+        '<div class="tt-room">&#x1F4CD; '+(c.RoomNumber||'TBD')+' &middot; '+tStr+'</div></div>';
     });
   });
-  h+='</div>';
+  h+='</div><div style="display:flex;gap:.75rem;margin-top:.85rem;font-size:.72rem;flex-wrap:wrap">'+
+    '<span>🟢 Done</span><span>🔴 Missed</span><span>🟡 Today–Take Now</span><span>🔵 Upcoming</span></div>';
   wrap.innerHTML=h;
 }
 
@@ -1053,23 +823,22 @@ function ttCellClick(el){
 /* ═══════════════════════ SUBJECTS ═══════════════════════ */
 async function loadSubjs(){
   const el=document.getElementById('subjList');
-  el.innerHTML='<div class="loading-wrap"><div class="spinner"></div> Loading subjects…</div>';
+  el.innerHTML='<div class="loading"><div class="spinner"></div> Loading subjects...</div>';
   await loadSubjectsIntoSelects();
   if(!mySubjects.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">📚</span><div class="empty-text">No subjects assigned</div><div class="empty-sub">Contact admin to assign subjects</div></div>';return;
+    el.innerHTML='<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">No subjects assigned</div><div class="empty-sub">Contact admin to assign subjects</div></div>';return;
   }
-  el.innerHTML='<div class="subjects-grid">'+mySubjects.map(function(s){
-    return '<div class="subj-card">'
-      +'<div class="subj-code">'+(s.SubjectCode||'—')+'</div>'
-      +'<div class="subj-name">'+(s.SubjectName||'')+'</div>'
-      +'<div class="subj-meta">'
-      +'<span class="badge badge-blue">Sem '+(s.Semester||'—')+'</span>'
-      +'<span class="badge '+(s.IsLab?'badge-purple':'badge-teal')+'">'+(s.IsLab?'Lab':'Theory')+'</span>'
-      +(s.Credits&&s.Credits!='--'?'<span class="badge badge-gray">'+s.Credits+' Credits</span>':'')
-      +'</div>'
-      +'<div style="font-size:.72rem;color:var(--muted);margin-top:.5rem">🏢 '+(s.DepartmentName||'—')+'</div>'
-      +'</div>';
-  }).join('')+'</div>';
+  let rows='';
+  mySubjects.forEach(function(s,i){
+    rows+='<tr><td style="color:var(--text3)">'+(i+1)+'</td>'+
+      '<td><span style="font-family:var(--mono);color:var(--amber)">'+(s.SubjectCode||'')+'</span></td>'+
+      '<td style="font-weight:600">'+(s.SubjectName||'')+'</td>'+
+      '<td>'+(s.Credits||'--')+'</td>'+
+      '<td><span class="badge '+(s.IsLab?'badge-purple':'badge-orange')+'">'+(s.IsLab?'Lab':'Theory')+'</span></td>'+
+      '<td>Sem '+(s.Semester||'--')+'</td>'+
+      '<td style="color:var(--text3)">'+(s.DepartmentName||'--')+'</td></tr>';
+  });
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Code</th><th>Name</th><th>Credits</th><th>Type</th><th>Semester</th><th>Department</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 /* ══════════════════════════ CLASSES ══════════════════════════ */
@@ -1077,178 +846,268 @@ async function loadClasses(){
   const d=await api('/api/teacher/classes');
   const el=document.getElementById('classesList');
   if(!d.success||!d.classes?.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">🏫</span><div class="empty-text">No classes found</div></div>';return;
+    el.innerHTML=`<div class="empty"><div class="empty-icon">🏫</div><div class="empty-text">No classes found</div></div>`;return
   }
-  el.innerHTML='<div class="classes-grid">'+d.classes.map(c=>`
-    <div class="class-card">
-      <div class="class-name">${c.ClassName||''}</div>
-      <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">🏢 ${c.DepartmentName||''}</div>
-      <div style="display:flex;gap:.5rem;margin-top:.6rem">
-        <span class="badge badge-blue">📚 ${c.subjectCount||0} subjects</span>
-        <span class="badge badge-green">👥 ${c.studentCount||0} students</span>
-      </div>
-    </div>`).join('')+'</div>';
+  el.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem">
+    ${d.classes.map(c=>`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:1.25rem">
+      <div style="font-size:.95rem;font-weight:800;margin-bottom:.5rem;color:var(--orange)">${c.ClassName||''}</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:.3rem">🏢 ${c.DepartmentName||''}</div>
+      <div style="font-size:.78rem;color:var(--text3);margin-bottom:.3rem">📚 ${c.subjectCount||0} subject${c.subjectCount!==1?'s':''}</div>
+      <div style="font-size:.78rem;color:var(--text3)">👥 ${c.studentCount||0} student${c.studentCount!==1?'s':''}</div>
+    </div>`).join('')}
+  </div>`;
 }
 
 /* ══════════════════════════ MY STUDENTS ══════════════════════════ */
-let _allStudentsData=[], _studClassesData=[];
+// ── My Students state ──────────────────────────────────────
+let _allStudentsData = [];
+let _studClassesData = [];
 
-async function loadStudents(){
-  const el=document.getElementById('studentsList');
-  el.innerHTML='<div class="loading-wrap"><div class="spinner"></div> Loading…</div>';
-  const d=await api('/api/teacher/my-students');
-  if(!d.success){el.innerHTML='<div class="empty"><span class="empty-icon">⚠️</span><div class="empty-text">Failed to load students</div></div>';return;}
-  _allStudentsData=d.students||[];_studClassesData=d.classes||[];
-  const cf=document.getElementById('studClassFilter');
-  cf.innerHTML='<option value="">— All Classes —</option>'+_studClassesData.map(c=>`<option value="${c.DepartmentID}|${c.Semester}">${c.Label}</option>`).join('');
+async function loadStudents() {
+  const el = document.getElementById('studentsList');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+  const d = await api('/api/teacher/my-students');
+  if (!d.success) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Failed to load students</div></div>';
+    return;
+  }
+  _allStudentsData = d.students || [];
+  _studClassesData = d.classes || [];
+
+  // Populate class filter dropdown
+  const cf = document.getElementById('studClassFilter');
+  cf.innerHTML = '<option value="">— All Classes —</option>'
+    + _studClassesData.map(c =>
+        `<option value="${c.DepartmentID}|${c.Semester}">${c.Label}</option>`
+      ).join('');
+
   renderStudentTable();
 }
 
-function renderStudentTable(){
-  const el=document.getElementById('studentsList');
-  const filterVal=(document.getElementById('studClassFilter')||{}).value||'';
-  const search=((document.getElementById('studSearchBox')||{}).value||'').toLowerCase().trim();
-  let filtered=_allStudentsData;
-  if(filterVal){const[deptId,sem]=filterVal.split('|');filtered=filtered.filter(s=>String(s.DepartmentID)===deptId&&String(s.Semester)===sem);}
-  if(search){filtered=filtered.filter(s=>(s.FullName||'').toLowerCase().includes(search)||(s.RollNumber||'').toLowerCase().includes(search)||(s.Email||'').toLowerCase().includes(search));}
-  let subtitle='All classes';
-  if(filterVal){const cls=_studClassesData.find(c=>c.DepartmentID+'|'+c.Semester===filterVal);subtitle=cls?cls.Label:filterVal;}
-  const subtitleEl=document.getElementById('studentsSubtitle');if(subtitleEl)subtitleEl.textContent=subtitle;
-  const countEl=document.getElementById('studCount');if(countEl)countEl.textContent=filtered.length;
-  if(!filtered.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">👥</span><div class="empty-text">No students found</div><div class="empty-sub">'+(search?'Try a different search term':'No students in this class')+'</div></div>';return;
+function renderStudentTable() {
+  const el = document.getElementById('studentsList');
+  const filterVal = (document.getElementById('studClassFilter') || {}).value || '';
+  const search = ((document.getElementById('studSearchBox') || {}).value || '').toLowerCase().trim();
+  const clearBtn = document.getElementById('studSearchClear');
+  if (clearBtn) clearBtn.style.display = search ? 'block' : 'none';
+
+  // Filter by class
+  let filtered = _allStudentsData;
+  if (filterVal) {
+    const [deptId, sem] = filterVal.split('|');
+    filtered = filtered.filter(s =>
+      String(s.DepartmentID) === deptId && String(s.Semester) === sem
+    );
   }
-  const avatarColors=['#2563EB','#7c3aed','#0891b2','#059669','#d97706','#dc2626','#db2777'];
-  const rows=filtered.map((s,i)=>{
-    const col=avatarColors[(s.FullName||'').charCodeAt(0)%avatarColors.length];
-    const initials=((s.FullName||'?').split(' ').map(w=>w[0]).join('').slice(0,2)).toUpperCase();
+
+  // Filter by search — matches name, email, or Student ID (e.g. 20241CSE1001)
+  if (search) {
+    filtered = filtered.filter(s =>
+      (s.FullName || '').toLowerCase().includes(search) ||
+      (s.RollNumber || '').toLowerCase().includes(search) ||
+      (s.Email || '').toLowerCase().includes(search)
+    );
+  }
+
+  // Update subtitle and count
+  let subtitle = 'All classes';
+  if (filterVal) {
+    const cls = _studClassesData.find(c => c.DepartmentID + '|' + c.Semester === filterVal);
+    subtitle = cls ? cls.Label : filterVal;
+  }
+  const subtitleEl = document.getElementById('studentsSubtitle');
+  if (subtitleEl) subtitleEl.textContent = subtitle;
+  const countEl = document.getElementById('studCount');
+  if (countEl) countEl.textContent = filtered.length;
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found</div>'
+      + '<div class="empty-sub">' + (search ? 'Try a different search term' : 'No students in this class') + '</div></div>';
+    return;
+  }
+
+  const rows = filtered.map((s, i) => {
+    const sid = s.RollNumber || '';
     return `<tr>
-    <td style="color:var(--muted-l);font-size:.78rem">${i+1}</td>
-    <td><span style="font-family:var(--font-mono);color:var(--blue);font-weight:700;font-size:.8rem">${s.RollNumber||'—'}</span></td>
-    <td>
-      <div style="display:flex;align-items:center;gap:.65rem">
-        <div class="stu-av" style="background:${col}">${initials}</div>
-        <div>
-          <div style="font-weight:600;color:var(--ink);font-size:.83rem">${s.FullName||''}</div>
-          <div style="font-size:.7rem;color:var(--muted)">${s.Email||'—'}</div>
-        </div>
-      </div>
-    </td>
-    <td><span class="badge badge-blue">Sem ${s.Semester||'—'}</span></td>
-    <td style="color:var(--muted)">${s.Gender||'—'}</td>
-    <td style="color:var(--muted)">${s.DepartmentName||'—'}</td>
-    <td style="color:var(--muted-l);font-family:var(--font-mono);font-size:.78rem">${s.Phone||'—'}</td>
-  </tr>`;}).join('');
-  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Student ID</th><th>Name / Email</th><th>Semester</th><th>Gender</th><th>Department</th><th>Phone</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+      <td style="color:var(--text3);font-size:.8rem">${i + 1}</td>
+      <td><span style="font-family:var(--mono);color:var(--orange);font-weight:700;font-size:.82rem;letter-spacing:.03em">${sid}</span></td>
+      <td style="font-weight:600">${s.FullName || ''}</td>
+      <td><span style="background:var(--bg4);padding:.15rem .45rem;border-radius:.3rem;font-size:.75rem">Sem ${s.Semester || '—'}</span></td>
+      <td style="color:var(--text2)">${s.Gender || '—'}</td>
+      <td style="color:var(--text3);font-size:.8rem">${s.DepartmentName || '—'}</td>
+      <td style="color:var(--text3);font-size:.73rem">${s.Email || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th>#</th><th>Student ID</th><th>Name</th><th>Semester</th><th>Gender</th><th>Department</th><th>Email</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
 }
 
-/* ═══════════════════════ ATTENDANCE + QR ═══════════════════════ */
-let attRosterData=[],_attSubjId=null,_attDate=null,_attDeptId=null,_attSem=null,_attLocked=false;
-let qrToken=null,qrInterval=null,qrCountdownInt=null;
+/* ═══════════════════════ ATTENDANCE + FACE RECOGNITION ═══════════════════════ */
+let attRosterData=[], _attSubjId=null, _attDate=null, _attDeptId=null, _attSem=null, _attLocked=false;
+let _faceSessionToken=null, _faceStream=null, _faceScanInterval=null, _faceStatusInterval=null;
+let _faceRecognised=new Map();   // studentId → { FullName, RollNumber }
+let _faceAllStudents=[];         // full student list for this class
 
+/* ── Tab switcher ── */
 function switchAttTab(tab){
-  const isManual=tab==='manual';
-  document.getElementById('tabManual').style.display=isManual?'block':'none';
-  document.getElementById('tabQR').style.display=isManual?'none':'block';
-  const mb=document.getElementById('tabManualBtn'),qb=document.getElementById('tabQRBtn');
-  mb.style.background=isManual?'var(--blue)':'transparent';mb.style.color=isManual?'#fff':'var(--muted)';
-  qb.style.background=isManual?'transparent':'var(--blue)';qb.style.color=isManual?'var(--muted)':'#fff';
-  if(!isManual&&_attSubjId&&_attDate&&!_attLocked)genQR();
+  const isManual = tab==='manual', isFace = tab==='face';
+  document.getElementById('tabManual').style.display = isManual ? 'block' : 'none';
+  document.getElementById('tabFace').style.display   = isFace   ? 'block' : 'none';
+  const mb=document.getElementById('tabManualBtn');
+  const fb=document.getElementById('tabFaceBtn');
+  mb.style.background = isManual ? 'var(--orange)' : 'transparent';
+  mb.style.color      = isManual ? '#fff' : 'var(--text2)';
+  fb.style.background = isFace   ? 'var(--orange)' : 'transparent';
+  fb.style.color      = isFace   ? '#fff' : 'var(--text2)';
+  if(isFace && _attSubjId && _attDate && !_attLocked) initFaceSession();
+  if(!isFace) stopFaceCamera();
 }
 
-function openAttFromTT(subjectId,subjectName,date,deptId,semester,alreadyDone){
-  _attSubjId=subjectId;_attDate=date;_attDeptId=deptId;_attSem=semester;_attLocked=alreadyDone;stopQR();
-  const fmt=new Date(date+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('attContextSub').textContent=subjectName+'  ·  '+fmt;
+/* ── Called when teacher clicks a timetable cell ── */
+function openAttFromTT(subjectId, subjectName, date, deptId, semester, alreadyDone){
+  _attSubjId  = subjectId;
+  _attDate    = date;
+  _attDeptId  = deptId;
+  _attSem     = semester;
+  _attLocked  = alreadyDone;
+  stopFaceCamera();
+
+  const fmt = new Date(date + 'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('attContextSub').textContent = subjectName + '  ·  ' + fmt;
+
   document.querySelectorAll('.view').forEach(function(e){e.classList.remove('active');});
   document.getElementById('view-attendance').classList.add('active');
   document.querySelectorAll('.nav-item').forEach(function(e){e.classList.remove('active');});
-  document.getElementById('pageTitle').textContent='Attendance';
-  document.getElementById('pageSub').textContent=subjectName+' · '+date;
-  switchAttTab('manual');loadAttView();loadAttHistory();
+  document.getElementById('pageTitle').textContent = 'Attendance';
+  document.getElementById('pageSub').textContent   = subjectName + ' · ' + date;
+
+  switchAttTab('manual');
+  loadAttView();
+  loadAttHistory();
 }
 
+/* ── Load the roster or read-only view ── */
 async function loadAttView(){
-  const roster=document.getElementById('attRoster');
-  const locked=document.getElementById('attLockedBanner');
-  const saveBar=document.getElementById('attSaveBar');
-  const tabBar=document.getElementById('attTabBar');
-  if(!_attSubjId||!_attDate){
-    roster.innerHTML='<div class="empty"><span class="empty-icon">📋</span><div class="empty-text">Click a class on the timetable</div></div>';
-    locked.style.display='none';saveBar.style.display='none';tabBar.style.display='none';return;
+  const roster  = document.getElementById('attRoster');
+  const locked  = document.getElementById('attLockedBanner');
+  const saveBar = document.getElementById('attSaveBar');
+  const tabBar  = document.getElementById('attTabBar');
+
+  if(!_attSubjId || !_attDate){
+    roster.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable</div></div>';
+    locked.style.display='none'; saveBar.style.display='none'; tabBar.style.display='none';
+    return;
   }
-  roster.innerHTML='<div class="loading-wrap"><div class="spinner"></div> Loading students…</div>';
-  const d=await api('/api/teacher/students/by-class/'+_attDeptId+'/'+_attSem);
-  if(!d.success||!(d.students&&d.students.length)){
-    roster.innerHTML='<div class="empty"><span class="empty-icon">👥</span><div class="empty-text">No students found for this class</div></div>';return;
+
+  roster.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
+  const d = await api('/api/teacher/students/by-class/' + _attDeptId + '/' + _attSem);
+  if(!d.success || !(d.students && d.students.length)){
+    roster.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F465;</div><div class="empty-text">No students found for this class</div></div>';
+    return;
   }
+
+  _faceAllStudents = d.students;
+
+  // Populate manual-override dropdown in face tab
+  const sel = document.getElementById('faceManualStudent');
+  if(sel){
+    sel.innerHTML = '<option value="">— Select student —</option>' +
+      d.students.map(function(s){
+        return '<option value="'+s.StudentID+'">'+s.FullName+' ('+s.RollNumber+')</option>';
+      }).join('');
+  }
+
   if(_attLocked){
-    locked.style.display='block';saveBar.style.display='none';tabBar.style.display='none';
-    const hist=await api('/api/teacher/attendance/history');
-    const dayRecs=(hist.attendance||[]).filter(function(a){return String(a.SubjectID)===String(_attSubjId)&&a.AttendanceDate===_attDate;});
+    locked.style.display  = 'block';
+    saveBar.style.display = 'none';
+    tabBar.style.display  = 'none';
+    const hist = await api('/api/teacher/attendance/history');
+    const dayRecs = (hist.attendance||[]).filter(function(a){
+      return String(a.SubjectID)===String(_attSubjId) && a.AttendanceDate===_attDate;
+    });
     let rows='';
     d.students.forEach(function(s,i){
       const rec=dayRecs.find(function(a){return a.UserCode===s.RollNumber;})||{};
       const st=rec.Status||'—';
       const cls=st==='Present'?'badge-green':st==='Absent'?'badge-red':'badge-amber';
-      rows+='<div class="roster-row"><span style="color:var(--muted-l);font-size:.8rem">'+(i+1)+'</span>'
-        +'<div><div style="font-weight:600;font-size:.83rem;color:var(--ink)">'+(s.FullName||'')+'</div>'
-        +'<div style="font-family:var(--font-mono);color:var(--blue);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'
-        +'<span class="badge '+cls+'">'+st+'</span></div>';
+      rows+='<div style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.6rem 1rem;border-bottom:1px solid var(--border)">'
+           +'<span style="color:var(--text3)">'+(i+1)+'</span>'
+           +'<div><div style="font-weight:600;font-size:.83rem">'+(s.FullName||'')+'</div>'
+           +'<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'
+           +'<span class="badge '+cls+'">'+st+'</span></div>';
     });
-    roster.innerHTML='<div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">'+rows+'</div>';return;
+    roster.innerHTML='<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">'+rows+'</div>';
+    return;
   }
-  locked.style.display='none';tabBar.style.display='block';saveBar.style.display='flex';
-  attRosterData=d.students.map(function(s){return Object.assign({},s,{status:'Present'});});
+
+  locked.style.display  = 'none';
+  tabBar.style.display  = 'block';
+  saveBar.style.display = 'flex';
+  attRosterData = d.students.map(function(s){ return Object.assign({},s,{status:'Present'}); });
   renderAttRoster();
+  updateFaceCounters();
 }
 
 function renderAttRoster(){
   const el=document.getElementById('attRoster');
   const present=attRosterData.filter(function(s){return s.status==='Present';}).length;
   const absent=attRosterData.filter(function(s){return s.status==='Absent';}).length;
-  let h='<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem;padding:.65rem 1rem;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">'
-    +'<span style="font-size:.8rem;color:var(--muted)">'+attRosterData.length+' students</span>'
-    +'<span class="badge badge-green">✅ Present: '+present+'</span>'
-    +'<span class="badge badge-red">❌ Absent: '+absent+'</span>'
-    +'<div style="margin-left:auto;display:flex;gap:.5rem">'
-    +'<button onclick="markAllPresent()" style="padding:.3rem .75rem;border-radius:100px;font-size:.74rem;font-weight:700;background:var(--green-lt);color:var(--green-d);border:1px solid rgba(34,197,94,.3);cursor:pointer;font-family:var(--font-hd)">All Present</button>'
-    +'<button onclick="markAllAbsent()" style="padding:.3rem .75rem;border-radius:100px;font-size:.74rem;font-weight:700;background:var(--red-lt);color:var(--red-d);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-family:var(--font-hd)">All Absent</button>'
-    +'</div></div>'
-    +'<div style="font-size:.73rem;color:var(--muted);margin-bottom:.6rem;padding:.38rem .75rem;background:var(--blue-lt);border-radius:8px;color:var(--blue-d)">👆 Tap a student name to toggle Present ↔ Absent</div>'
-    +'<div style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border)">';
+  let h='<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;padding:.6rem 1rem;background:var(--bg3);border-radius:var(--r-sm);flex-wrap:wrap">'
+      +'<span style="font-size:.8rem;color:var(--text3)">'+attRosterData.length+' students</span>'
+      +'<span class="badge badge-green">&#x2705; Present: '+present+'</span>'
+      +'<span class="badge badge-red">&#x274C; Absent: '+absent+'</span>'
+      +'<div style="margin-left:auto;display:flex;gap:.5rem">'
+      +'<button onclick="markAllPresent()" style="padding:.3rem .7rem;border-radius:5px;font-size:.75rem;font-weight:700;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);cursor:pointer">All Present</button>'
+      +'<button onclick="markAllAbsent()"  style="padding:.3rem .7rem;border-radius:5px;font-size:.75rem;font-weight:700;background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);cursor:pointer">All Absent</button>'
+      +'</div></div>'
+      +'<div style="font-size:.73rem;color:var(--text3);margin-bottom:.5rem;padding:.4rem .75rem;background:var(--bg4);border-radius:var(--r-sm)">&#x1F446; Tap a student to toggle Present &#x2194; Absent</div>'
+      +'<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">';
   attRosterData.forEach(function(s,i){
     const isP=s.status==='Present';
-    h+='<div class="roster-row" onclick="toggleAtt('+s.StudentID+')" style="cursor:pointer;background:'+(isP?'rgba(240,253,244,.6)':'rgba(254,242,242,.6)')+';border-left:3px solid '+(isP?'var(--green)':'var(--red)')+';">'
-      +'<span style="color:var(--muted-l);font-size:.8rem">'+(i+1)+'</span>'
-      +'<div><div style="font-weight:600;font-size:.83rem;color:var(--ink)">'+(s.FullName||'')+'</div>'
-      +'<div style="font-family:var(--font-mono);color:var(--blue);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'
-      +'<button class="att-toggle '+(isP?'present':'absent')+'">'+(isP?'✅ Present':'❌ Absent')+'</button>'
-      +'</div>';
+    h+='<div onclick="toggleAtt('+s.StudentID+')" style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;'
+      +'background:'+(isP?'rgba(20,60,35,.4)':'rgba(80,15,15,.35)')+';">'
+      +'<span style="color:var(--text3);font-size:.8rem">'+(i+1)+'</span>'
+      +'<div><div style="font-weight:600;font-size:.83rem">'+(s.FullName||'')+'</div>'
+      +'<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'
+      +'<span style="font-size:1.15rem">'+(isP?'&#x1F7E2;':'&#x1F534;')+'</span></div>';
   });
   h+='</div>';
   el.innerHTML=h;
 }
 
-function toggleAtt(sid){const s=attRosterData.find(function(x){return x.StudentID===sid||String(x.StudentID)===String(sid);});if(s){s.status=s.status==='Present'?'Absent':'Present';renderAttRoster();}}
+function toggleAtt(sid){
+  const s=attRosterData.find(function(x){return x.StudentID===sid||String(x.StudentID)===String(sid);});
+  if(s){s.status=s.status==='Present'?'Absent':'Present';renderAttRoster();}
+}
 function markAllPresent(){attRosterData.forEach(function(s){s.status='Present';});renderAttRoster();}
-function markAllAbsent(){attRosterData.forEach(function(s){s.status='Absent';});renderAttRoster();}
+function markAllAbsent() {attRosterData.forEach(function(s){s.status='Absent'; });renderAttRoster();}
 
 async function submitAttendance(){
   if(_attLocked){toast('Already saved — cannot change','warning');return;}
   if(!_attSubjId||!_attDate){toast('No class selected','warning');return;}
   if(!attRosterData.length){toast('No students loaded','warning');return;}
   const btn=document.getElementById('attSaveBtn');
-  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
   const records=attRosterData.map(function(s){return{studentId:s.StudentID,status:s.status};});
   const d=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate,attendance:records})});
-  if(btn){btn.disabled=false;btn.textContent='💾 Save Attendance';}
-  if(d.success){toast(d.message||'Attendance saved!','success');_attLocked=true;_attCache[String(_attSubjId)+'_'+_attDate]=true;loadAttView();loadAttHistory();loadTT();}
-  else{toast(d.error||'Failed to save','error');}
+  if(btn){btn.disabled=false;btn.textContent='&#x1F4BE; Save Attendance';}
+  if(d.success){
+    toast(d.message||'Attendance saved!','success');
+    _attLocked=true;
+    _attCache[String(_attSubjId)+'_'+_attDate]=true;
+    loadAttView(); loadAttHistory(); loadTT();
+  }else{
+    toast(d.error||'Failed to save','error');
+  }
 }
 
 async function loadAtt(){
-  document.getElementById('attRoster').innerHTML='<div class="empty"><span class="empty-icon">📋</span><div class="empty-text">Click a class on the timetable to begin</div></div>';
+  document.getElementById('attRoster').innerHTML='<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable to begin</div></div>';
   document.getElementById('attLockedBanner').style.display='none';
   document.getElementById('attSaveBar').style.display='none';
   document.getElementById('attTabBar').style.display='none';
@@ -1256,260 +1115,583 @@ async function loadAtt(){
 }
 
 async function loadAttHistory(){
-  const el=document.getElementById('attHistory');if(!el)return;
+  const el=document.getElementById('attHistory');
+  if(!el)return;
   const h=await api('/api/teacher/attendance/history');
-  if(!(h.attendance&&h.attendance.length)){el.innerHTML='<div class="empty"><div class="empty-sub">No attendance records yet</div></div>';return;}
+  if(!(h.attendance&&h.attendance.length)){
+    el.innerHTML='<div class="empty"><div class="empty-sub">No attendance records yet</div></div>';return;
+  }
   let rows='';
   h.attendance.slice(0,100).forEach(function(a){
     const cls=a.Status==='Present'?'badge-green':a.Status==='Late'?'badge-amber':'badge-red';
-    rows+='<tr><td style="font-family:var(--font-mono);font-size:.78rem">'+(a.AttendanceDate||'')+'</td>'
-      +'<td style="font-weight:600">'+(a.StudentName||'')+' <span style="color:var(--muted-l);font-size:.72rem">'+(a.UserCode||'')+'</span></td>'
-      +'<td>'+(a.SubjectName||'')+'</td>'
-      +'<td><span class="badge '+cls+'">'+(a.Status||'')+'</span></td></tr>';
+    rows+='<tr><td style="font-family:var(--mono);font-size:.78rem">'+(a.AttendanceDate||'')+'</td>'
+         +'<td>'+(a.StudentName||'')+' <span style="color:var(--text3);font-size:.72rem">'+(a.UserCode||'')+'</span></td>'
+         +'<td>'+(a.SubjectName||'')+'</td>'
+         +'<td><span class="badge '+cls+'">'+(a.Status||'')+'</span></td></tr>';
   });
   el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Subject</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
-/* ── QR CODE ── */
-function stopQR(){if(qrInterval){clearInterval(qrInterval);qrInterval=null;}if(qrCountdownInt){clearInterval(qrCountdownInt);qrCountdownInt=null;}}
+/* ═══════════════════ FACE RECOGNITION ATTENDANCE ═══════════════════ */
 
-function drawQRFallback(text){
-  const box=document.getElementById('qrBox');const encoded=encodeURIComponent(text);
-  const img=new Image();img.width=220;img.height=220;img.style.borderRadius='4px';img.alt='QR Code';
-  img.onerror=function(){const img2=new Image();img2.width=220;img2.height=220;img2.style.borderRadius='4px';img2.alt='QR Code';img2.onerror=function(){box.innerHTML='<div style="width:220px;height:220px;background:#fff;display:flex;align-items:center;justify-content:center;border-radius:4px;padding:1rem;box-sizing:border-box"><div style="color:#111;font-size:.62rem;word-break:break-all;text-align:center;font-family:monospace"><div style="font-weight:bold;margin-bottom:.5rem">QR Token:</div>'+text+'</div></div>';};img2.src='https://quickchart.io/qr?text='+encoded+'&size=220';box.innerHTML='';box.appendChild(img2);};
-  img.src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encoded;box.innerHTML='';box.appendChild(img);
+function stopFaceCamera(){
+  if(_faceStream){
+    _faceStream.getTracks().forEach(function(t){t.stop();});
+    _faceStream=null;
+  }
+  if(_faceScanInterval){clearInterval(_faceScanInterval);_faceScanInterval=null;}
+  if(_faceStatusInterval){clearInterval(_faceStatusInterval);_faceStatusInterval=null;}
+  const vid=document.getElementById('faceVideo');
+  if(vid)vid.srcObject=null;
+  const scanLine=document.getElementById('faceScanLine');
+  if(scanLine)scanLine.style.display='none';
+  const camStatus=document.getElementById('faceCamStatus');
+  if(camStatus)camStatus.textContent='Camera off';
+  const startBtn=document.getElementById('faceCamStartBtn');
+  const stopBtn=document.getElementById('faceCamStopBtn');
+  if(startBtn){startBtn.style.display='';startBtn.disabled=false;}
+  if(stopBtn)stopBtn.style.display='none';
 }
 
-async function genQR(){
-  if(!_attSubjId||!_attDate){toast('No class selected — click a timetable cell first','warning');return;}
-  stopQR();
-  document.getElementById('qrStatus').innerHTML='<div class="alert alert-info">⏳ Generating QR…</div>';
-  document.getElementById('qrCountdown').textContent='';document.getElementById('qrBox').innerHTML='';
-  const d=await api('/api/teacher/attendance/generate-qr',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate})});
-  if(!d.success){document.getElementById('qrStatus').innerHTML='<div class="alert alert-error">❌ '+(d.error||'Failed to generate QR')+'</div>';return;}
-  qrToken=d.qrToken||d.qrData;document.getElementById('qrStatus').innerHTML='';drawQRFallback(qrToken);
-  let remaining=45;document.getElementById('qrCountdown').textContent=remaining+'s';
-  qrCountdownInt=setInterval(function(){remaining--;document.getElementById('qrCountdown').textContent=remaining+'s';if(remaining<=0){clearInterval(qrCountdownInt);document.getElementById('qrCountdown').textContent='Expired';document.getElementById('qrStatus').innerHTML='<div class="alert alert-warning">⏰ QR expired. Click Regenerate.</div>';document.getElementById('qrBox').innerHTML='';}},1000);
-  qrInterval=setInterval(async function(){const s=await api('/api/teacher/attendance/qr-status?token='+encodeURIComponent(qrToken));if(s.success!==false)document.getElementById('qrStats').textContent='✅ '+(s.scanned||0)+' students scanned so far';},3000);
+async function initFaceSession(){
+  if(_faceSessionToken)return;  // already started
+  if(!_attSubjId||!_attDate)return;
+  const d=await api('/api/teacher/attendance/face/start',{
+    method:'POST',
+    body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate})
+  });
+  if(d.success){
+    _faceSessionToken=d.sessionToken;
+    const total=d.totalStudents||0;
+    document.getElementById('faceCountTotal').textContent=total;
+    document.getElementById('faceCountPending').textContent=total;
+    setFaceStatus('Session started — '+total+' students in class','info');
+  }else{
+    setFaceStatus(d.error||'Failed to start session','error');
+  }
 }
 
-async function finaliseQRAttendance(){
+async function startFaceCamera(){
+  if(!_attSubjId||!_attDate){toast('Click a timetable cell first','warning');return;}
+  const startBtn=document.getElementById('faceCamStartBtn');
+  const stopBtn=document.getElementById('faceCamStopBtn');
+  if(startBtn){startBtn.disabled=true;startBtn.textContent='Starting...';}
+  try{
+    _faceStream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},audio:false
+    });
+    const vid=document.getElementById('faceVideo');
+    vid.srcObject=_faceStream;
+    await vid.play();
+    if(startBtn)startBtn.style.display='none';
+    if(stopBtn)stopBtn.style.display='';
+    document.getElementById('faceScanLine').style.display='block';
+    document.getElementById('faceCamStatus').textContent='Scanning…';
+    // Ensure face session is open
+    await initFaceSession();
+    // Start periodic face capture & submit every 3s
+    _faceScanInterval=setInterval(captureFaceFrame,3000);
+    // Refresh live status every 5s
+    _faceStatusInterval=setInterval(refreshFaceStatus,5000);
+  }catch(e){
+    setFaceStatus('Camera access denied — allow camera permission in browser','error');
+    if(startBtn){startBtn.disabled=false;startBtn.textContent='&#x1F4F7; Start Camera';}
+    console.error('[face camera]',e);
+  }
+}
+
+async function captureFaceFrame(){
+  const vid=document.getElementById('faceVideo');
+  const canvas=document.getElementById('faceCanvas');
+  if(!vid||!canvas||!vid.readyState||vid.readyState<2)return;
+  // Draw frame to hidden canvas
+  canvas.width=vid.videoWidth||320;
+  canvas.height=vid.videoHeight||240;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(vid,0,0,canvas.width,canvas.height);
+  // Convert to base64 JPEG for server
+  const imageData=canvas.toDataURL('image/jpeg',0.7);
+  try{
+    const res=await fetch(API+'/api/teacher/attendance/face/capture',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({
+        sessionToken:_faceSessionToken,
+        subjectId:parseInt(_attSubjId),
+        attendanceDate:_attDate,
+        image:imageData
+      })
+    });
+    const d=await res.json();
+    if(d.success&&d.recognised&&d.recognised.length){
+      d.recognised.forEach(function(r){
+        if(!_faceRecognised.has(String(r.studentId))){
+          _faceRecognised.set(String(r.studentId),{FullName:r.fullName||'Student',RollNumber:r.rollNumber||''});
+          addToRecognisedList(r.studentId,r.fullName||'Student',r.rollNumber||'');
+        }
+      });
+      updateFaceCounters();
+      document.getElementById('faceCamStatus').textContent='✓ '+_faceRecognised.size+' recognised';
+    }
+  }catch(e){
+    // Face capture errors are non-fatal — keep scanning
+  }
+}
+
+async function refreshFaceStatus(){
+  if(!_faceSessionToken)return;
+  const d=await api('/api/teacher/attendance/face/status?token='+encodeURIComponent(_faceSessionToken));
+  if(d.success){
+    document.getElementById('faceCountPresent').textContent=d.present||0;
+    document.getElementById('faceCountPending').textContent=d.pending||0;
+    document.getElementById('faceCountTotal').textContent=d.total||0;
+  }
+}
+
+function addToRecognisedList(studentId,fullName,rollNumber){
+  const list=document.getElementById('faceRecognisedList');
+  // Remove placeholder if present
+  const placeholder=list.querySelector('[data-face-placeholder]');
+  if(placeholder)placeholder.remove();
+  const row=document.createElement('div');
+  row.className='face-rec-row';
+  row.id='face-rec-'+studentId;
+  row.innerHTML='<div class="face-rec-av">'+(fullName.charAt(0)||'?').toUpperCase()+'</div>'
+    +'<div style="flex:1"><div style="font-weight:700;font-size:.82rem">'+fullName+'</div>'
+    +'<div style="font-family:var(--mono);color:var(--amber);font-size:.7rem">'+rollNumber+'</div></div>'
+    +'<span style="color:var(--green);font-size:1rem">&#x2713;</span>';
+  list.appendChild(row);
+}
+
+function updateFaceCounters(){
+  const present=_faceRecognised.size;
+  const total=_faceAllStudents.length||parseInt(document.getElementById('faceCountTotal').textContent)||0;
+  document.getElementById('faceCountPresent').textContent=present;
+  document.getElementById('faceCountPending').textContent=Math.max(0,total-present);
+  if(total)document.getElementById('faceCountTotal').textContent=total;
+}
+
+function setFaceStatus(msg,type){
+  const el=document.getElementById('faceStatusBar');
+  if(!el)return;
+  const cls={info:'alert-info',success:'alert-success',error:'alert-error',warning:'alert-warning'};
+  el.innerHTML='<div class="alert '+(cls[type]||'alert-info')+'">'+msg+'</div>';
+}
+
+/* Mark a student present manually via dropdown */
+async function faceMarkManual(){
+  const sel=document.getElementById('faceManualStudent');
+  const studentId=sel?sel.value:'';
+  if(!studentId){toast('Select a student first','warning');return;}
+  const student=_faceAllStudents.find(function(s){return String(s.StudentID)===String(studentId);});
+  if(!student)return;
+  if(_faceRecognised.has(String(studentId))){
+    toast(student.FullName+' is already marked Present','info');return;
+  }
+  // Submit to backend
+  const d=await api('/api/teacher/attendance/face/submit',{
+    method:'POST',
+    body:JSON.stringify({
+      sessionToken:_faceSessionToken||'',
+      subjectId:parseInt(_attSubjId),
+      attendanceDate:_attDate,
+      records:[{studentId:parseInt(studentId),status:'Present'}]
+    })
+  });
+  if(d.success||d.saved){
+    _faceRecognised.set(String(studentId),{FullName:student.FullName,RollNumber:student.RollNumber||''});
+    addToRecognisedList(studentId,student.FullName,student.RollNumber||'');
+    updateFaceCounters();
+    toast(student.FullName+' marked Present','success');
+    if(sel)sel.value='';
+  }else{
+    toast(d.error||'Failed to mark student','error');
+  }
+}
+
+/* Finalise: mark everyone not recognised as Absent */
+async function finaliseFaceAttendance(){
   if(!_attSubjId||!_attDate){toast('No class selected','warning');return;}
-  const subj=mySubjects.find(function(s){return String(s.SubjectID)===String(_attSubjId);});
-  let deptId=_attDeptId,sem=_attSem;if(subj){deptId=subj.DepartmentID;sem=subj.Semester;}
-  const sd=await api('/api/teacher/students/by-class/'+deptId+'/'+sem);
-  if(!sd.success||!(sd.students&&sd.students.length)){toast('No students found','error');return;}
-  const qs=await api('/api/teacher/attendance/qr-status?token='+encodeURIComponent(qrToken||''));
-  const scannedSet=new Set((qs.scannedStudents||[]).map(function(id){return String(id);}));
-  const records=sd.students.map(function(s){return{studentId:s.StudentID,status:scannedSet.has(String(s.StudentID))?'Present':'Absent'};});
-  const btn=document.querySelector('#tabQR button.btn-success');if(btn){btn.disabled=true;btn.textContent='Saving…';}
-  const result=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate,attendance:records})});
-  if(btn){btn.disabled=false;btn.textContent='✅ Finalise QR Attendance';}
-  if(result.success){toast('QR Attendance finalised! '+records.length+' records saved.','success');_attLocked=true;_attCache[String(_attSubjId)+'_'+_attDate]=true;stopQR();loadAttView();loadAttHistory();loadTT();}
-  else{toast(result.error||'Failed to finalise','error');}
+  if(_attLocked){toast('Attendance already saved','warning');return;}
+
+  // First submit all face-recognised students as Present
+  const presentRecords=[..._faceRecognised.keys()].map(function(sid){
+    return{studentId:parseInt(sid),status:'Present'};
+  });
+  if(presentRecords.length){
+    await api('/api/teacher/attendance/face/submit',{
+      method:'POST',
+      body:JSON.stringify({
+        sessionToken:_faceSessionToken||'',
+        subjectId:parseInt(_attSubjId),
+        attendanceDate:_attDate,
+        records:presentRecords
+      })
+    });
+  }
+
+  // Then mark everyone else Absent
+  const d=await api('/api/teacher/attendance/mark-absent',{
+    method:'POST',
+    body:JSON.stringify({
+      subjectId:parseInt(_attSubjId),
+      attendanceDate:_attDate,
+      sessionToken:_faceSessionToken||''
+    })
+  });
+
+  if(d.success){
+    toast('Face attendance finalised! '+presentRecords.length+' present, '+d.absentCount+' absent.','success');
+    _attLocked=true;
+    _attCache[String(_attSubjId)+'_'+_attDate]=true;
+    _faceSessionToken=null;
+    stopFaceCamera();
+    loadAttView(); loadAttHistory(); loadTT();
+    switchAttTab('manual');
+  }else{
+    toast(d.error||'Failed to finalise','error');
+  }
 }
 
 /* ══════════════════════════ MARKS ══════════════════════════ */
-let marksRosterData=[],_marksSubjId=null,_marksExamType=null,_marksLocked=false;
-const MARKS_MAX={CA1:10,CA2:10,CA3:10,CA4:10,CA5:10,Midterm:50,Endterm:100};
+let marksRosterData = [], _marksSubjId = null, _marksExamType = null, _marksLocked = false;
+
+// Max marks per exam type
+const MARKS_MAX = {CA1:10,CA2:10,CA3:10,CA4:10,CA5:10,Midterm:50,Endterm:100};
 
 function loadMarksView(){
-  _marksSubjId=null;_marksExamType=null;_marksLocked=false;marksRosterData=[];
-  document.getElementById('marksRoster').innerHTML='<div class="empty"><span class="empty-icon">📝</span><div class="empty-text">Select subject and exam type, then click Load Students</div></div>';
-  document.getElementById('marksLockedBanner').style.display='none';document.getElementById('marksSaveBar').style.display='none';
+  _marksSubjId = null; _marksExamType = null; _marksLocked = false;
+  marksRosterData = [];
+  document.getElementById('marksRoster').innerHTML =
+    '<div class="empty"><div class="empty-icon">📝</div><div class="empty-text">Select subject and exam type, then click Load Students</div></div>';
+  document.getElementById('marksLockedBanner').style.display = 'none';
+  document.getElementById('marksSaveBar').style.display = 'none';
 }
 
 async function loadMarksRoster(){
-  const subjectId=document.getElementById('marksSubject').value;const examType=document.getElementById('marksExamType').value;
-  const el=document.getElementById('marksRoster');const lockedBnr=document.getElementById('marksLockedBanner');const saveBar=document.getElementById('marksSaveBar');
-  if(!subjectId){toast('Please select a subject','warning');return;}if(!examType){toast('Please select an exam type','warning');return;}
-  _marksSubjId=subjectId;_marksExamType=examType;_marksLocked=false;lockedBnr.style.display='none';saveBar.style.display='none';
-  el.innerHTML='<div class="loading-wrap"><div class="spinner"></div> Loading students…</div>';
-  const d=await api('/api/teacher/marks/students?subjectId='+subjectId);
-  if(!d.success||!(d.students&&d.students.length)){el.innerHTML='<div class="empty"><span class="empty-icon">👥</span><div class="empty-text">No students found for this subject</div></div>';return;}
-  marksRosterData=d.students.map(function(s){return{studentId:s.UserID||s.StudentID,fullName:s.FullName||'',rollNumber:s.RollNumber||s.UserCode||'',markId:s.MarkID||null,value:s[examType]!==null&&s[examType]!==undefined?String(s[examType]):'',saved:(s.MarkID!=null)&&(s[examType]!==null&&s[examType]!==undefined&&s[examType]!=='')};});
-  const alreadySaved=marksRosterData.filter(function(s){return s.saved;}).length;
-  if(alreadySaved>0&&alreadySaved===marksRosterData.length)_marksLocked=true;
+  const subjectId  = document.getElementById('marksSubject').value;
+  const examType   = document.getElementById('marksExamType').value;
+  const el         = document.getElementById('marksRoster');
+  const lockedBnr  = document.getElementById('marksLockedBanner');
+  const saveBar    = document.getElementById('marksSaveBar');
+
+  if(!subjectId){ toast('Please select a subject','warning'); return; }
+  if(!examType) { toast('Please select an exam type','warning'); return; }
+
+  _marksSubjId  = subjectId;
+  _marksExamType = examType;
+  _marksLocked  = false;
+  lockedBnr.style.display = 'none';
+  saveBar.style.display   = 'none';
+
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
+  const d = await api('/api/teacher/marks/students?subjectId=' + subjectId);
+
+  if(!d.success || !(d.students && d.students.length)){
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">No students found for this subject</div><div class="empty-sub">Check that students are enrolled in this class</div></div>';
+    return;
+  }
+
+  marksRosterData = d.students.map(function(s){
+    return {
+      studentId:  s.UserID || s.StudentID,
+      fullName:   s.FullName || '',
+      rollNumber: s.RollNumber || s.UserCode || '',
+      markId:     s.MarkID || null,
+      value:      s[examType] !== null && s[examType] !== undefined ? String(s[examType]) : '',
+      saved:      (s.MarkID != null) && (s[examType] !== null && s[examType] !== undefined && s[examType] !== '')
+    };
+  });
+
+  // Check if ALL students already have marks for this exam type
+  const alreadySaved = marksRosterData.filter(function(s){ return s.saved; }).length;
+  if(alreadySaved > 0 && alreadySaved === marksRosterData.length){
+    _marksLocked = true;
+  }
+
   renderMarksRoster();
 }
 
 function renderMarksRoster(){
-  const el=document.getElementById('marksRoster');const lockedBnr=document.getElementById('marksLockedBanner');const saveBar=document.getElementById('marksSaveBar');
-  const maxVal=MARKS_MAX[_marksExamType]||100;const examLabel=_marksExamType+' (max '+maxVal+')';
+  const el       = document.getElementById('marksRoster');
+  const lockedBnr = document.getElementById('marksLockedBanner');
+  const saveBar  = document.getElementById('marksSaveBar');
+  const maxVal   = MARKS_MAX[_marksExamType] || 100;
+  const examLabel = _marksExamType + ' (max ' + maxVal + ')';
+
   if(_marksLocked){
-    lockedBnr.style.display='block';saveBar.style.display='none';
-    let rows='';
-    marksRosterData.forEach(function(s,i){
-      const val=s.value!==''?s.value:'—';const pct=s.value!==''?Math.round((parseFloat(s.value)/maxVal)*100):0;
-      const col=pct>=80?'var(--green-d)':pct>=50?'var(--amber-d)':s.value!==''?'var(--red-d)':'var(--muted)';
-      rows+='<tr><td style="color:var(--muted-l)">'+(i+1)+'</td><td style="font-weight:600">'+(s.fullName)+'</td>'
-        +'<td style="font-family:var(--font-mono);color:var(--blue);font-size:.78rem">'+(s.rollNumber)+'</td>'
-        +'<td style="font-family:var(--font-mono);font-weight:800;color:'+col+'">'+(val)+' <span style="color:var(--muted-l);font-size:.7rem">/ '+maxVal+'</span></td>'
-        +'<td>'+(s.value!==''?'<div class="progress-wrap" style="width:80px"><div class="progress-fill" style="width:'+pct+'%;background:'+col+'"></div></div>':'')+'</td></tr>';
+    lockedBnr.style.display = 'block';
+    saveBar.style.display   = 'none';
+    // Read-only table
+    let rows = '';
+    marksRosterData.forEach(function(s, i){
+      const val = s.value !== '' ? s.value : '—';
+      const pct = s.value !== '' ? Math.round((parseFloat(s.value)/maxVal)*100) : 0;
+      const col = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : s.value !== '' ? 'var(--red)' : 'var(--text3)';
+      rows += '<tr>'
+        + '<td style="color:var(--text3)">' + (i+1) + '</td>'
+        + '<td style="font-weight:600">' + s.fullName + '</td>'
+        + '<td style="font-family:var(--mono);color:var(--amber);font-size:.75rem">' + s.rollNumber + '</td>'
+        + '<td style="font-family:var(--mono);font-weight:800;color:' + col + ';font-size:.9rem">' + val + ' <span style="color:var(--text3);font-size:.7rem">/ ' + maxVal + '</span></td>'
+        + '<td>'
+        + (s.value !== '' ? '<div style="background:var(--bg4);border-radius:100px;height:6px;width:80px;overflow:hidden"><div style="height:100%;border-radius:100px;width:' + pct + '%;background:' + col + '"></div></div>' : '')
+        + '</td>'
+        + '</tr>';
     });
-    el.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Roll No</th><th>'+examLabel+'</th><th>Progress</th></tr></thead><tbody>'+rows+'</tbody></table></div>';return;
+    el.innerHTML = '<div class="table-wrap"><table>'
+      + '<thead><tr><th>#</th><th>Name</th><th>Roll No</th><th>' + examLabel + '</th><th>Progress</th></tr></thead>'
+      + '<tbody>' + rows + '</tbody></table></div>';
+    return;
   }
-  lockedBnr.style.display='none';saveBar.style.display='flex';
-  let rows='';
-  marksRosterData.forEach(function(s,i){
-    const inputId='mk_'+s.studentId;
-    rows+='<div style="display:grid;grid-template-columns:40px 1fr 160px;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border2);background:var(--white)">'
-      +'<span style="color:var(--muted-l)">'+(i+1)+'</span>'
-      +'<div><div style="font-weight:600;font-size:.83rem;color:var(--ink)">'+(s.fullName)+'</div>'
-      +'<div style="font-family:var(--font-mono);color:var(--blue);font-size:.72rem">'+(s.rollNumber)+'</div></div>'
-      +'<input id="'+inputId+'" class="mk-input" type="number" min="0" max="'+maxVal+'" step="0.5" value="'+(s.value)+'" placeholder="0–'+maxVal+'"'
-      +' oninput="setMarkVal(\''+s.studentId+'\',this.value)">'
-      +'</div>';
+
+  // Editable view
+  lockedBnr.style.display = 'none';
+  saveBar.style.display   = 'flex';
+
+  let rows = '';
+  marksRosterData.forEach(function(s, i){
+    const inputId = 'mk_' + s.studentId;
+    rows += '<div style="display:grid;grid-template-columns:40px 1fr 130px 160px;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);background:var(--bg3)">'
+      + '<span style="color:var(--text3)">' + (i+1) + '</span>'
+      + '<div>'
+        + '<div style="font-weight:600;font-size:.83rem">' + s.fullName + '</div>'
+        + '<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">' + s.rollNumber + '</div>'
+      + '</div>'
+      + '<div style="font-size:.75rem;color:var(--text3)">' + examLabel + '</div>'
+      + '<input id="' + inputId + '" class="mk-input" type="number" min="0" max="' + maxVal + '" step="0.5"'
+        + ' value="' + s.value + '" placeholder="Enter marks"'
+        + ' oninput="setMarkVal(' + "'" + s.studentId + "'" + ',this.value)"'
+        + ' style="width:100%;padding:.45rem .6rem;font-size:.88rem;font-weight:700">'
+      + '</div>';
   });
-  el.innerHTML='<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden">'
-    +'<div style="display:grid;grid-template-columns:40px 1fr 160px;gap:.75rem;padding:.5rem 1rem;background:var(--bg);border-bottom:1px solid var(--border);font-size:.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;font-family:var(--font-hd)">'
-    +'<span>#</span><span>Student</span><span>Marks (0–'+maxVal+')</span></div>'
-    +rows+'</div>';
+
+  el.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden">'
+    + '<div style="display:grid;grid-template-columns:40px 1fr 130px 160px;gap:.75rem;padding:.5rem 1rem;background:var(--bg4);border-bottom:1px solid var(--border);font-size:.7rem;font-weight:700;color:var(--text3);text-transform:uppercase">'
+    + '<span>#</span><span>Student</span><span>Exam</span><span>Marks (0–' + maxVal + ')</span></div>'
+    + rows + '</div>';
 }
 
-function setMarkVal(studentId,val){const s=marksRosterData.find(function(x){return String(x.studentId)===String(studentId);});if(s)s.value=val;}
+function setMarkVal(studentId, val){
+  const s = marksRosterData.find(function(x){ return String(x.studentId) === String(studentId); });
+  if(s) s.value = val;
+}
 
 async function saveMarks(){
-  if(_marksLocked){toast('Marks already saved — read-only','warning');return;}
-  if(!_marksSubjId){toast('Please select a subject','warning');return;}
-  if(!_marksExamType){toast('Please select an exam type','warning');return;}
-  if(!marksRosterData.length){toast('No students loaded','warning');return;}
-  const btn=document.getElementById('marksSaveBtn');if(btn){btn.disabled=true;btn.textContent='Saving…';}
-  const marks=marksRosterData.map(function(s){const rec={studentId:s.studentId,CA1:0,CA2:0,CA3:0,CA4:0,CA5:0,Midterm:0,Endterm:0};rec[_marksExamType]=parseFloat(s.value)||0;return rec;});
-  const d=await api('/api/teacher/marks',{method:'POST',body:JSON.stringify({subjectId:parseInt(_marksSubjId),marks:marks})});
-  if(btn){btn.disabled=false;btn.textContent='💾 Save Marks';}
-  if(d.success){toast(d.message||'Marks saved!','success');_marksLocked=true;marksRosterData.forEach(function(s){s.saved=true;});renderMarksRoster();}
-  else{toast(d.error||'Failed to save marks','error');}
+  if(_marksLocked){ toast('Marks already saved — read-only','warning'); return; }
+  if(!_marksSubjId){ toast('Please select a subject','warning'); return; }
+  if(!_marksExamType){ toast('Please select an exam type','warning'); return; }
+  if(!marksRosterData.length){ toast('No students loaded','warning'); return; }
+
+  const btn = document.getElementById('marksSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  // Build payload — only the selected exam type column
+  const marks = marksRosterData.map(function(s){
+    const rec = {studentId: s.studentId, CA1:0,CA2:0,CA3:0,CA4:0,CA5:0,Midterm:0,Endterm:0};
+    rec[_marksExamType] = parseFloat(s.value) || 0;
+    return rec;
+  });
+
+  const d = await api('/api/teacher/marks', {method:'POST', body:JSON.stringify({subjectId: parseInt(_marksSubjId), marks: marks})});
+  if(btn){ btn.disabled = false; btn.textContent = '💾 Save Marks'; }
+
+  if(d.success){
+    toast(d.message || 'Marks saved!', 'success');
+    _marksLocked = true;
+    // Update saved flag
+    marksRosterData.forEach(function(s){ s.saved = true; });
+    renderMarksRoster();
+  } else {
+    toast(d.error || 'Failed to save marks', 'error');
+  }
 }
 
 /* ══════════════════════════ EXAMS ══════════════════════════ */
 async function loadExams(){
-  const d=await api('/api/teacher/exams');const el=document.getElementById('examsList');
-  if(!d.success||!d.exams?.length){el.innerHTML='<div class="empty"><span class="empty-icon">📄</span><div class="empty-text">No exams created yet</div><div class="empty-sub">Create your first exam using the button above</div></div>';return;}
-  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Exam Name</th><th>Subject</th><th>Type</th><th>Date</th><th>Marks</th><th>Duration</th><th>Questions</th><th>Submissions</th></tr></thead><tbody>'
-    +d.exams.map((e,i)=>`<tr>
-      <td style="color:var(--muted-l)">${i+1}</td>
+  const d=await api('/api/teacher/exams');
+  const el=document.getElementById('examsList');
+  if(!d.success||!d.exams?.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No exams created yet</div><div class="empty-sub">Create your first exam using the button above</div></div>`;return
+  }
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Exam Name</th><th>Subject</th><th>Type</th><th>Date</th><th>Marks</th><th>Duration</th><th>Questions</th><th>Submissions</th></tr></thead><tbody>
+    ${d.exams.map((e,i)=>`<tr>
+      <td style="color:var(--text3)">${i+1}</td>
       <td style="font-weight:600">${e.ExamName||e.ExamTitle||e.ExamType||'—'}</td>
-      <td>${e.SubjectName||''} <span style="font-family:var(--font-mono);color:var(--muted-l);font-size:.7rem">${e.SubjectCode||''}</span></td>
+      <td>${e.SubjectName||''} <span style="font-family:var(--mono);color:var(--text3);font-size:.72rem">${e.SubjectCode||''}</span></td>
       <td><span class="badge badge-orange">${e.ExamType||'—'}</span></td>
-      <td style="font-family:var(--font-mono);font-size:.78rem">${e.ExamDate||'—'}</td>
-      <td style="font-family:var(--font-mono)">${e.TotalMarks||'—'}</td>
-      <td style="font-family:var(--font-mono)">${e.Duration||'—'} min</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${e.ExamDate||'—'}</td>
+      <td style="font-family:var(--mono)">${e.TotalMarks||'—'}</td>
+      <td style="font-family:var(--mono)">${e.Duration||'—'} min</td>
       <td><span class="badge badge-blue">${e.QuestionCount||0} Q</span></td>
       <td><span class="badge badge-green">${e.SubmissionCount||0}</span></td>
-    </tr>`).join('')+'</tbody></table></div>';
+    </tr>`).join('')}
+  </tbody></table></div>`;
 }
 
 async function createExam(){
-  const subjectId=document.getElementById('examSubject').value;const examName=document.getElementById('examName').value.trim();
-  const examType=document.getElementById('examType').value;const totalMarks=parseInt(document.getElementById('examMarks').value)||100;
-  const duration=parseInt(document.getElementById('examDuration').value)||60;const examDate=document.getElementById('examDate').value;
-  const instructions=document.getElementById('examInstructions').value;const errEl=document.getElementById('examMdlErr');
+  const subjectId=document.getElementById('examSubject').value;
+  const examName=document.getElementById('examName').value.trim();
+  const examType=document.getElementById('examType').value;
+  const totalMarks=parseInt(document.getElementById('examMarks').value)||100;
+  const duration=parseInt(document.getElementById('examDuration').value)||60;
+  const examDate=document.getElementById('examDate').value;
+  const instructions=document.getElementById('examInstructions').value;
+  const errEl=document.getElementById('examMdlErr');
   errEl.style.display='none';
   if(!subjectId){errEl.textContent='Please select a subject.';errEl.style.display='block';return}
   if(!examName){errEl.textContent='Please enter an exam name.';errEl.style.display='block';return}
   if(!examDate){errEl.textContent='Please enter an exam date.';errEl.style.display='block';return}
   const d=await api('/api/teacher/exams',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),examName,examType,totalMarks,duration,examDate,instructions})});
-  if(d.success){closeMdl('createExamMdl');toast(d.message||'Exam created!','success');['examSubject','examName','examDate','examInstructions'].forEach(id=>document.getElementById(id).value='');document.getElementById('examMarks').value='100';document.getElementById('examDuration').value='60';loadExams();}
-  else{errEl.textContent=d.error||'Failed to create exam.';errEl.style.display='block';}
+  if(d.success){
+    closeMdl('createExamMdl');
+    toast(d.message||'Exam created!','success');
+    // Reset form
+    ['examSubject','examName','examDate','examInstructions'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('examMarks').value='100';
+    document.getElementById('examDuration').value='60';
+    loadExams();
+  }else{errEl.textContent=d.error||'Failed to create exam.';errEl.style.display='block';}
 }
 
 /* ══════════════════════════ STUDY MATERIALS ══════════════════════════ */
 async function loadMats(){
-  const d=await api('/api/teacher/materials');const el=document.getElementById('matsList');
-  if(!d.success||!d.materials?.length){el.innerHTML='<div class="empty"><span class="empty-icon">📁</span><div class="empty-text">No materials uploaded yet</div><div class="empty-sub">Upload your first resource using the button above</div></div>';return;}
+  const d=await api('/api/teacher/materials');
+  const el=document.getElementById('matsList');
+  if(!d.success||!d.materials?.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">📁</div><div class="empty-text">No materials uploaded yet</div><div class="empty-sub">Upload your first resource using the button above</div></div>`;return
+  }
   const icons={pdf:'📄',doc:'📝',ppt:'📊',video:'🎬',image:'🖼️',zip:'📦',other:'📎'};
-  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Title</th><th>Subject</th><th>Type</th><th>Class</th><th>Uploaded</th><th>Link</th></tr></thead><tbody>'
-    +d.materials.map((m,i)=>`<tr>
-      <td style="color:var(--muted-l)">${i+1}</td>
-      <td><div style="font-weight:600">${m.Title||''}</div><div style="font-size:.72rem;color:var(--muted)">${m.Description||''}</div></td>
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Title</th><th>Subject</th><th>Type</th><th>Class</th><th>Uploaded</th><th>Link</th></tr></thead><tbody>
+    ${d.materials.map((m,i)=>`<tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td><div style="font-weight:600">${m.Title||''}</div><div style="font-size:.72rem;color:var(--text3)">${m.Description||''}</div></td>
       <td>${m.SubjectName||''}</td>
       <td><span class="badge badge-blue">${icons[m.FileType]||'📎'} ${m.FileType||'—'}</span></td>
-      <td style="color:var(--muted)">${m.ClassName||''}</td>
-      <td style="font-family:var(--font-mono);font-size:.75rem">${String(m.UploadedAt||'').slice(0,10)||'—'}</td>
-      <td>${m.FilePath?`<a href="${m.FilePath.startsWith('http')?m.FilePath:API+m.FilePath}" target="_blank" class="btn btn-ghost btn-sm">Open ↗</a>`:'—'}</td>
-    </tr>`).join('')+'</tbody></table></div>';
+      <td style="color:var(--text3)">${m.ClassName||''}</td>
+      <td style="font-family:var(--mono);font-size:.75rem">${String(m.UploadedAt||'').slice(0,10)||'—'}</td>
+      <td>${m.FilePath?`<a href="${m.FilePath.startsWith('http')?m.FilePath:API+m.FilePath}" target="_blank" class="btn btn-ghost btn-sm">Open</a>`:'—'}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
 }
 
 const MAT_ACCEPT={'pdf':'.pdf','doc':'.doc,.docx','ppt':'.ppt,.pptx','video':'.mp4,.avi,.mov,.mkv','image':'.jpg,.jpeg,.png,.gif,.webp','zip':'.zip,.rar,.7z','other':'*'};
-function updateMatAccept(){const t=document.getElementById('matType').value;document.getElementById('matFile').accept=MAT_ACCEPT[t]||'*';document.getElementById('matFile').value='';document.getElementById('matFileSizeInfo').style.display='none';}
-function checkMatSize(input){const info=document.getElementById('matFileSizeInfo');if(!input.files||!input.files[0]){info.style.display='none';return;}const mb=(input.files[0].size/1024/1024);if(mb>50){info.style.display='block';info.style.color='var(--red-d)';info.textContent='❌ File is '+mb.toFixed(1)+' MB — max 50 MB.';input.value='';return;}info.style.display='block';info.style.color='var(--green-d)';info.textContent='✅ '+input.files[0].name+' · '+mb.toFixed(1)+' MB';}
-
+function updateMatAccept(){
+  const t=document.getElementById('matType').value;
+  document.getElementById('matFile').accept=MAT_ACCEPT[t]||'*';
+  document.getElementById('matFile').value='';
+  document.getElementById('matFileSizeInfo').style.display='none';
+}
+function checkMatSize(input){
+  const info=document.getElementById('matFileSizeInfo');
+  if(!input.files||!input.files[0]){info.style.display='none';return;}
+  const mb=(input.files[0].size/1024/1024);
+  if(mb>50){info.style.display='block';info.style.color='var(--red)';info.textContent=`❌ File is ${mb.toFixed(1)} MB — max allowed is 50 MB.`;input.value='';return;}
+  info.style.display='block';info.style.color='var(--green)';info.textContent=`✅ ${input.files[0].name} · ${mb.toFixed(1)} MB`;
+}
 async function saveMaterial(){
-  const subjectId=document.getElementById('matSubject').value;const title=document.getElementById('matTitle').value.trim();
-  const desc=document.getElementById('matDesc').value;const url=document.getElementById('matUrl').value.trim();
-  const fileType=document.getElementById('matType').value;const fileInput=document.getElementById('matFile');const errEl=document.getElementById('matMdlErr');
+  const subjectId=document.getElementById('matSubject').value;
+  const title=document.getElementById('matTitle').value.trim();
+  const desc=document.getElementById('matDesc').value;
+  const url=document.getElementById('matUrl').value.trim();
+  const fileType=document.getElementById('matType').value;
+  const fileInput=document.getElementById('matFile');
+  const errEl=document.getElementById('matMdlErr');
   errEl.style.display='none';
   if(!subjectId){errEl.textContent='Please select a subject.';errEl.style.display='block';return}
   if(!title){errEl.textContent='Please enter a title.';errEl.style.display='block';return}
-  if(fileInput.files&&fileInput.files[0]&&fileInput.files[0].size>50*1024*1024){errEl.textContent='File exceeds 50 MB limit.';errEl.style.display='block';return;}
+
+  // 50 MB client-side guard
+  if(fileInput.files&&fileInput.files[0]&&fileInput.files[0].size>50*1024*1024){
+    errEl.textContent='File exceeds 50 MB limit. Please choose a smaller file.';errEl.style.display='block';return;
+  }
+
   let filePath=url;
+  // If a file is selected, upload it first
   if(fileInput.files&&fileInput.files[0]){
     const fd=new FormData();fd.append('file',fileInput.files[0]);
-    try{const r=await fetch(API+'/api/teacher/materials/upload',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});const up=await r.json();if(up.success)filePath=up.filePath;else{errEl.textContent=up.error||'File upload failed.';errEl.style.display='block';return}}
-    catch(e){errEl.textContent='File upload failed.';errEl.style.display='block';return}
+    try{
+      const r=await fetch(API+'/api/teacher/materials/upload',{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+      const up=await r.json();
+      if(up.success)filePath=up.filePath;
+      else{errEl.textContent=up.error||'File upload failed.';errEl.style.display='block';return}
+    }catch(e){errEl.textContent='File upload failed.';errEl.style.display='block';return}
   }
+
   const d=await api('/api/teacher/materials',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),title,description:desc,filePath,fileType})});
-  if(d.success){closeMdl('addMatMdl');toast(d.message||'Material saved!','success');['matSubject','matTitle','matDesc','matUrl'].forEach(id=>document.getElementById(id).value='');fileInput.value='';document.getElementById('matFileSizeInfo').style.display='none';loadMats();}
-  else{errEl.textContent=d.error||'Failed to save material.';errEl.style.display='block';}
+  if(d.success){
+    closeMdl('addMatMdl');toast(d.message||'Material saved!','success');
+    ['matSubject','matTitle','matDesc','matUrl'].forEach(id=>document.getElementById(id).value='');
+    fileInput.value='';
+    document.getElementById('matFileSizeInfo').style.display='none';
+    loadMats();
+  }else{errEl.textContent=d.error||'Failed to save material.';errEl.style.display='block';}
 }
 
 /* ══════════════════════════ ONLINE CLASSES ══════════════════════════ */
 async function loadOC(){
-  const d=await api('/api/teacher/online-classes');const el=document.getElementById('ocList');
-  if(!d.success||!d.onlineClasses?.length){el.innerHTML='<div class="empty"><span class="empty-icon">💻</span><div class="empty-text">No online classes scheduled</div><div class="empty-sub">Schedule a class using the button above</div></div>';return;}
-  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>Topic</th><th>Subject</th><th>Class</th><th>Date</th><th>Time</th><th>Link</th></tr></thead><tbody>'
-    +d.onlineClasses.map((oc,i)=>`<tr>
-      <td style="color:var(--muted-l)">${i+1}</td>
+  const d=await api('/api/teacher/online-classes');
+  const el=document.getElementById('ocList');
+  if(!d.success||!d.onlineClasses?.length){
+    el.innerHTML=`<div class="empty"><div class="empty-icon">💻</div><div class="empty-text">No online classes scheduled</div><div class="empty-sub">Schedule a class using the button above</div></div>`;return
+  }
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Topic</th><th>Subject</th><th>Class</th><th>Date</th><th>Time</th><th>Link</th></tr></thead><tbody>
+    ${d.onlineClasses.map((oc,i)=>`<tr>
+      <td style="color:var(--text3)">${i+1}</td>
       <td style="font-weight:600">${oc.Topic||oc.Title||'—'}</td>
       <td>${oc.SubjectName||''}</td>
-      <td style="color:var(--muted)">${oc.ClassName||''}</td>
-      <td style="font-family:var(--font-mono);font-size:.78rem">${oc.ScheduledDate||String(oc.CreatedAt||'').slice(0,10)||'—'}</td>
-      <td style="font-family:var(--font-mono);font-size:.78rem">${oc.StartTime||'—'}${oc.EndTime?' – '+oc.EndTime:''}</td>
-      <td>${oc.MeetingLink?`<a href="${oc.MeetingLink}" target="_blank" class="btn btn-teal btn-sm">Join ↗</a>`:'—'}</td>
-    </tr>`).join('')+'</tbody></table></div>';
+      <td style="color:var(--text3)">${oc.ClassName||''}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${oc.ScheduledDate||String(oc.CreatedAt||'').slice(0,10)||'—'}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${oc.StartTime||'—'}${oc.EndTime?' – '+oc.EndTime:''}</td>
+      <td>${oc.MeetingLink?`<a href="${oc.MeetingLink}" target="_blank" class="btn btn-teal btn-sm">Join</a>`:'—'}</td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
 }
 
 async function scheduleOC(){
-  const subjectId=document.getElementById('ocSubject').value;const topic=document.getElementById('ocTopic').value.trim();
-  const scheduledDate=document.getElementById('ocDate').value;const startTime=document.getElementById('ocStart').value;
-  const endTime=document.getElementById('ocEnd').value;const meetingLink=document.getElementById('ocLink').value.trim();
-  const description=document.getElementById('ocDesc').value;const errEl=document.getElementById('ocMdlErr');
+  const subjectId=document.getElementById('ocSubject').value;
+  const topic=document.getElementById('ocTopic').value.trim();
+  const scheduledDate=document.getElementById('ocDate').value;
+  const startTime=document.getElementById('ocStart').value;
+  const endTime=document.getElementById('ocEnd').value;
+  const meetingLink=document.getElementById('ocLink').value.trim();
+  const description=document.getElementById('ocDesc').value;
+  const errEl=document.getElementById('ocMdlErr');
   errEl.style.display='none';
   if(!subjectId){errEl.textContent='Please select a subject.';errEl.style.display='block';return}
   if(!topic){errEl.textContent='Please enter a topic.';errEl.style.display='block';return}
   if(!meetingLink){errEl.textContent='Please enter a meeting link.';errEl.style.display='block';return}
   if(!scheduledDate){errEl.textContent='Please select a date.';errEl.style.display='block';return}
   const d=await api('/api/teacher/online-class',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),topic,scheduledDate,startTime,endTime,meetingLink,description})});
-  if(d.success){closeMdl('addOCMdl');toast(d.message||'Class scheduled!','success');['ocSubject','ocTopic','ocDate','ocStart','ocEnd','ocLink','ocDesc'].forEach(id=>document.getElementById(id).value='');loadOC();}
-  else{errEl.textContent=d.error||'Failed to schedule class.';errEl.style.display='block';}
-}
-
-/* ══════════════════════════ CHANGE PASSWORD ══════════════════════════ */
-function togglePw(id){const inp=document.getElementById(id);inp.type=inp.type==='password'?'text':'password';}
-
-async function doChangePassword(){
-  const curr=document.getElementById('pw-current').value;
-  const nw=document.getElementById('pw-new').value;
-  const conf=document.getElementById('pw-confirm').value;
-  const alertEl=document.getElementById('pwAlert');
-  alertEl.style.display='none';alertEl.className='alert';
-  if(!curr||!nw||!conf){alertEl.textContent='All fields are required.';alertEl.className='alert alert-error';alertEl.style.display='block';return;}
-  if(nw.length<8){alertEl.textContent='New password must be at least 8 characters.';alertEl.className='alert alert-error';alertEl.style.display='block';return;}
-  if(nw!==conf){alertEl.textContent='New passwords do not match.';alertEl.className='alert alert-error';alertEl.style.display='block';return;}
-  const d=await api('/api/auth/change-password',{method:'POST',body:JSON.stringify({currentPassword:curr,newPassword:nw})});
-  if(d.success){alertEl.textContent='✅ Password updated successfully!';alertEl.className='alert alert-success';alertEl.style.display='block';document.getElementById('pw-current').value='';document.getElementById('pw-new').value='';document.getElementById('pw-confirm').value='';}
-  else{alertEl.textContent=d.error||'Failed to change password.';alertEl.className='alert alert-error';alertEl.style.display='block';}
+  if(d.success){
+    closeMdl('addOCMdl');toast(d.message||'Class scheduled!','success');
+    ['ocSubject','ocTopic','ocDate','ocStart','ocEnd','ocLink','ocDesc'].forEach(id=>document.getElementById(id).value='');
+    loadOC();
+  }else{errEl.textContent=d.error||'Failed to schedule class.';errEl.style.display='block';}
 }
 
 /* ══════════════════════════ MOBILE ══════════════════════════ */
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('hamburger').classList.toggle('open');const ov=document.getElementById('mobileOverlay');ov.style.display='block';ov.classList.toggle('active');}
-function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('hamburger').classList.remove('open');const ov=document.getElementById('mobileOverlay');ov.classList.remove('active');setTimeout(()=>{if(!ov.classList.contains('active'))ov.style.display='none';},300);}
-function adjustLayout(){const tb=document.getElementById('topbar');if(tb)tb.style.paddingLeft=window.innerWidth<=768?'4.5rem':'1.75rem';}
-window.addEventListener('resize',adjustLayout);adjustLayout();
-
-/* ── CLICK OUTSIDE MODAL ── */
-document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('hamburger').classList.toggle('open');
+  const ov=document.getElementById('mobileOverlay');
+  ov.style.display='block';ov.classList.toggle('active');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+  const ov=document.getElementById('mobileOverlay');
+  ov.classList.remove('active');
+  setTimeout(()=>{if(!ov.classList.contains('active'))ov.style.display='none';},300);
+}
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>{if(window.innerWidth<=768)closeSidebar();});
+});
+function adjustLayout(){
+  const tb=document.querySelector('.topbar');
+  if(tb)tb.style.paddingLeft=window.innerWidth<=768?'4.5rem':'1.75rem';
+}
+window.addEventListener('resize',adjustLayout);
+adjustLayout();
 
 /* ══════════════════════════ START ══════════════════════════ */
 init();
