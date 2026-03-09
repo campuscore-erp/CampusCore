@@ -454,6 +454,7 @@ class Database:
                     # Tables already exist from SQL import - just seed if empty
                     print('[DB] Tables already exist (imported schema). Skipping CREATE TABLE.')
                     conn.close()
+                    self._ensure_mysql_columns()  # Patch any missing columns from older schema
                     self._seed_mysql_safe()
                     return
                 cursor.execute("""
@@ -752,6 +753,71 @@ class Database:
             self._seed_mysql(conn)
         finally:
             conn.close()
+        self._ensure_mysql_columns()  # Ensure all columns exist even on fresh schema
+
+    def _ensure_mysql_columns(self):
+        """Add any missing columns to existing MySQL tables (handles imported schemas that lack newer columns)."""
+        conn = None
+        try:
+            conn = self._mysql_connect()
+            with conn.cursor() as cur:
+                # Helper: check if column exists
+                def _has_col(table, col):
+                    cur.execute(
+                        "SELECT COUNT(*) AS cnt FROM INFORMATION_SCHEMA.COLUMNS "
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+                        (table, col))
+                    return (cur.fetchone() or {}).get('cnt', 0) > 0
+
+                def _add_col(table, col, defn):
+                    if not _has_col(table, col):
+                        try:
+                            cur.execute(f"ALTER TABLE `{table}` ADD COLUMN `{col}` {defn}")
+                            conn.commit()
+                            print(f"[DB] Added missing column {table}.{col}")
+                        except Exception as e:
+                            print(f"[DB] Could not add {table}.{col}: {e}")
+
+                # ── ExamQuestions: ensure all option/type columns exist ──
+                _add_col('ExamQuestions', 'QuestionType',  "VARCHAR(20) NOT NULL DEFAULT 'MCQ'")
+                _add_col('ExamQuestions', 'OptionA',       'TEXT')
+                _add_col('ExamQuestions', 'OptionB',       'TEXT')
+                _add_col('ExamQuestions', 'OptionC',       'TEXT')
+                _add_col('ExamQuestions', 'OptionD',       'TEXT')
+                _add_col('ExamQuestions', 'CorrectAnswer', 'VARCHAR(10)')
+                _add_col('ExamQuestions', 'QuestionOrder', 'INT DEFAULT 1')
+
+                # ── Exams: ensure StartTime / EndTime / ExamName exist ──
+                _add_col('Exams', 'StartTime', 'TIME')
+                _add_col('Exams', 'EndTime',   'TIME')
+                _add_col('Exams', 'ExamName',  'VARCHAR(255)')
+                _add_col('Exams', 'Instructions', 'TEXT')
+                _add_col('Exams', 'IsActive',  'TINYINT NOT NULL DEFAULT 1')
+
+                # ── ExamSubmissions: ensure MarksObtained exists ──
+                _add_col('ExamSubmissions', 'MarksObtained', 'DECIMAL(5,2)')
+                _add_col('ExamSubmissions', 'SubmittedAt',   'DATETIME')
+
+                # ── ExamAnswers: ensure table exists with all columns ──
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS ExamAnswers (
+                        AnswerID     INT PRIMARY KEY AUTO_INCREMENT,
+                        SubmissionID INT NOT NULL,
+                        QuestionID   INT NOT NULL,
+                        Answer       TEXT,
+                        IsCorrect    TINYINT DEFAULT 0,
+                        MarksAwarded DECIMAL(5,2) DEFAULT 0,
+                        AnsweredAt   DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                conn.commit()
+                print('[DB] MySQL column migration complete.')
+        except Exception as e:
+            print(f'[DB] _ensure_mysql_columns error: {e}')
+        finally:
+            if conn:
+                try: conn.close()
+                except: pass
 
     def _seed_mysql_safe(self):
         """Safe seed for pre-imported schema - only inserts if tables are truly empty.

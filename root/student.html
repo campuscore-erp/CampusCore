@@ -1175,6 +1175,8 @@ async function startExam(eid){
     const t=win?_fmtCountdown(win.examStart-new Date()):null;
     toast('⏳ Exam has not started yet.'+(t?' Starts in '+t:' Please wait until the scheduled time.'),'warning');return;
   }
+  // Debug: log raw API response to help diagnose column name issues
+  console.log('[Exam] questions from API:', JSON.stringify(qs.slice(0,1)));
   if(!qs.length){toast('⚠️ No questions have been added to this exam yet.','warning');return}
   document.getElementById('examMdlTitle').textContent=exam.ExamName||exam.ExamType||'Exam';
   document.getElementById('examMdlSub').textContent=`${exam.SubjectName||''} · ${fmtExamDate(exam.ExamDate,exam.StartTime)} · ${exam.Duration||60} mins · ${exam.TotalMarks||100} marks`;
@@ -1182,8 +1184,14 @@ async function startExam(eid){
   // ── Build question HTML (robust: handles PascalCase/lowercase/camelCase DB column names) ──
   const _getOpt=(q,letter)=>{
     // Try all possible column name casings MSSQL/MySQL/SQLite drivers might return
-    const keys=['Option'+letter,'option'+letter,'OPTION'+letter,'opt'+letter.toLowerCase()];
+    const keys=['Option'+letter,'option'+letter,'OPTION'+letter,'opt'+letter.toLowerCase(),
+                'option_'+letter.toLowerCase(),'OPTION_'+letter];
     for(const k of keys){if(q[k]!=null&&q[k]!=='')return String(q[k]);}
+    // Last resort: scan all keys of the object case-insensitively
+    const target='option'+letter.toLowerCase();
+    for(const k of Object.keys(q)){
+      if(k.toLowerCase()===target&&q[k]!=null&&q[k]!=='')return String(q[k]);
+    }
     return null;
   };
   const _getQType=(q)=>{
