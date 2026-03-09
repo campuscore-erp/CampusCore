@@ -5,20 +5,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libopenblas-dev \
     liblapack-dev \
+    libx11-6 \
     libgl1 \
     libglib2.0-0 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip setuptools wheel
-RUN pip install cmake
 RUN pip install dlib>=19.24.0
 RUN pip install face_recognition>=1.3.0
 RUN pip install opencv-python-headless>=4.8.0
 
 WORKDIR /app
 
-# Dockerfile is inside root/ so paths are relative to root/
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
