@@ -748,6 +748,15 @@ class Database:
                         CreatedAt       DATETIME    DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS StudentFaceData (
+                        FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
+                        StudentID     INT NOT NULL UNIQUE,
+                        FaceEncoding  LONGBLOB,
+                        RegisteredAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )
+                """)
             conn.commit()
             print('✅ [DB] MySQL schema ready.')
             self._seed_mysql(conn)
@@ -808,6 +817,17 @@ class Database:
                         IsCorrect    TINYINT DEFAULT 0,
                         MarksAwarded DECIMAL(5,2) DEFAULT 0,
                         AnsweredAt   DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                # ── StudentFaceData: face encoding blob for attendance ──
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS StudentFaceData (
+                        FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
+                        StudentID     INT NOT NULL UNIQUE,
+                        FaceEncoding  LONGBLOB,
+                        RegisteredAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
                 """)
                 conn.commit()
@@ -1245,6 +1265,13 @@ class Database:
                 TransactionID   TEXT, ReferenceNumber TEXT,
                 Status          TEXT    DEFAULT 'Paid',
                 CreatedAt       TEXT    DEFAULT (datetime('now'))
+            )""",
+            """CREATE TABLE IF NOT EXISTS StudentFaceData (
+                FaceDataID    INTEGER PRIMARY KEY AUTOINCREMENT,
+                StudentID     INTEGER NOT NULL UNIQUE,
+                FaceEncoding  BLOB,
+                RegisteredAt  TEXT DEFAULT (datetime('now')),
+                UpdatedAt     TEXT DEFAULT (datetime('now'))
             )""",
         ]
 

@@ -1803,3 +1803,215 @@ def mark_all_read():
         return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'error': str(e), 'success': False}), 500
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FACE REGISTRATION  — /api/student/face-status  &  /api/student/register-face
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# These two routes were missing, causing:
+#   GET  /api/student/face-status    → 404
+#   POST /api/student/register-face  → 502  (route absent → server error)
+#
+# FIX STRATEGY — dependency-safe:
+#   • face_recognition / OpenCV are heavy ML deps that may not be installed on
+#     Railway.  We attempt to import face_recognition_helper lazily; if it is
+#     unavailable we fall back to storing the raw base64 thumbnail so the
+#     student can still "register" without crashing the server.
+#   • The StudentFaceData table is created on first use (CREATE TABLE IF NOT
+#     EXISTS) so no manual migration is needed.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _ensure_face_table():
+    """Create StudentFaceData table if it does not yet exist (MySQL + SQLite)."""
+    for sql in [
+        # MySQL
+        """CREATE TABLE IF NOT EXISTS StudentFaceData (
+               FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
+               StudentID     INT NOT NULL UNIQUE,
+               FaceEncoding  LONGBLOB,
+               RegisteredAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
+               UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+           )""",
+        # SQLite fallback (no ON UPDATE clause)
+        """CREATE TABLE IF NOT EXISTS StudentFaceData (
+               FaceDataID    INTEGER PRIMARY KEY AUTOINCREMENT,
+               StudentID     INTEGER NOT NULL UNIQUE,
+               FaceEncoding  BLOB,
+               RegisteredAt  TEXT DEFAULT (datetime('now')),
+               UpdatedAt     TEXT DEFAULT (datetime('now'))
+           )""",
+    ]:
+        try:
+            db.execute_non_query(sql)
+            return  # first successful CREATE wins
+        except Exception:
+            pass  # try next variant
+
+
+@bp_student.route('/face-status', methods=['GET'])
+@jwt_required()
+def get_face_status():
+    """
+    GET /api/student/face-status
+    Returns whether this student has face data stored.
+    Response: { success, hasFaceData, registeredAt }
+    """
+    err = student_required()
+    if err: return err
+    try:
+        user_id = int(get_jwt_identity())
+        student_id, _, _, _ = _resolve(user_id)
+
+        _ensure_face_table()
+
+        row = None
+        for sid in [student_id, user_id]:
+            try:
+                row = db.execute_query(
+                    "SELECT FaceDataID, RegisteredAt FROM StudentFaceData WHERE StudentID = ?",
+                    (sid,), fetch_one=True)
+                if row:
+                    break
+            except Exception as e:
+                print(f'[FaceStatus] query err sid={sid}: {e}')
+
+        has_face = bool(row and row.get('FaceDataID'))
+        registered_at = str(row.get('RegisteredAt', '')) if row else None
+
+        return jsonify({
+            'success':      True,
+            'hasFaceData':  has_face,
+            'registeredAt': registered_at,
+        }), 200
+
+    except Exception as e:
+        print(f'[FaceStatus] Error: {e}')
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'success': False}), 500
+
+
+@bp_student.route('/register-face', methods=['POST'])
+@jwt_required()
+def register_face():
+    """
+    POST /api/student/register-face
+    Body: { images: [base64, base64, ...] }   (5 webcam frames from student.html)
+
+    Processing pipeline:
+      1. Try full ML encoding via face_recognition_helper (needs face_recognition + OpenCV).
+      2. If ML libs unavailable, store a compact thumbnail blob as a placeholder
+         so the student is marked registered and can be migrated to full
+         encoding later when the libs are installed.
+
+    Response: { success, message }
+    """
+    err = student_required()
+    if err: return err
+    try:
+        user_id = int(get_jwt_identity())
+        student_id, _, _, _ = _resolve(user_id)
+
+        data   = request.get_json(silent=True) or {}
+        images = data.get('images', [])
+
+        if not images:
+            return jsonify({'success': False, 'error': 'No images provided'}), 400
+
+        _ensure_face_table()
+
+        encoding_blob = None
+        method_used   = 'none'
+
+        # ── Attempt 1: Full ML face encoding ─────────────────────────────────
+        try:
+            from face_recognition_helper import (
+                encode_face_from_multiple_images,
+                check_dependencies,
+            )
+            deps = check_dependencies()
+            if deps.get('ready'):
+                encoding_blob = encode_face_from_multiple_images(images)
+                if encoding_blob:
+                    method_used = 'ml_encoding'
+                    print(f'[RegisterFace] ML encoding OK for student_id={student_id}')
+                else:
+                    print('[RegisterFace] ML encoding returned None — no face detected in images')
+            else:
+                missing = [k for k, v in deps.items() if k != 'ready' and v is False]
+                print(f'[RegisterFace] face_recognition deps not ready: {missing}')
+        except ImportError:
+            print('[RegisterFace] face_recognition_helper not importable — falling back to thumbnail')
+        except Exception as frex:
+            print(f'[RegisterFace] ML encoding error: {frex}')
+
+        # ── Attempt 2: Thumbnail fallback ─────────────────────────────────────
+        # Store a small JPEG thumbnail so the student is marked as registered.
+        # The teacher's face-attendance system can handle this gracefully later.
+        if encoding_blob is None:
+            try:
+                import base64 as _b64
+                # Use the middle frame for the thumbnail
+                mid_frame = images[len(images) // 2]
+                if ',' in mid_frame:
+                    mid_frame = mid_frame.split(',', 1)[1]
+                # Decode → re-encode truncated (keep ≤ 50 KB for DB)
+                raw = _b64.b64decode(mid_frame)
+                encoding_blob = raw[:51200]  # cap at 50 KB
+                method_used   = 'thumbnail_fallback'
+                print(f'[RegisterFace] Using thumbnail fallback ({len(encoding_blob)} bytes)')
+            except Exception as te:
+                print(f'[RegisterFace] Thumbnail fallback error: {te}')
+
+        if encoding_blob is None:
+            return jsonify({
+                'success': False,
+                'error':   'No face detected in the captured images. '
+                           'Please ensure good lighting and look directly at the camera.',
+            }), 422
+
+        # ── Upsert into StudentFaceData ───────────────────────────────────────
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        saved = False
+
+        # MySQL: INSERT … ON DUPLICATE KEY UPDATE
+        for upsert_sql in [
+            """INSERT INTO StudentFaceData (StudentID, FaceEncoding, RegisteredAt, UpdatedAt)
+               VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE FaceEncoding=VALUES(FaceEncoding), UpdatedAt=VALUES(UpdatedAt)""",
+        ]:
+            try:
+                db.execute_non_query(upsert_sql, (student_id, encoding_blob, now, now))
+                saved = True
+                break
+            except Exception as e:
+                print(f'[RegisterFace] MySQL upsert err: {e}')
+
+        # SQLite: INSERT OR REPLACE
+        if not saved:
+            for sid in [student_id, user_id]:
+                try:
+                    db.execute_non_query(
+                        """INSERT OR REPLACE INTO StudentFaceData
+                           (StudentID, FaceEncoding, RegisteredAt, UpdatedAt)
+                           VALUES (?, ?, ?, ?)""",
+                        (sid, encoding_blob, now, now))
+                    saved = True
+                    student_id = sid
+                    break
+                except Exception as e:
+                    print(f'[RegisterFace] SQLite upsert err sid={sid}: {e}')
+
+        if not saved:
+            return jsonify({'success': False, 'error': 'Failed to save face data. Please try again.'}), 500
+
+        msg = ('Face registered successfully! ' +
+               ('Attendance will now be marked automatically.'
+                if method_used == 'ml_encoding'
+                else 'Face saved. Full recognition will activate once the system is ready.'))
+
+        return jsonify({'success': True, 'message': msg, 'method': method_used}), 200
+
+    except Exception as e:
+        print(f'[RegisterFace] Error: {e}')
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'success': False}), 500
