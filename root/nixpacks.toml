@@ -1,22 +1,39 @@
 # nixpacks.toml — CampusCore University ERP (Railway deployment)
-# Updated for Face Recognition support (dlib/face_recognition require cmake + build tools)
+# dlib requires cmake + gcc + boost to compile from source.
+# We install dlib in a SEPARATE step BEFORE requirements.txt so the
+# long C++ compile does not hit Railway's pip timeout.
 
 [phases.setup]
 nixPkgs = [
   "python311",
   "gcc",
-  "cmake",         # Required to compile dlib (used by face_recognition)
-  "boost",         # dlib dependency
+  "g++",
+  "cmake",          # Required to compile dlib
+  "boost",          # dlib C++ dependency
+  "blas",           # numpy/dlib linear algebra
+  "lapack",
   "libffi",
   "openssl",
   "zlib",
-  "libjpeg",       # Required by Pillow / OpenCV
-  "libpng",        # Required by OpenCV
+  "libjpeg",        # Pillow / OpenCV
+  "libpng",         # OpenCV
 ]
 
 [phases.install]
 cmds = [
-  "pip install --upgrade pip",
+  # Step 1 — upgrade pip/build tools
+  "pip install --upgrade pip setuptools wheel",
+
+  # Step 2 — install cmake Python wrapper (puts cmake on PATH for dlib)
+  "pip install cmake",
+
+  # Step 3 — compile & install dlib FIRST (takes ~3 min; must succeed before face_recognition)
+  "pip install dlib>=19.24.0",
+
+  # Step 4 — install face_recognition (depends on dlib being already installed)
+  "pip install face_recognition>=1.3.0",
+
+  # Step 5 — install everything else (dlib & face_recognition already satisfied, skipped)
   "pip install -r requirements.txt"
 ]
 
