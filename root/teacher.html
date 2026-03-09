@@ -616,20 +616,12 @@ const TITLES={
   classes:['My Classes','Departments and semesters'],
   students:['My Students','Students in your classes'],
   attendance:['Attendance','Record student attendance'],
-  qr:['Generate QR','QR-based attendance for class'],
+  qr:['Attendance','Attendance system'],
   marks:['Marks Entry','Enter CA, midterm and endterm marks'],
   exams:['Exams','Create and manage online exams'],
   materials:['Study Materials','Upload resources for students'],
   online:['Online Classes','Schedule and manage virtual sessions'],
 };
-
-/* ══ QR helpers — defined here so go() can always call stopQR() safely ══ */
-let _qrInterval=null, _qrToken=null;
-function stopQR(){
-  if(_qrInterval){clearInterval(_qrInterval);_qrInterval=null;}
-  _qrToken=null;
-}
-function startQR(){/* placeholder — QR generation logic goes here */}
 
 function go(v){
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
@@ -755,7 +747,7 @@ async function loadTT(){
   wrap.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';
   const d=await api('/api/teacher/timetable');
   if(!d.success||!(d.timetable&&d.timetable.length)){
-    wrap.innerHTML='<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable found</div><div class="empty-sub">Contact admin to assign classes</div></div>';return;
+    wrap.innerHTML='<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">No timetable assigned yet</div><div class="empty-sub">Contact admin to assign classes to your account</div></div>';return;
   }
   const hist=await api('/api/teacher/attendance/history');
   _attCache={};

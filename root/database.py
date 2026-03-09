@@ -156,6 +156,20 @@ def _to_sqlite_sql(sql: str) -> str:
         if not re.search(r'\bLIMIT\b', sql, flags=re.IGNORECASE):
             sql = sql.rstrip().rstrip(';') + f' LIMIT {n}'
 
+    # CONCAT(a, b, c) → (a || b || c) for SQLite
+    def _rewrite_concat(m):
+        args = [a.strip() for a in m.group(1).split(',')]
+        return '(' + ' || '.join(args) + ')'
+    sql = re.sub(r'\bCONCAT\s*\(([^)]+)\)', _rewrite_concat, sql, flags=re.IGNORECASE)
+
+    # FIELD(col, 'v1','v2',...) → CASE col WHEN 'v1' THEN 1 WHEN 'v2' THEN 2 ... END
+    def _rewrite_field(m):
+        parts = [p.strip() for p in m.group(1).split(',')]
+        col = parts[0]
+        cases = ' '.join(f"WHEN {v} THEN {i+1}" for i, v in enumerate(parts[1:]))
+        return f'CASE {col} {cases} ELSE {len(parts)} END'
+    sql = re.sub(r'\bFIELD\s*\(([^)]+)\)', _rewrite_field, sql, flags=re.IGNORECASE)
+
     sql = sql.replace('%s', '?')
     return sql
 
@@ -259,6 +273,18 @@ def _to_mysql_sql(sql: str) -> str:
         r"COALESCE\s*\(\s*t\.RoomNumber\s*,\s*t\.Room\s*,\s*''\s*\)",
         "IFNULL(t.RoomNumber, '')", sql, flags=_re.IGNORECASE)
 
+    # IFNULL(x, IFNULL(y, '')) — already valid MySQL, leave as is
+
+    # General 3-arg COALESCE(a, b, '') → IFNULL(IFNULL(a, b), '')
+    # (MySQL COALESCE supports N args but this helps with t.Room style patterns)
+    sql = _re.sub(
+        r"COALESCE\s*\(\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*''\s*\)",
+        lambda m: f"IFNULL(IFNULL({m.group(1).strip()}, {m.group(2).strip()}), '')",
+        sql, flags=_re.IGNORECASE)
+
+    # CASE ... WHEN 'Monday' THEN 1 ... END style ordering — leave as is, MySQL supports it
+    # But also translate FIELD() usage (already MySQL-native)
+
     # Escape % in format strings so pymysql doesn't treat as Python format specifiers
     # Must happen BEFORE replacing ? with %s
     sql = sql.replace('%', '%%')
@@ -315,7 +341,9 @@ class Database:
         self.sqlite_path = os.getenv(
             'SQLITE_PATH', os.path.join(base_dir, 'university_erp.db'))
 
-        self._backend: Optional[str] = None  # 'mysql' | 'mssql' | 'sqlite'
+        # NOTE: Do NOT reset self._backend here — it may already be set to 'mysql'
+        # from the eager connection above. The type annotation below is informational only.
+        # self._backend: Optional[str] = None  ← REMOVED (was resetting mysql to None!)
 
     # ── Backend detection ──────────────────────────────────────────────────────
 
