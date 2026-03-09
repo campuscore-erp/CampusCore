@@ -787,6 +787,24 @@ class Database:
                         except Exception as e:
                             print(f"[DB] Could not add {table}.{col}: {e}")
 
+                # ── Subjects: IsLab/Credits missing from imported Railway schema ──
+                _add_col('Subjects',  'IsLab',    'TINYINT NOT NULL DEFAULT 0')
+                _add_col('Subjects',  'Credits',  'INT DEFAULT 3')
+
+                # ── Timetable: IsLab/RoomNumber may be missing ──
+                _add_col('Timetable', 'IsLab',      'TINYINT NOT NULL DEFAULT 0')
+                _add_col('Timetable', 'RoomNumber', 'VARCHAR(50)')
+
+                # ── Users: columns missing from some imported schemas ──
+                _add_col('Users', 'Semester',     'INT DEFAULT 1')
+                _add_col('Users', 'DepartmentID', 'INT')
+                _add_col('Users', 'IsActive',     'TINYINT NOT NULL DEFAULT 1')
+                _add_col('Users', 'Phone',        'VARCHAR(20)')
+                _add_col('Users', 'Gender',       'VARCHAR(10)')
+                _add_col('Users', 'DateOfBirth',  'DATE')
+                _add_col('Users', 'Address',      'TEXT')
+                _add_col('Users', 'JoinDate',     'DATE')
+
                 # ── ExamQuestions: ensure all option/type columns exist ──
                 _add_col('ExamQuestions', 'QuestionType',  "VARCHAR(20) NOT NULL DEFAULT 'MCQ'")
                 _add_col('ExamQuestions', 'OptionA',       'TEXT')

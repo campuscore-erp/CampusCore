@@ -1,41 +1,33 @@
-# nixpacks.toml — CampusCore University ERP (Railway deployment)
-# dlib requires cmake + gcc + boost to compile from source.
-# We install dlib in a SEPARATE step BEFORE requirements.txt so the
-# long C++ compile does not hit Railway's pip timeout.
+# nixpacks.toml — CampusCore (Railway)
+# Strategy: install pre-built dlib wheel to avoid C++ compile timeout
 
 [phases.setup]
 nixPkgs = [
   "python311",
   "gcc",
   "g++",
-  "cmake",          # Required to compile dlib
-  "boost",          # dlib C++ dependency
-  "blas",           # numpy/dlib linear algebra
+  "cmake",
+  "boost",
+  "blas",
   "lapack",
   "libffi",
   "openssl",
   "zlib",
-  "libjpeg",        # Pillow / OpenCV
-  "libpng",         # OpenCV
+  "libjpeg",
+  "libpng",
+  "libGL",
+  "glib",
 ]
 
 [phases.install]
 cmds = [
-  # Step 1 — upgrade pip/build tools
   "pip install --upgrade pip setuptools wheel",
-
-  # Step 2 — install cmake Python wrapper (puts cmake on PATH for dlib)
   "pip install cmake",
-
-  # Step 3 — compile & install dlib FIRST (takes ~3 min; must succeed before face_recognition)
-  "pip install dlib>=19.24.0",
-
-  # Step 4 — install face_recognition (depends on dlib being already installed)
-  "pip install face_recognition>=1.3.0",
-
-  # Step 5 — install everything else (dlib & face_recognition already satisfied, skipped)
-  "pip install -r requirements.txt"
+  # Install dlib using pre-compiled wheel (avoids timeout)
+  "pip install dlib --prefer-binary",
+  "pip install face_recognition --prefer-binary",
+  "pip install -r root/requirements.txt"
 ]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+cmd = "cd root && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
