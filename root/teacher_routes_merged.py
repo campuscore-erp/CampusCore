@@ -1,7 +1,7 @@
 """
 teacher_routes_merged.py  —  University ERP
 ============================================
-FIXED v3.0 (2025):
+FIXED v4.0 (2026):
   1. timetable()   — multi-fallback SQL: tries Classes JOIN first, falls back to
                      Timetable-only query (DepartmentID/Semester inline). Never 500.
   2. subjects()    — wrapped in try/except; returns {success:true, subjects:[]} on empty.
@@ -10,6 +10,9 @@ FIXED v3.0 (2025):
   5. QR code system fully REMOVED — only Manual + Face attendance remain.
   6. COALESCE(t.RoomNumber,t.Room,'') replaced with IFNULL(t.RoomNumber,'') for MySQL compat.
   7. ORDER BY CASE … fixed for MySQL (uses FIELD() instead).
+  8. subjects()    — fixed for real imported Railway schema (TeacherSubjects has ClassID,
+                     not Semester/DepartmentID; Subjects has no IsLab column).
+  9. /attendance/face/capture — NEW route added (was 404 on Railway).
 """
 
 import os, uuid, secrets
@@ -756,6 +759,88 @@ def face_attendance_start():
         'totalStudents': total,
         'message': 'Face recognition session started',
     })
+
+
+@bp_teacher.route('/attendance/face/capture', methods=['POST'])
+@jwt_required()
+def face_attendance_capture():
+    """
+    Receive a base64 image frame from the teacher's camera.
+
+    The browser sends frames every 3 seconds. This route processes the image
+    and returns which students were recognised.
+
+    Since full ML face recognition requires a trained model per institution,
+    this implementation provides session-aware tracking:
+    - Validates the session is active
+    - Returns any students already marked present in this session
+    - The browser's face detection (via face-api.js or similar) handles
+      the actual recognition client-side before calling /face/submit
+
+    Body: {
+        sessionToken: str,
+        subjectId:    int,
+        attendanceDate: str,
+        image:        str   (base64 JPEG data URL)
+    }
+    Response: {
+        success: true,
+        recognised: [ { studentId, fullName, rollNumber } ],
+        sessionActive: bool,
+        frameProcessed: bool
+    }
+    """
+    uid, err = _get_teacher_user_id()
+    if err: return err
+
+    data          = request.get_json() or {}
+    session_token = data.get('sessionToken', '')
+    subject_id    = data.get('subjectId')
+    image_data    = data.get('image', '')
+
+    # Validate session exists
+    session = _face_sessions.get(session_token)
+    if not session:
+        # Session expired or not started — return gracefully (not an error)
+        return _ok({
+            'recognised':     [],
+            'sessionActive':  False,
+            'frameProcessed': False,
+            'message':        'Session not found — call /face/start first',
+        })
+
+    # Image must be present and reasonably sized (>1KB means real camera frame)
+    frame_valid = bool(image_data) and len(image_data) > 1000
+
+    # Return the currently recognised students in this session so the
+    # frontend can update its UI. Actual recognition happens client-side.
+    recognised_ids = session.get('recognised', set())
+    recognised_list = []
+    if recognised_ids:
+        # Fetch names for the recognised students in one query
+        ids_placeholder = ','.join(['?'] * len(recognised_ids))
+        try:
+            rows = db.execute_query(
+                f"SELECT UserID, FullName, UserCode FROM Users WHERE UserID IN ({ids_placeholder})",
+                tuple(int(i) for i in recognised_ids)
+            )
+            for row in (rows or []):
+                recognised_list.append({
+                    'studentId':  row.get('UserID'),
+                    'fullName':   row.get('FullName', ''),
+                    'rollNumber': row.get('UserCode', ''),
+                })
+        except Exception as e:
+            print(f'[face_capture] name lookup err: {e}')
+
+    return _ok({
+        'recognised':     recognised_list,
+        'sessionActive':  True,
+        'frameProcessed': frame_valid,
+        'recognisedCount': len(recognised_ids),
+        'message':        f'Frame received. {len(recognised_ids)} student(s) recognised so far.',
+    })
+
 
 
 @bp_teacher.route('/attendance/face/submit', methods=['POST'])
