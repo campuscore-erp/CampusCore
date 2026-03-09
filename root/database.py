@@ -325,44 +325,53 @@ class Database:
         self.password = os.getenv('DB_PASSWORD',  '')
         self.driver   = os.getenv('DB_DRIVER',    '{ODBC Driver 17 for SQL Server}')
         self._backend = None
-        # Eagerly connect at startup when Railway MySQL is available
-        if MYSQL_HOST and PYMYSQL_AVAILABLE:
-            try:
-                conn = self._mysql_connect()
-                conn.close()
-                self._backend = 'mysql'
-                print(f'✅ [DB] Railway MySQL connected at startup: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
-                self._ensure_mysql_schema()
-            except Exception as e:
-                print(f'❌ [DB] Railway MySQL startup FAILED: {e}')
-                self._backend = None
+        self._schema_initialised = False  # Track whether schema init has run
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.sqlite_path = os.getenv(
             'SQLITE_PATH', os.path.join(base_dir, 'university_erp.db'))
 
-        # NOTE: Do NOT reset self._backend here — it may already be set to 'mysql'
-        # from the eager connection above. The type annotation below is informational only.
-        # self._backend: Optional[str] = None  ← REMOVED (was resetting mysql to None!)
+        # Eagerly detect MySQL at startup — each gunicorn worker runs this once
+        if MYSQL_HOST and PYMYSQL_AVAILABLE:
+            try:
+                conn = self._mysql_connect()
+                conn.close()  # Test connection only — close immediately
+                self._backend = 'mysql'
+                print(f'✅ [DB] Railway MySQL connected at startup: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
+                # Run schema init AFTER closing test connection — uses its own connection internally
+                self._ensure_mysql_schema()
+                self._schema_initialised = True
+            except Exception as e:
+                print(f'❌ [DB] Railway MySQL startup FAILED: {e}')
+                self._backend = None
 
     # ── Backend detection ──────────────────────────────────────────────────────
 
     def _detect_backend(self) -> str:
+        # Fast path — already determined
         if self._backend:
             return self._backend
-        # If MySQL host available, always use MySQL (don't fall to SQLite)
-        if MYSQL_HOST and PYMYSQL_AVAILABLE:
+
+        forced = os.getenv('DB_BACKEND', '').lower()
+
+        # DB_BACKEND=mysql explicitly set (Railway auto-sets this when MYSQLHOST is present)
+        if forced == 'mysql' or (MYSQL_HOST and PYMYSQL_AVAILABLE):
             try:
                 conn = self._mysql_connect()
                 conn.close()
                 self._backend = 'mysql'
                 print(f'✅ [DB] Railway MySQL connected.')
-                self._ensure_mysql_schema()
+                if not self._schema_initialised:
+                    self._ensure_mysql_schema()
+                    self._schema_initialised = True
                 return self._backend
             except Exception as e:
                 print(f'❌ [DB] MySQL connection failed: {e}')
+                if forced == 'mysql':
+                    # Force mysql even if connection test failed — let queries fail with real error
+                    self._backend = 'mysql'
+                    return self._backend
 
-        forced = os.getenv('DB_BACKEND', '').lower()
         if forced in ('mssql', 'sqlserver'):
             self._backend = 'mssql'
             return self._backend
@@ -370,33 +379,25 @@ class Database:
             self._backend = 'sqlite'
             self._ensure_sqlite_schema()
             return self._backend
-        if forced == 'mysql':
-            # DB_BACKEND=mysql set explicitly - connect directly to MySQL
-            if PYMYSQL_AVAILABLE and MYSQL_HOST:
-                try:
-                    c = self._mysql_connect()
-                    c.close()
-                    self._backend = 'mysql'
-                    print(f'✅ [DB] Forced MySQL connected: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}')
-                    self._ensure_mysql_schema()
-                    return self._backend
-                except Exception as e:
-                    print(f'❌ [DB] Forced MySQL FAILED: {e}')
-            self._backend = 'mysql'
-            return self._backend
 
-        # Try Railway MySQL first
-        if PYMYSQL_AVAILABLE and MYSQL_HOST:
+        # Try SQL Server
+        if PYODBC_AVAILABLE:
             try:
-                print(f'[DB] Trying Railway MySQL: {MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB} …')
-                c = self._mysql_connect()
+                print(f'[DB] Trying SQL Server: {self.server}/{self.database} …')
+                c = pyodbc.connect(self._mssql_connection_string(), timeout=10)
                 c.close()
-                self._backend = 'mysql'
-                print('✅ [DB] Railway MySQL connected.')
-                self._ensure_mysql_schema()
+                self._backend = 'mssql'
+                print('✅ [DB] SQL Server connected.')
                 return self._backend
             except Exception as e:
-                print(f'⚠️  [DB] Railway MySQL failed ({e}). Trying SQL Server …')
+                print(f'⚠️  [DB] SQL Server failed ({e}). Falling back to SQLite.')
+        else:
+            print('⚠️  [DB] pyodbc not installed. Using SQLite.')
+
+        self._backend = 'sqlite'
+        self._ensure_sqlite_schema()
+        print(f'✅ [DB] SQLite → {self.sqlite_path}')
+        return self._backend
 
         # Try SQL Server
         if PYODBC_AVAILABLE:

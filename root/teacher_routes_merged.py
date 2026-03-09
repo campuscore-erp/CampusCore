@@ -176,12 +176,23 @@ def _notify_students(subject_id, title, message, notif_type='General', dept_id=N
 
 
 def _islab_col():
+    """
+    Returns True if Subjects.IsLab column exists, False otherwise.
+    The imported Railway schema does NOT have IsLab — so we default False
+    and derive lab status from SubjectCode ending in 'L'.
+    """
     global _ISLAB
     if _ISLAB is None:
-        for q in ["SELECT TOP 1 IsLab FROM Subjects", "SELECT IsLab FROM Subjects LIMIT 1"]:
-            try: db.execute_query(q, fetch_one=True); _ISLAB = True; break
-            except Exception: pass
-        if _ISLAB is None: _ISLAB = False
+        for q in ["SELECT IsLab FROM Subjects LIMIT 1",
+                  "SELECT TOP 1 IsLab FROM Subjects"]:
+            try:
+                db.execute_query(q, fetch_one=True)
+                _ISLAB = True
+                break
+            except Exception:
+                pass
+        if _ISLAB is None:
+            _ISLAB = False
     return _ISLAB
 
 
@@ -311,52 +322,85 @@ def dashboard():
 def subjects():
     uid, err = _get_teacher_user_id()
     if err: return err
+    # Real imported Railway schema: Subjects has NO IsLab column
+    # Always use 0 AS IsLab and derive from SubjectCode suffix
     ilab = ', s.IsLab' if _islab_col() else ', 0 AS IsLab'
     rows = None
 
-    # Try TeacherSubjects table first
-    try:
-        rows = db.execute_query(
-            f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                   s.Credits {ilab}, ts.Semester, ts.DepartmentID, d.DepartmentName
-               FROM TeacherSubjects ts
-               INNER JOIN Subjects s ON s.SubjectID=ts.SubjectID
-               LEFT JOIN Departments d ON d.DepartmentID=ts.DepartmentID
-               WHERE ts.TeacherID=? ORDER BY ts.Semester, s.SubjectName""", (uid,))
-    except Exception as e:
-        print(f'[subjects] TeacherSubjects err: {e}')
+    # Strategy 1: TeacherSubjects JOIN Classes (real imported schema has ClassID, not Semester/DeptID)
+    for q in [
+        f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+               s.Credits {ilab}, c.Semester, c.DepartmentID, d.DepartmentName,
+               c.ClassName, c.Section
+           FROM TeacherSubjects ts
+           INNER JOIN Subjects s ON s.SubjectID=ts.SubjectID
+           INNER JOIN Classes c ON ts.ClassID=c.ClassID
+           LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
+           WHERE ts.TeacherID=? ORDER BY c.Semester, s.SubjectName""",
+        # Without IsLab (safety fallback)
+        f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+               s.Credits, 0 AS IsLab, c.Semester, c.DepartmentID, d.DepartmentName,
+               c.ClassName, c.Section
+           FROM TeacherSubjects ts
+           INNER JOIN Subjects s ON s.SubjectID=ts.SubjectID
+           INNER JOIN Classes c ON ts.ClassID=c.ClassID
+           LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
+           WHERE ts.TeacherID=? ORDER BY c.Semester, s.SubjectName""",
+        # Older auto-created schema: TeacherSubjects has Semester/DepartmentID
+        f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+               s.Credits {ilab}, ts.Semester, ts.DepartmentID, d.DepartmentName
+           FROM TeacherSubjects ts
+           INNER JOIN Subjects s ON s.SubjectID=ts.SubjectID
+           LEFT JOIN Departments d ON d.DepartmentID=ts.DepartmentID
+           WHERE ts.TeacherID=? ORDER BY ts.Semester, s.SubjectName""",
+    ]:
+        try:
+            rows = db.execute_query(q, (uid,))
+            if rows: break
+        except Exception as e:
+            print(f'[subjects] TeacherSubjects err: {e}')
 
-    # Fall back to Timetable → Classes → Subjects
+    # Strategy 2: Timetable → Classes → Subjects (always works on imported schema)
     if not rows:
         for q in [
-            # Imported schema: Timetable has ClassID FK to Classes
             f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                       s.Credits {ilab}, c.Semester, c.DepartmentID, d.DepartmentName, c.ClassName, c.Section
-                   FROM Timetable t
-                   JOIN Classes c ON t.ClassID=c.ClassID
-                   INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
-                   LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
-                   WHERE t.TeacherID=? ORDER BY c.Semester, s.SubjectName""",
-            # Auto-created schema: Timetable has DepartmentID/Semester inline
+                   s.Credits {ilab}, c.Semester, c.DepartmentID, d.DepartmentName,
+                   c.ClassName, c.Section
+               FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
+               INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
+               LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
+               WHERE t.TeacherID=? ORDER BY c.Semester, s.SubjectName""",
+            # Without IsLab
             f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
-                       s.Credits {ilab}, t.Semester, t.DepartmentID, d.DepartmentName,
-                       '' AS ClassName, '' AS Section
-                   FROM Timetable t
-                   INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
-                   LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
-                   WHERE t.TeacherID=? ORDER BY t.Semester, s.SubjectName""",
+                   s.Credits, 0 AS IsLab, c.Semester, c.DepartmentID, d.DepartmentName,
+                   c.ClassName, c.Section
+               FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
+               INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
+               LEFT JOIN Departments d ON d.DepartmentID=c.DepartmentID
+               WHERE t.TeacherID=? ORDER BY c.Semester, s.SubjectName""",
+            # Inline DepartmentID/Semester (auto-created schema)
+            f"""SELECT DISTINCT s.SubjectID, s.SubjectName, s.SubjectCode,
+                   s.Credits, 0 AS IsLab, t.Semester, t.DepartmentID, d.DepartmentName,
+                   '' AS ClassName, '' AS Section
+               FROM Timetable t
+               INNER JOIN Subjects s ON s.SubjectID=t.SubjectID
+               LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
+               WHERE t.TeacherID=? ORDER BY t.Semester, s.SubjectName""",
         ]:
             try:
                 rows = db.execute_query(q, (uid,))
                 if rows: break
             except Exception as e:
-                print(f'[subjects] fallback err: {e}')
+                print(f'[subjects] Timetable fallback err: {e}')
 
     result = _serialize(rows or [])
     for r in result:
         r['ClassName'] = r.get('ClassName') or f"{r.get('DepartmentName','')} Sem {r.get('Semester','')}"
-        if r.get('IsLab') is None:
-            r['IsLab'] = 1 if str(r.get('SubjectCode', '')).endswith('L') else 0
+        # Derive IsLab from SubjectCode if column doesn't exist in schema
+        if r.get('IsLab') is None or r.get('IsLab') == 0:
+            r['IsLab'] = 1 if str(r.get('SubjectCode', '')).upper().endswith('L') else 0
     return _ok({'subjects': result})
 
 

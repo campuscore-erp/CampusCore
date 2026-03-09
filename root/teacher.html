@@ -623,6 +623,9 @@ const TITLES={
   online:['Online Classes','Schedule and manage virtual sessions'],
 };
 
+// QR system removed — stub prevents ReferenceError on any legacy nav clicks
+function stopQR(){}
+
 function go(v){
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
@@ -631,7 +634,6 @@ function go(v){
   const[t,s]=TITLES[v]||[v,''];
   document.getElementById('pageTitle').textContent=t;
   document.getElementById('pageSub').textContent=s;
-  stopQR();
   loadView(v);
 }
 
