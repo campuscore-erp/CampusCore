@@ -1744,6 +1744,8 @@ def get_students_for_marks():
     result = _serialize(students or [])
     for i, s in enumerate(result, 1):
         s['SerialNo'] = i
+        raw = s.get('RollNumber', '') or ''
+        s['RollNumber'] = raw[5:] if raw.startswith('STUID') else raw
     return _ok({'students': result, 'subjectId': subject_id})
 
 
