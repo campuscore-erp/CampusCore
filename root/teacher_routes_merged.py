@@ -72,9 +72,10 @@ def _get_teacher_db_id(user_id):
 def _sv(val):
     if isinstance(val, timedelta):
         # MySQL returns TIME columns as timedelta — convert to HH:MM string
+        # NOTE: pure integer IDs are never timedelta; this only affects TIME cols
         total = int(val.total_seconds())
         h, m = divmod(abs(total), 3600)
-        m, s = divmod(m, 60)
+        m, _ = divmod(m, 60)
         return f'{h:02d}:{m:02d}'
     if isinstance(val, (datetime, date, time)): return str(val)
     return val
@@ -123,6 +124,57 @@ def _try_inserts(table, variants):
     return False, last_err
 
 _ISLAB = None
+
+def _get_dept_semester(teacher_id, subject_id):
+    """
+    Get DepartmentID and Semester for a teacher+subject combination.
+    The imported Railway schema has Timetable → Classes (via ClassID).
+    Timetable does NOT have DepartmentID or Semester columns directly.
+    Falls back to Subjects table if Timetable JOIN fails.
+    Returns dict with DepartmentID, Semester or None.
+    """
+    # Strategy 1: Timetable → Classes JOIN (real imported schema)
+    r = _try_queries([
+        ("""SELECT c.DepartmentID, c.Semester
+            FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID
+            WHERE t.TeacherID=? AND t.SubjectID=? LIMIT 1""", (teacher_id, subject_id)),
+        ("""SELECT TOP 1 c.DepartmentID, c.Semester
+            FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID
+            WHERE t.TeacherID=? AND t.SubjectID=?""", (teacher_id, subject_id)),
+    ], fetch_one=True)
+    if r and r.get('DepartmentID') is not None:
+        return r
+    # Strategy 2: Timetable inline DepartmentID/Semester (auto-created schema)
+    r = _try_queries([
+        ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_id, subject_id)),
+        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (teacher_id, subject_id)),
+    ], fetch_one=True)
+    if r and r.get('DepartmentID') is not None:
+        return r
+    # Strategy 3: Subjects table has DepartmentID and Semester
+    r = _try_queries([
+        ('SELECT DepartmentID, Semester FROM Subjects WHERE SubjectID=? LIMIT 1', (subject_id,)),
+        ('SELECT TOP 1 DepartmentID, Semester FROM Subjects WHERE SubjectID=?', (subject_id,)),
+    ], fetch_one=True)
+    return r
+
+def _get_dept_semester_for_subject(subject_id):
+    """Get DepartmentID and Semester for any subject (no teacher filter)."""
+    r = _try_queries([
+        ("""SELECT c.DepartmentID, c.Semester
+            FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID
+            WHERE t.SubjectID=? LIMIT 1""", (subject_id,)),
+        ("""SELECT TOP 1 c.DepartmentID, c.Semester
+            FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID
+            WHERE t.SubjectID=?""", (subject_id,)),
+        ('SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? LIMIT 1', (subject_id,)),
+        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE SubjectID=?', (subject_id,)),
+        ('SELECT DepartmentID, Semester FROM Subjects WHERE SubjectID=? LIMIT 1', (subject_id,)),
+        ('SELECT TOP 1 DepartmentID, Semester FROM Subjects WHERE SubjectID=?', (subject_id,)),
+    ], fetch_one=True)
+    return r
+
+
 def _notify_students(subject_id, title, message, notif_type='General', dept_id=None, semester=None):
     """
     Push a Notification to every student enrolled in the given subject.
@@ -132,20 +184,12 @@ def _notify_students(subject_id, title, message, notif_type='General', dept_id=N
     try:
         student_ids = set()
 
-        # Primary: resolve dept+semester from Timetable for this subject
+        # Primary: resolve dept+semester from Timetable→Classes for this subject
         if subject_id and (not dept_id or not semester):
-            for q in [
-                'SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE SubjectID=?',
-                'SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? LIMIT 1',
-            ]:
-                try:
-                    info = db.execute_query(q, (subject_id,), fetch_one=True)
-                    if info:
-                        dept_id   = dept_id   or info.get('DepartmentID')
-                        semester  = semester  or info.get('Semester')
-                        break
-                except Exception:
-                    pass
+            info = _get_dept_semester_for_subject(subject_id)
+            if info:
+                dept_id  = dept_id  or info.get('DepartmentID')
+                semester = semester or info.get('Semester')
 
         # Collect student UserIDs from cohort
         if dept_id and semester:
@@ -741,10 +785,7 @@ def face_attendance_start():
     }
 
     # How many students are in this class?
-    dept_sem = _try_queries([
-        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-    ], fetch_one=True)
+    dept_sem = _get_dept_semester(uid, subject_id)
     total = 0
     if dept_sem:
         total = _safe_scalar(
@@ -956,10 +997,7 @@ def face_attendance_status():
 
     # Total class size
     total = 0
-    dept_sem = _try_queries([
-        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE SubjectID=?', (subject_id,)),
-        ('SELECT DepartmentID, Semester FROM Timetable WHERE SubjectID=? LIMIT 1', (subject_id,)),
-    ], fetch_one=True) if subject_id else None
+    dept_sem = _get_dept_semester_for_subject(subject_id) if subject_id else None
     if dept_sem:
         total = _safe_scalar(
             "SELECT COUNT(*) FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
@@ -999,10 +1037,7 @@ def mark_absent_non_scanners():
     if not subject_id: return _err('subjectId required')
 
     if not dept_id or not semester:
-        tt = _try_queries([
-            ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-            ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-        ], fetch_one=True)
+        tt = _get_dept_semester(uid, subject_id)
         if tt: dept_id = tt['DepartmentID']; semester = tt['Semester']
 
     if not dept_id or not semester: return _err('Could not determine class.')
@@ -1684,10 +1719,7 @@ def get_students_for_marks():
     subject_id = request.args.get('subjectId')
     if not subject_id: return _err('subjectId required')
 
-    tt = _try_queries([
-        ('SELECT TOP 1 DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
-        ('SELECT DepartmentID, Semester FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
-    ], fetch_one=True)
+    tt = _get_dept_semester(uid, subject_id)
     if not tt: return _err('You do not teach this subject', 403)
     dept_id  = tt['DepartmentID']
     semester = tt['Semester']
@@ -1925,7 +1957,16 @@ def get_departments():
         depts = _serialize(db.execute_query(
             'SELECT DepartmentID, DepartmentName, DepartmentCode, TotalSemesters FROM Departments ORDER BY DepartmentName'))
         for d in depts:
-            rows = db.execute_query('SELECT DISTINCT Semester FROM Timetable WHERE DepartmentID=? ORDER BY Semester', (d['DepartmentID'],))
+            rows = db.execute_query(
+                """SELECT DISTINCT c.Semester FROM Timetable t
+                   JOIN Classes c ON t.ClassID=c.ClassID
+                   WHERE c.DepartmentID=? ORDER BY c.Semester""", (d['DepartmentID'],))
+            if not rows:
+                # fallback: Timetable.DepartmentID (auto-created schema)
+                try:
+                    rows = db.execute_query('SELECT DISTINCT Semester FROM Timetable WHERE DepartmentID=? ORDER BY Semester', (d['DepartmentID'],))
+                except Exception:
+                    rows = []
             d['Semesters'] = [r['Semester'] for r in rows] if rows else []
         return jsonify({'success': True, 'departments': depts}), 200
     except Exception as e:
@@ -1991,10 +2032,18 @@ def get_teacher_timetable(teacher_id):
                JOIN Departments d ON c.DepartmentID=d.DepartmentID
                WHERE t.TeacherID=?"""
         params = [teacher_id]
-        if semester: q += ' AND t.Semester=?'; params.append(semester)
-        q += ' ORDER BY t.DayOfWeek, t.PeriodNumber'
+        if semester: q += ' AND c.Semester=?'; params.append(semester)
+        q += ' ORDER BY t.DayOfWeek, t.StartTime'
         rows = _serialize(db.execute_query(q, tuple(params)))
-        all_sem = db.execute_query('SELECT DISTINCT Semester FROM Timetable WHERE TeacherID=? ORDER BY Semester', (teacher_id,))
+        all_sem = db.execute_query(
+            """SELECT DISTINCT c.Semester FROM Timetable t
+               JOIN Classes c ON t.ClassID=c.ClassID
+               WHERE t.TeacherID=? ORDER BY c.Semester""", (teacher_id,))
+        if not all_sem:
+            try:
+                all_sem = db.execute_query('SELECT DISTINCT Semester FROM Timetable WHERE TeacherID=? ORDER BY Semester', (teacher_id,))
+            except Exception:
+                all_sem = []
         return jsonify({'success': True, 'timetable': rows,
                         'allSemesters': [r['Semester'] for r in all_sem] if all_sem else []}), 200
     except Exception as e:

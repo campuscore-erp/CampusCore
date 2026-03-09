@@ -36,7 +36,7 @@ import re
 import sqlite3
 import hashlib
 import sys
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional, List, Any, Tuple
 
@@ -58,13 +58,13 @@ if MYSQL_HOST:
     print(f'✅ [DB] DB_BACKEND forced to mysql')
 
 try:
-    import pymysql
+    import pymysql  # type: ignore[import]
     PYMYSQL_AVAILABLE = True
 except ImportError:
     PYMYSQL_AVAILABLE = False
 
 try:
-    import pyodbc
+    import pyodbc  # type: ignore[import]
     PYODBC_AVAILABLE = True
 except ImportError:
     PYODBC_AVAILABLE = False
@@ -302,6 +302,12 @@ def _serialize_db_value(v: Any) -> Any:
         return v.isoformat()
     if isinstance(v, time):
         return v.strftime('%H:%M:%S')
+    if isinstance(v, timedelta):
+        # MySQL returns TIME columns as timedelta — convert to HH:MM string
+        total = int(v.total_seconds())
+        h, m = divmod(abs(total), 3600)
+        m, _ = divmod(m, 60)
+        return f'{h:02d}:{m:02d}'
     if isinstance(v, Decimal):
         return float(v)
     if isinstance(v, bytes):

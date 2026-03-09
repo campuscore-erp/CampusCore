@@ -687,7 +687,10 @@ async function loadSubjectsIntoSelects(){
     }
   }
   const opts='<option value="">-- Select Subject --</option>'+
-    mySubjects.map(function(s){return '<option value="'+s.SubjectID+'">'+s.SubjectName+' ('+( s.SubjectCode||'')+') - Sem '+(s.Semester||'?')+'</option>';}).join('');
+    mySubjects.map(function(s){
+      var sid=parseInt(s.SubjectID)||s.SubjectID; // guard against timedelta bleed
+      return '<option value="'+sid+'">'+s.SubjectName+' ('+( s.SubjectCode||'')+') - Sem '+(s.Semester||'?')+'</option>';
+    }).join('');
   // Only populate selects that actually exist in the DOM
   ['marksSubject','examSubject','matSubject','ocSubject'].forEach(function(id){
     const sel=document.getElementById(id);
@@ -1371,7 +1374,7 @@ function loadMarksView(){
 }
 
 async function loadMarksRoster(){
-  const subjectId  = document.getElementById('marksSubject').value;
+  const subjectId  = parseInt(document.getElementById('marksSubject').value) || document.getElementById('marksSubject').value;
   const examType   = document.getElementById('marksExamType').value;
   const el         = document.getElementById('marksRoster');
   const lockedBnr  = document.getElementById('marksLockedBanner');
