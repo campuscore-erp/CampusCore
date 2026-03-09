@@ -623,6 +623,14 @@ const TITLES={
   online:['Online Classes','Schedule and manage virtual sessions'],
 };
 
+/* ══ QR helpers — defined here so go() can always call stopQR() safely ══ */
+let _qrInterval=null, _qrToken=null;
+function stopQR(){
+  if(_qrInterval){clearInterval(_qrInterval);_qrInterval=null;}
+  _qrToken=null;
+}
+function startQR(){/* placeholder — QR generation logic goes here */}
+
 function go(v){
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
