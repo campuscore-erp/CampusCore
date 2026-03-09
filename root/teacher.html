@@ -515,8 +515,54 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="form-group"><label class="form-label">Exam Date *</label><input id="examDate" class="form-input" type="date"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem">
-        <div class="form-group"><label class="form-label">Start Time *</label><input id="examStartTime" class="form-input" type="time"></div>
-        <div class="form-group"><label class="form-label">End Time *</label><input id="examEndTime" class="form-input" type="time"></div>
+        <div class="form-group">
+          <label class="form-label">Start Time * <span style="font-size:.7rem;color:var(--text3)">(HH : MM : AM/PM)</span></label>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <select id="examStartHour" class="form-input" style="flex:1;min-width:0">
+              <option value="">HH</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option>
+              <option>5</option><option>6</option><option>7</option><option>8</option>
+              <option>9</option><option>10</option><option>11</option><option>12</option>
+            </select>
+            <span style="color:var(--text3);font-weight:700;font-size:1.1rem">:</span>
+            <select id="examStartMin" class="form-input" style="flex:1;min-width:0">
+              <option value="">MM</option>
+              <option value="00">00</option><option value="05">05</option><option value="10">10</option>
+              <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+              <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+              <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+            </select>
+            <select id="examStartAmPm" class="form-input" style="flex:1;min-width:0">
+              <option value="">AM/PM</option>
+              <option value="AM">AM</option><option value="PM">PM</option>
+            </select>
+          </div>
+          <input type="hidden" id="examStartTime">
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Time * <span style="font-size:.7rem;color:var(--text3)">(HH : MM : AM/PM)</span></label>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <select id="examEndHour" class="form-input" style="flex:1;min-width:0">
+              <option value="">HH</option>
+              <option>1</option><option>2</option><option>3</option><option>4</option>
+              <option>5</option><option>6</option><option>7</option><option>8</option>
+              <option>9</option><option>10</option><option>11</option><option>12</option>
+            </select>
+            <span style="color:var(--text3);font-weight:700;font-size:1.1rem">:</span>
+            <select id="examEndMin" class="form-input" style="flex:1;min-width:0">
+              <option value="">MM</option>
+              <option value="00">00</option><option value="05">05</option><option value="10">10</option>
+              <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+              <option value="30">30</option><option value="35">35</option><option value="40">40</option>
+              <option value="45">45</option><option value="50">50</option><option value="55">55</option>
+            </select>
+            <select id="examEndAmPm" class="form-input" style="flex:1;min-width:0">
+              <option value="">AM/PM</option>
+              <option value="AM">AM</option><option value="PM">PM</option>
+            </select>
+          </div>
+          <input type="hidden" id="examEndTime">
+        </div>
       </div>
       <div class="form-group"><label class="form-label">Instructions</label><textarea id="examInstructions" class="form-input" placeholder="Optional instructions for students…"></textarea></div>
       <div id="examMdlErr" style="display:none" class="alert alert-error"></div>
@@ -1629,6 +1675,16 @@ async function submitAddQuestion() {
   }
 }
 
+// Format 24h time string to AM/PM for display
+function _fmt12h(t24){
+  if(!t24||t24==='—'||t24==='00:00'||t24==='00:00:00')return t24||'—';
+  const parts=String(t24).slice(0,5).split(':');
+  if(parts.length<2)return t24;
+  let h=parseInt(parts[0]),m=parseInt(parts[1]);
+  const ampm=h>=12?'PM':'AM';
+  h=h%12||12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
 async function loadExams(){
   const d=await api('/api/teacher/exams');
   const el=document.getElementById('examsList');
@@ -1642,8 +1698,8 @@ async function loadExams(){
       <td>${e.SubjectName||''} <span style="font-family:var(--mono);color:var(--text3);font-size:.72rem">${e.SubjectCode||''}</span></td>
       <td><span class="badge badge-orange">${e.ExamType||'—'}</span></td>
       <td style="font-family:var(--mono);font-size:.78rem">${e.ExamDate||'—'}</td>
-      <td style="font-family:var(--mono);font-size:.78rem">${e.StartTime||'—'}</td>
-      <td style="font-family:var(--mono);font-size:.78rem">${e.EndTime||'—'}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${_fmt12h(e.StartTime)}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${_fmt12h(e.EndTime)}</td>
       <td style="font-family:var(--mono)">${e.TotalMarks||'—'}</td>
       <td style="font-family:var(--mono)">${e.Duration||'—'} min</td>
       <td><span class="badge badge-blue">${e.QuestionCount||0} Q</span></td>
@@ -1653,6 +1709,15 @@ async function loadExams(){
   </tbody></table></div>`;
 }
 
+// Convert 12h (h, mm, ampm) → 24h "HH:MM" string
+function _to24h(hour, min, ampm){
+  if(!hour||min===''||!ampm)return '';
+  let h=parseInt(hour);
+  if(ampm==='AM'&&h===12)h=0;
+  else if(ampm==='PM'&&h!==12)h+=12;
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
+}
+
 async function createExam(){
   const subjectId=document.getElementById('examSubject').value;
   const examName=document.getElementById('examName').value.trim();
@@ -1660,22 +1725,31 @@ async function createExam(){
   const totalMarks=parseInt(document.getElementById('examMarks').value)||100;
   const duration=parseInt(document.getElementById('examDuration').value)||60;
   const examDate=document.getElementById('examDate').value;
-  const startTime=document.getElementById('examStartTime').value;
-  const endTime=document.getElementById('examEndTime').value;
+  const startTime=_to24h(
+    document.getElementById('examStartHour').value,
+    document.getElementById('examStartMin').value,
+    document.getElementById('examStartAmPm').value
+  );
+  const endTime=_to24h(
+    document.getElementById('examEndHour').value,
+    document.getElementById('examEndMin').value,
+    document.getElementById('examEndAmPm').value
+  );
   const instructions=document.getElementById('examInstructions').value;
   const errEl=document.getElementById('examMdlErr');
   errEl.style.display='none';
   if(!subjectId){errEl.textContent='Please select a subject.';errEl.style.display='block';return}
   if(!examName){errEl.textContent='Please enter an exam name.';errEl.style.display='block';return}
   if(!examDate){errEl.textContent='Please enter an exam date.';errEl.style.display='block';return}
-  if(!startTime){errEl.textContent='Please enter a start time.';errEl.style.display='block';return}
-  if(!endTime){errEl.textContent='Please enter an end time.';errEl.style.display='block';return}
+  if(!startTime){errEl.textContent='Please select a complete start time (hour, minute and AM/PM).';errEl.style.display='block';return}
+  if(!endTime){errEl.textContent='Please select a complete end time (hour, minute and AM/PM).';errEl.style.display='block';return}
+  if(startTime>=endTime){errEl.textContent='End time must be after start time.';errEl.style.display='block';return}
   const d=await api('/api/teacher/exams',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),examName,examType,totalMarks,duration,examDate,startTime,endTime,instructions})});
   if(d.success){
     closeMdl('createExamMdl');
     toast(d.message||'Exam created!','success');
-    // Reset form
-    ['examSubject','examName','examDate','examStartTime','examEndTime','examInstructions'].forEach(id=>document.getElementById(id).value='');
+    ['examSubject','examName','examDate','examInstructions'].forEach(id=>document.getElementById(id).value='');
+    ['examStartHour','examStartMin','examStartAmPm','examEndHour','examEndMin','examEndAmPm'].forEach(id=>{document.getElementById(id).selectedIndex=0;});
     document.getElementById('examMarks').value='100';
     document.getElementById('examDuration').value='60';
     loadExams();

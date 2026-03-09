@@ -509,7 +509,15 @@ select.form-input option{background:var(--bg3)}
 <div class="modal-overlay" id="examMdl">
   <div class="modal">
     <div class="modal-hdr">
-      <div><h3 id="examMdlTitle">Exam</h3><div style="font-size:.73rem;color:var(--text3);margin-top:.15rem" id="examMdlSub"></div></div>
+      <div style="flex:1">
+        <h3 id="examMdlTitle">Exam</h3>
+        <div style="font-size:.73rem;color:var(--text3);margin-top:.15rem" id="examMdlSub"></div>
+      </div>
+      <!-- Countdown Timer -->
+      <div id="examTimerBox" style="display:none;flex-direction:column;align-items:center;background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.4);border-radius:var(--r-sm);padding:.35rem .75rem;margin-right:.75rem;min-width:80px">
+        <span style="font-size:.6rem;font-weight:700;color:var(--amber);letter-spacing:.05em;text-transform:uppercase">Time Left</span>
+        <span id="examTimerDisplay" style="font-family:var(--mono);font-size:1.05rem;font-weight:800;color:var(--amber);letter-spacing:.05em">00:00</span>
+      </div>
       <button class="btn-close" onclick="closeMdl('examMdl')">✕</button>
     </div>
     <div class="modal-body" id="examMdlBody"></div>
@@ -597,7 +605,7 @@ function toast(msg,type='info'){
   el.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],{duration:200,fill:'forwards'});
   setTimeout(()=>{el.animate([{opacity:1},{opacity:0}],{duration:200,fill:'forwards'}).onfinish=()=>el.remove()},3500)
 }
-function closeMdl(id){document.getElementById(id).classList.remove('open')}
+function closeMdl(id){document.getElementById(id).classList.remove('open');if(id==='examMdl')_stopExamTimer();}
 
 const TITLES={dashboard:['Dashboard','Your academic overview'],profile:['My Profile','Personal information'],timetable:['Timetable','Weekly schedule with teachers'],subjects:['My Subjects','Enrolled subjects'],teachers:['My Teachers','Your faculty'],attendance:['Attendance','Your attendance records'],scan:['Face Registration','Register your face for automatic attendance'],marks:['My Marks','Academic performance'],exams:['Exams','Online assessments'],materials:['Study Materials','Resources from teachers'],online:['Online Classes','Virtual sessions'],fees:['Fee Details','Fee structure and payments'],notifications:['Notifications','Alerts from your teachers']};
 
@@ -981,13 +989,119 @@ async function loadMarks(){
   <div style="margin-top:.85rem;font-size:.75rem;color:var(--text3);padding:.7rem 1rem;background:rgba(255,255,255,.02);border-radius:var(--r-sm)">Grade scale: O≥90% · A+≥80% · A≥70% · B+≥60% · B≥50% · C≥40% · F&lt;40%</div>`;
 }
 
-function fmtExamDate(dateStr,timeStr){if(!dateStr)return '—';const d=String(dateStr).split('T')[0];const hasTime=timeStr&&timeStr!=='00:00'&&timeStr!=='00:00:00';const t=hasTime?timeStr.slice(0,5):null;try{const dt=new Date(d+'T'+(t||'00:00')+':00');const datePart=dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});return t?`${datePart} · ${t}`:datePart}catch{return d}}
-function examWindowState(e){if(e.IsSubmitted)return 'submitted';const dateStr=String(e.ExamDate||'').split('T')[0];if(!dateStr||dateStr==='null')return 'active';const startTime=(e.StartTime&&e.StartTime!=='00:00'&&e.StartTime!=='00:00:00')?e.StartTime.slice(0,5):'00:00';const duration=parseInt(e.Duration||60);const now=new Date();let examStart;try{examStart=new Date(dateStr+'T'+startTime+':00')}catch{return 'active'}const examEnd=new Date(examStart.getTime()+duration*60000);const noSpecificTime=(startTime==='00:00');if(noSpecificTime){const dayStart=new Date(dateStr+'T00:00:00');const dayEnd=new Date(dateStr+'T23:59:59');if(now<dayStart)return 'upcoming';if(now>dayEnd)return 'expired';return 'active'}if(now<examStart)return 'upcoming';if(now>examEnd)return 'expired';return 'active'}
+// ── Exam time helpers ──
+function fmtExamDate(dateStr,timeStr){
+  if(!dateStr)return '—';
+  const d=String(dateStr).split('T')[0];
+  const hasTime=timeStr&&timeStr!=='00:00'&&timeStr!=='00:00:00';
+  const t=hasTime?timeStr.slice(0,5):null;
+  try{
+    const dt=new Date(d+'T'+(t||'00:00')+':00');
+    const datePart=dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+    if(!t)return datePart;
+    const [hh,mm]=t.split(':').map(Number);
+    const ampm=hh>=12?'PM':'AM';
+    const h12=hh%12||12;
+    return `${datePart} · ${h12}:${String(mm).padStart(2,'0')} ${ampm}`;
+  }catch{return d}
+}
+
+function _parseExamWindow(e){
+  const dateStr=String(e.ExamDate||'').split('T')[0];
+  if(!dateStr||dateStr==='null')return null;
+  const startTime=(e.StartTime&&e.StartTime!=='00:00'&&e.StartTime!=='00:00:00')?e.StartTime.slice(0,5):null;
+  const endTime=(e.EndTime&&e.EndTime!=='00:00'&&e.EndTime!=='00:00:00')?e.EndTime.slice(0,5):null;
+  const duration=parseInt(e.Duration||60);
+  let examStart,examEnd;
+  try{
+    examStart=startTime?new Date(dateStr+'T'+startTime+':00'):new Date(dateStr+'T00:00:00');
+    examEnd=endTime?new Date(dateStr+'T'+endTime+':00'):new Date(examStart.getTime()+duration*60000);
+  }catch{return null}
+  return {examStart,examEnd,noSpecificTime:!startTime};
+}
+
+function examWindowState(e){
+  if(e.IsSubmitted)return 'submitted';
+  const win=_parseExamWindow(e);
+  if(!win)return 'active';
+  const now=new Date();
+  if(win.noSpecificTime){
+    const ds=String(e.ExamDate||'').split('T')[0];
+    const dayStart=new Date(ds+'T00:00:00');
+    const dayEnd=new Date(ds+'T23:59:59');
+    if(now<dayStart)return 'upcoming';
+    if(now>dayEnd)return 'expired';
+    return 'active';
+  }
+  if(now<win.examStart)return 'upcoming';
+  if(now>=win.examEnd)return 'expired';
+  return 'active';
+}
+
 function _updateExamExpiredBadge(count){const tb=document.getElementById('topbarNotifBadge');if(tb){tb.textContent=count>0?count:'';tb.style.display=count>0?'':'none'}}
 
+// ── Countdown timer inside exam modal ──
+let _examTimerInterval=null;
+function _stopExamTimer(){if(_examTimerInterval){clearInterval(_examTimerInterval);_examTimerInterval=null;}const tb=document.getElementById('examTimerBox');if(tb)tb.style.display='none';}
+
+function _startExamTimer(examObj,onExpire){
+  _stopExamTimer();
+  const timerBox=document.getElementById('examTimerBox');
+  const timerDisplay=document.getElementById('examTimerDisplay');
+  if(!timerBox||!timerDisplay)return;
+  const win=_parseExamWindow(examObj);
+  if(!win||win.noSpecificTime)return;
+  timerBox.style.display='flex';
+  timerBox.style.background='rgba(245,158,11,.12)';
+  timerBox.style.borderColor='rgba(245,158,11,.4)';
+  timerDisplay.style.color='var(--amber)';
+  timerBox.querySelectorAll('span').forEach(s=>s.style.color='var(--amber)');
+  function tick(){
+    const now=new Date();
+    let secsLeft=Math.floor((win.examEnd-now)/1000);
+    if(secsLeft<=0){
+      timerDisplay.textContent='00:00';
+      timerBox.style.background='rgba(239,68,68,.18)';
+      timerBox.style.borderColor='rgba(239,68,68,.5)';
+      timerDisplay.style.color='var(--red)';
+      timerBox.querySelectorAll('span').forEach(s=>s.style.color='var(--red)');
+      _stopExamTimer();
+      if(onExpire)onExpire();
+      return;
+    }
+    const mins=Math.floor(secsLeft/60);
+    const secs=secsLeft%60;
+    timerDisplay.textContent=`${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    if(secsLeft<=300){
+      timerBox.style.background='rgba(239,68,68,.18)';
+      timerBox.style.borderColor='rgba(239,68,68,.5)';
+      timerDisplay.style.color='var(--red)';
+      timerBox.querySelectorAll('span').forEach(s=>s.style.color='var(--red)');
+    }
+  }
+  tick();
+  _examTimerInterval=setInterval(tick,1000);
+}
+
+// ── Card countdown timers ──
+let _cardTimerIntervals=[];
+function _stopCardTimers(){_cardTimerIntervals.forEach(clearInterval);_cardTimerIntervals=[];}
+function _fmtCountdown(ms){
+  if(ms<=0)return null;
+  const totalSecs=Math.floor(ms/1000);
+  const h=Math.floor(totalSecs/3600);
+  const m=Math.floor((totalSecs%3600)/60);
+  const s=totalSecs%60;
+  if(h>0)return `${h}h ${m}m`;
+  if(m>0)return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 async function loadExams(){
+  _stopCardTimers();
   const d=await api('/api/student/exams');const el=document.getElementById('examList');
   if(!d.success||!d.exams?.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No exams scheduled yet</div></div>`;return}
+  const now=new Date();
   const expiredCount=d.exams.filter(e=>!e.IsSubmitted&&examWindowState(e)==='expired').length;
   _updateExamExpiredBadge(expiredCount);
   const _C={active:'ec-active',submitted:'ec-submitted',upcoming:'ec-upcoming',expired:'ec-expired'};
@@ -997,39 +1111,114 @@ async function loadExams(){
     const hasMarks=e.MarksObtained!=null;
     const scorePct=hasMarks&&e.TotalMarks?Math.round((e.MarksObtained/e.TotalMarks)*100):null;
     const dd=fmtExamDate(e.ExamDate,e.StartTime);
+    const win=_parseExamWindow(e);
     let foot='';
-    if(state==='active')foot=`<button class="btn btn-primary btn-sm" onclick="startExam(${e.ExamID})">Start Exam</button>`;
-    else if(state==='submitted'&&hasMarks)foot=`<span class="ec-score ${scorePct>=75?'good':scorePct>=50?'mid':'low'}">${e.MarksObtained}/${e.TotalMarks} (${scorePct}%)</span>`;
-    else if(state==='submitted')foot='<span class="ec-score good">Submitted</span>';
-    else if(state==='upcoming')foot=`<span style="font-size:.72rem;color:var(--blue2);font-family:var(--mono)">${dd}</span>`;
-    else foot='<span style="font-size:.73rem;color:var(--red);font-weight:600">Missed</span>';
-    return`<div class="exam-card ${_C[state]||'ec-active'}">`
-      +`<div class="ec-top"><div><div class="ec-subj">${e.SubjectName||''}</div><div class="ec-name">${e.ExamName||'Exam'}</div></div><div class="ec-badge">${_B[state]||_B.active}</div></div>`
-      +`<div class="ec-meta"><span class="ec-chip">${dd}</span><span class="ec-chip">${e.Duration||'--'} min</span><span class="ec-chip">${e.TotalMarks||'--'} marks</span><span class="badge badge-indigo" style="font-size:.62rem">${e.ExamType||''}</span></div>`
-      +`<div class="ec-footer"><span style="font-size:.7rem;color:var(--text3)">${e.SubjectCode||'Exam'}</span>${foot}</div></div>`;
+    if(state==='active'){
+      const secsLeft=win?Math.max(0,Math.floor((win.examEnd-now)/1000)):0;
+      const mins=Math.floor(secsLeft/60);const secs=secsLeft%60;
+      const timerStr=(!win||win.noSpecificTime)?'':` · <span id="cdt-${e.ExamID}" style="font-family:var(--mono);color:var(--amber);font-size:.72rem">${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')} left</span>`;
+      foot=`<button class="btn btn-primary btn-sm" onclick="startExam(${e.ExamID})">▶ Start Exam</button>${timerStr}`;
+    } else if(state==='submitted'&&hasMarks){
+      foot=`<span class="ec-score ${scorePct>=75?'good':scorePct>=50?'mid':'low'}">${e.MarksObtained}/${e.TotalMarks} (${scorePct}%)</span>`;
+    } else if(state==='submitted'){
+      foot='<span class="ec-score good">Submitted</span>';
+    } else if(state==='upcoming'){
+      const timeToStart=win?Math.max(0,win.examStart-now):0;
+      const ctStr=_fmtCountdown(timeToStart);
+      foot=`<span id="cdt-${e.ExamID}" style="font-size:.72rem;color:var(--blue2);font-family:var(--mono)">⏳ ${ctStr?'Starts in '+ctStr:dd}</span>`;
+    } else {
+      foot='<span style="font-size:.73rem;color:var(--red);font-weight:600">Missed</span>';
+    }
+    return`<div class="exam-card ${_C[state]||'ec-active'}"><div class="ec-top"><div><div class="ec-subj">${e.SubjectName||''}</div><div class="ec-name">${e.ExamName||'Exam'}</div></div><div class="ec-badge">${_B[state]||_B.active}</div></div><div class="ec-meta"><span class="ec-chip">${dd}</span><span class="ec-chip">${e.Duration||'--'} min</span><span class="ec-chip">${e.TotalMarks||'--'} marks</span><span class="badge badge-indigo" style="font-size:.62rem">${e.ExamType||''}</span></div><div class="ec-footer"><span style="font-size:.7rem;color:var(--text3)">${e.SubjectCode||'Exam'}</span>${foot}</div></div>`;
   }).join('')+'</div>';
+  // Live countdown tickers on cards
+  d.exams.forEach(e=>{
+    const win=_parseExamWindow(e);
+    if(!win||win.noSpecificTime)return;
+    const state=examWindowState(e);
+    if(state==='upcoming'||state==='active'){
+      const cdEl=document.getElementById('cdt-'+e.ExamID);
+      if(!cdEl)return;
+      const iv=setInterval(()=>{
+        const n=new Date();
+        const newState=examWindowState(e);
+        if(newState==='expired'||newState==='submitted'){clearInterval(iv);loadExams();return;}
+        if(newState==='upcoming'){
+          const t=_fmtCountdown(win.examStart-n);
+          if(t)cdEl.textContent='⏳ Starts in '+t;
+          else{clearInterval(iv);loadExams();}
+        } else if(newState==='active'){
+          const secsLeft=Math.max(0,Math.floor((win.examEnd-n)/1000));
+          const mins=Math.floor(secsLeft/60);const secs=secsLeft%60;
+          cdEl.textContent=`${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')} left`;
+          if(secsLeft===0){clearInterval(iv);loadExams();}
+        }
+      },1000);
+      _cardTimerIntervals.push(iv);
+    }
+  });
 }
 
 async function startExam(eid){
   const d=await api(`/api/student/exams/${eid}`);if(!d.success){toast(d.error||'Cannot load exam','error');return}
   const exam=d.exam,qs=d.questions||[],subId=d.submissionId;
+  // ── STRICT time window enforcement ──
   const wstate=examWindowState(exam);
-  if(wstate==='expired'){toast('This exam has expired and can no longer be taken.','error');return}
-  if(wstate==='upcoming'){toast('This exam has not started yet. Please wait until the scheduled time.','warning');return}
+  if(wstate==='expired'){toast('⛔ This exam window has closed and can no longer be taken.','error');return}
+  if(wstate==='upcoming'){
+    const win=_parseExamWindow(exam);
+    const t=win?_fmtCountdown(win.examStart-new Date()):null;
+    toast('⏳ Exam has not started yet.'+(t?' Starts in '+t:' Please wait until the scheduled time.'),'warning');return;
+  }
+  if(!qs.length){toast('⚠️ No questions have been added to this exam yet.','warning');return}
   document.getElementById('examMdlTitle').textContent=exam.ExamName||exam.ExamType||'Exam';
   document.getElementById('examMdlSub').textContent=`${exam.SubjectName||''} · ${fmtExamDate(exam.ExamDate,exam.StartTime)} · ${exam.Duration||60} mins · ${exam.TotalMarks||100} marks`;
   const instrHtml=exam.Instructions?`<div class="alert alert-info" style="margin-bottom:1.25rem">📋 <strong>Instructions:</strong> ${exam.Instructions}</div>`:'';
-  document.getElementById('examMdlBody').innerHTML=instrHtml+qs.map((q,i)=>`<div style="margin-bottom:1.35rem;padding-bottom:1.35rem;border-bottom:1px solid var(--border)"><div style="font-weight:700;margin-bottom:.85rem;font-size:.88rem;line-height:1.5">${i+1}. ${q.QuestionText||''} <span style="color:var(--text3);font-weight:400">(${q.Marks||1} mark${q.Marks!==1?'s':''})</span></div>${q.QuestionType==='MCQ'?['A','B','C','D'].map(opt=>q['Option'+opt]?`<label style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border-radius:var(--r-sm);cursor:pointer;margin-bottom:.4rem;background:rgba(255,255,255,.025);border:1px solid var(--border);transition:all .15s" onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='var(--border)'"><input type="radio" name="q${q.QuestionID}" value="${opt}" style="accent-color:var(--blue)"><span style="font-size:.84rem">${opt}. ${q['Option'+opt]}</span></label>`:'').join(''):`<textarea style="width:100%;background:rgba(255,255,255,.03);border:1.5px solid var(--border2);border-radius:var(--r-sm);color:var(--text);padding:.75rem;min-height:90px;resize:vertical;font-size:.84rem;transition:border-color .15s" placeholder="Your answer…" data-qid="${q.QuestionID}" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'"></textarea>`}</div>`).join('');
-  document.getElementById('examMdlFoot').innerHTML=`<button class="btn btn-ghost" onclick="closeMdl('examMdl')">Close</button><button class="btn btn-primary" onclick="submitExam(${eid},${subId},[${qs.map(q=>q.QuestionID).join(',')}])">Submit Exam</button>`;
+  // ── Build MCQ options (FIX: null/undefined check, not falsy, so "0" values work too) ──
+  const qsHtml=qs.map((q,i)=>{
+    let optBlock;
+    if(q.QuestionType==='MCQ'){
+      optBlock=['A','B','C','D'].map(opt=>{
+        const val=q['Option'+opt];
+        if(val==null||val==='')return '';
+        return `<label style="display:flex;align-items:center;gap:.75rem;padding:.65rem .95rem;border-radius:var(--r-sm);cursor:pointer;margin-bottom:.45rem;background:rgba(255,255,255,.025);border:1px solid var(--border);transition:all .2s" onmouseover="this.style.background='rgba(79,142,247,.09)';this.style.borderColor='var(--border2)'" onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='var(--border)'">
+          <input type="radio" name="q${q.QuestionID}" value="${opt}" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+          <span style="font-size:.85rem"><strong style="color:var(--blue2);margin-right:.2rem">${opt}.</strong>${val}</span>
+        </label>`;
+      }).join('');
+    } else {
+      optBlock=`<textarea style="width:100%;background:rgba(255,255,255,.03);border:1.5px solid var(--border2);border-radius:var(--r-sm);color:var(--text);padding:.75rem;min-height:90px;resize:vertical;font-size:.84rem;transition:border-color .15s" placeholder="Your answer…" data-qid="${q.QuestionID}" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'"></textarea>`;
+    }
+    return `<div style="margin-bottom:1.4rem;padding-bottom:1.4rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:700;margin-bottom:.9rem;font-size:.88rem;line-height:1.55">${i+1}. ${q.QuestionText||''} <span style="color:var(--text3);font-weight:400;font-size:.8rem">(${q.Marks||1} mark${q.Marks!==1?'s':''})</span></div>
+      ${optBlock}
+    </div>`;
+  }).join('');
+  document.getElementById('examMdlBody').innerHTML=instrHtml+qsHtml;
+  document.getElementById('examMdlFoot').innerHTML=`<button class="btn btn-ghost" onclick="closeMdl('examMdl')">Close</button><button class="btn btn-primary" onclick="submitExam(${eid},${subId},[${qs.map(q=>q.QuestionID).join(',')}])">✅ Submit Exam</button>`;
   document.getElementById('examMdl').classList.add('open');
+  // Start countdown timer — auto-submit when time runs out
+  _startExamTimer(exam,()=>{
+    toast('⏰ Time is up! Submitting your exam…','warning');
+    setTimeout(()=>{if(document.getElementById('examMdl').classList.contains('open'))submitExam(eid,subId,qs.map(q=>q.QuestionID));},2000);
+  });
 }
 
 async function submitExam(eid,subId,qids){
   if(!confirm('Submit exam? You cannot change answers after submission.'))return;
-  const answers=qids.map(qid=>{const radio=document.querySelector(`input[name="q${qid}"]:checked`);const ta=document.querySelector(`textarea[data-qid="${qid}"]`);return{questionId:qid,answer:radio?radio.value:ta?ta.value:''};});
+  const answers=qids.map(qid=>{
+    const radio=document.querySelector(`input[name="q${qid}"]:checked`);
+    const ta=document.querySelector(`textarea[data-qid="${qid}"]`);
+    return{questionId:qid,answer:radio?radio.value:ta?ta.value:''};
+  });
   const d=await api(`/api/student/exams/${eid}/submit`,{method:'POST',body:JSON.stringify({answers})});
-  if(d.success){const marks=d.marksObtained||0;toast(`✅ Exam submitted! You scored ${marks} marks`,'success');closeMdl('examMdl');loadExams();}
-  else toast(d.error||'Submit failed','error');
+  if(d.success){
+    const marks=d.marksObtained||0;
+    _stopExamTimer();
+    toast(`✅ Exam submitted! You scored ${marks} marks`,'success');
+    closeMdl('examMdl');
+    loadExams();
+  } else toast(d.error||'Submit failed','error');
 }
 
 async function loadMats(){
