@@ -993,10 +993,11 @@ async function loadMarks(){
 function fmtExamDate(dateStr,timeStr){
   if(!dateStr)return '—';
   const d=String(dateStr).split('T')[0];
-  const hasTime=timeStr&&timeStr!=='00:00'&&timeStr!=='00:00:00';
-  const t=hasTime?timeStr.slice(0,5):null;
+  const rawT=timeStr||null;
+  const hasTime=rawT&&rawT!=='00:00'&&rawT!=='00:00:00'&&rawT!=='null';
+  const t=hasTime?String(rawT).slice(0,5):null;
   try{
-    const dt=new Date(d+'T'+(t||'00:00')+':00');
+    const dt=new Date(d+'T00:00:00');
     const datePart=dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
     if(!t)return datePart;
     const [hh,mm]=t.split(':').map(Number);
@@ -1007,11 +1008,15 @@ function fmtExamDate(dateStr,timeStr){
 }
 
 function _parseExamWindow(e){
-  const dateStr=String(e.ExamDate||'').split('T')[0];
-  if(!dateStr||dateStr==='null')return null;
-  const startTime=(e.StartTime&&e.StartTime!=='00:00'&&e.StartTime!=='00:00:00')?e.StartTime.slice(0,5):null;
-  const endTime=(e.EndTime&&e.EndTime!=='00:00'&&e.EndTime!=='00:00:00')?e.EndTime.slice(0,5):null;
-  const duration=parseInt(e.Duration||60);
+  const dateStr=String(e.ExamDate||e.examDate||'').split('T')[0];
+  if(!dateStr||dateStr==='null'||dateStr==='undefined')return null;
+  // Accept both camelCase and PascalCase keys (MSSQL may return either)
+  const rawStart=e.StartTime||e.startTime||null;
+  const rawEnd=e.EndTime||e.endTime||null;
+  const duration=parseInt(e.Duration||e.duration||60);
+  // '00:00' means no specific time only if there's truly no start time set
+  const startTime=(rawStart&&rawStart!=='00:00'&&rawStart!=='00:00:00')?String(rawStart).slice(0,5):null;
+  const endTime=(rawEnd&&rawEnd!=='00:00'&&rawEnd!=='00:00:00')?String(rawEnd).slice(0,5):null;
   let examStart,examEnd;
   try{
     examStart=startTime?new Date(dateStr+'T'+startTime+':00'):new Date(dateStr+'T00:00:00');
@@ -1174,33 +1179,64 @@ async function startExam(eid){
   document.getElementById('examMdlTitle').textContent=exam.ExamName||exam.ExamType||'Exam';
   document.getElementById('examMdlSub').textContent=`${exam.SubjectName||''} · ${fmtExamDate(exam.ExamDate,exam.StartTime)} · ${exam.Duration||60} mins · ${exam.TotalMarks||100} marks`;
   const instrHtml=exam.Instructions?`<div class="alert alert-info" style="margin-bottom:1.25rem">📋 <strong>Instructions:</strong> ${exam.Instructions}</div>`:'';
-  // ── Build MCQ options (FIX: null/undefined check, not falsy, so "0" values work too) ──
+  // ── Build question HTML (robust: handles PascalCase/lowercase/camelCase DB column names) ──
+  const _getOpt=(q,letter)=>{
+    // Try all possible column name casings MSSQL/MySQL/SQLite drivers might return
+    const keys=['Option'+letter,'option'+letter,'OPTION'+letter,'opt'+letter.toLowerCase()];
+    for(const k of keys){if(q[k]!=null&&q[k]!=='')return String(q[k]);}
+    return null;
+  };
+  const _getQType=(q)=>{
+    return (q.QuestionType||q.questionType||q.question_type||q.QUESTIONTYPE||'MCQ').toUpperCase();
+  };
+  const _getQText=(q)=>{
+    return q.QuestionText||q.questionText||q.question_text||q.QUESTIONTEXT||'';
+  };
+  const _getQID=(q)=>{
+    return q.QuestionID||q.questionId||q.QuestionId||q.question_id||q.QUESTIONID||0;
+  };
   const qsHtml=qs.map((q,i)=>{
+    const qtype=_getQType(q);
+    const qtext=_getQText(q);
+    const qid=_getQID(q);
+    const qmarks=parseFloat(q.Marks||q.marks||1);
     let optBlock;
-    if(q.QuestionType==='MCQ'){
-      optBlock=['A','B','C','D'].map(opt=>{
-        const val=q['Option'+opt];
-        if(val==null||val==='')return '';
-        return `<label style="display:flex;align-items:center;gap:.75rem;padding:.65rem .95rem;border-radius:var(--r-sm);cursor:pointer;margin-bottom:.45rem;background:rgba(255,255,255,.025);border:1px solid var(--border);transition:all .2s" onmouseover="this.style.background='rgba(79,142,247,.09)';this.style.borderColor='var(--border2)'" onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='var(--border)'">
-          <input type="radio" name="q${q.QuestionID}" value="${opt}" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
-          <span style="font-size:.85rem"><strong style="color:var(--blue2);margin-right:.2rem">${opt}.</strong>${val}</span>
-        </label>`;
+    if(qtype==='MCQ'){
+      const opts=['A','B','C','D'].map(letter=>{
+        const val=_getOpt(q,letter);
+        if(!val)return '';
+        return `<label style="display:flex;align-items:center;gap:.75rem;padding:.65rem .95rem;border-radius:var(--r-sm);cursor:pointer;margin-bottom:.45rem;background:rgba(255,255,255,.025);border:1px solid var(--border);transition:background .2s,border-color .2s" onmouseover="this.style.background='rgba(79,142,247,.09)';this.style.borderColor='var(--border2)'" onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='var(--border)'">
+            <input type="radio" name="q${qid}" value="${letter}" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+            <span style="font-size:.85rem"><strong style="color:var(--blue2);margin-right:.25rem">${letter}.</strong>${val}</span>
+          </label>`;
       }).join('');
+      // If no options resolved (DB returned nulls), fall back to text input
+      optBlock = opts.trim()
+        ? opts
+        : `<div style="font-size:.76rem;color:var(--amber);margin-bottom:.5rem;padding:.4rem .6rem;background:rgba(245,158,11,.08);border-radius:var(--r-sm);border:1px solid rgba(245,158,11,.2)">⚠️ MCQ options not available — please type your answer</div>
+           <textarea style="width:100%;background:rgba(255,255,255,.03);border:1.5px solid var(--border2);border-radius:var(--r-sm);color:var(--text);padding:.75rem;min-height:70px;resize:vertical;font-size:.84rem" placeholder="Type A, B, C or D…" data-qid="${qid}"></textarea>`;
+    } else if(qtype==='TF'||qtype==='TRUE/FALSE'){
+      optBlock=['True','False'].map(v=>`<label style="display:flex;align-items:center;gap:.75rem;padding:.65rem .95rem;border-radius:var(--r-sm);cursor:pointer;margin-bottom:.45rem;background:rgba(255,255,255,.025);border:1px solid var(--border);transition:background .2s,border-color .2s" onmouseover="this.style.background='rgba(79,142,247,.09)';this.style.borderColor='var(--border2)'" onmouseout="this.style.background='rgba(255,255,255,.025)';this.style.borderColor='var(--border)'">
+          <input type="radio" name="q${qid}" value="${v}" style="accent-color:var(--blue);width:16px;height:16px;flex-shrink:0">
+          <span style="font-size:.85rem"><strong style="color:var(--blue2);margin-right:.25rem">${v==='True'?'✓':'✗'}</strong>${v}</span>
+        </label>`).join('');
     } else {
-      optBlock=`<textarea style="width:100%;background:rgba(255,255,255,.03);border:1.5px solid var(--border2);border-radius:var(--r-sm);color:var(--text);padding:.75rem;min-height:90px;resize:vertical;font-size:.84rem;transition:border-color .15s" placeholder="Your answer…" data-qid="${q.QuestionID}" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'"></textarea>`;
+      optBlock=`<textarea style="width:100%;background:rgba(255,255,255,.03);border:1.5px solid var(--border2);border-radius:var(--r-sm);color:var(--text);padding:.75rem;min-height:90px;resize:vertical;font-size:.84rem;transition:border-color .15s" placeholder="Your answer…" data-qid="${qid}" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'"></textarea>`;
     }
     return `<div style="margin-bottom:1.4rem;padding-bottom:1.4rem;border-bottom:1px solid var(--border)">
-      <div style="font-weight:700;margin-bottom:.9rem;font-size:.88rem;line-height:1.55">${i+1}. ${q.QuestionText||''} <span style="color:var(--text3);font-weight:400;font-size:.8rem">(${q.Marks||1} mark${q.Marks!==1?'s':''})</span></div>
+      <div style="font-weight:700;margin-bottom:.9rem;font-size:.88rem;line-height:1.55">${i+1}. ${qtext} <span style="color:var(--text3);font-weight:400;font-size:.8rem">(${qmarks} mark${qmarks!==1?'s':''})</span></div>
       ${optBlock}
     </div>`;
   }).join('');
   document.getElementById('examMdlBody').innerHTML=instrHtml+qsHtml;
-  document.getElementById('examMdlFoot').innerHTML=`<button class="btn btn-ghost" onclick="closeMdl('examMdl')">Close</button><button class="btn btn-primary" onclick="submitExam(${eid},${subId},[${qs.map(q=>q.QuestionID).join(',')}])">✅ Submit Exam</button>`;
+  // Collect all question IDs robustly (handle any casing the DB driver returns)
+  const allQids=qs.map(q=>q.QuestionID||q.questionId||q.QuestionId||q.question_id||q.QUESTIONID||0).filter(Boolean);
+  document.getElementById('examMdlFoot').innerHTML=`<button class="btn btn-ghost" onclick="closeMdl('examMdl')">Close</button><button class="btn btn-primary" onclick="submitExam(${eid},${subId},[${allQids.join(',')}])">✅ Submit Exam</button>`;
   document.getElementById('examMdl').classList.add('open');
   // Start countdown timer — auto-submit when time runs out
   _startExamTimer(exam,()=>{
     toast('⏰ Time is up! Submitting your exam…','warning');
-    setTimeout(()=>{if(document.getElementById('examMdl').classList.contains('open'))submitExam(eid,subId,qs.map(q=>q.QuestionID));},2000);
+    setTimeout(()=>{if(document.getElementById('examMdl').classList.contains('open'))submitExam(eid,subId,allQids);},2000);
   });
 }
 
@@ -1209,7 +1245,8 @@ async function submitExam(eid,subId,qids){
   const answers=qids.map(qid=>{
     const radio=document.querySelector(`input[name="q${qid}"]:checked`);
     const ta=document.querySelector(`textarea[data-qid="${qid}"]`);
-    return{questionId:qid,answer:radio?radio.value:ta?ta.value:''};
+    const ans=radio?radio.value:ta?(ta.value||''):'';
+    return{questionId:qid,answer:ans};
   });
   const d=await api(`/api/student/exams/${eid}/submit`,{method:'POST',body:JSON.stringify({answers})});
   if(d.success){

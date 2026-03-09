@@ -1124,7 +1124,7 @@ def _safe_exams_query(student_id, where_sql, where_params):
                ISNULL(e.ExamTitle, e.ExamType) AS ExamName,
                es.SubmissionID, es.IsSubmitted, es.SubmittedAt,
                CONVERT(VARCHAR(5), ISNULL(e.StartTime, '00:00'), 108) AS StartTime,
-               NULL AS EndTime,
+               CONVERT(VARCHAR(5), ISNULL(e.EndTime, '00:00'), 108) AS EndTime,
                ISNULL(e.Instructions, '') AS Instructions,
                1 AS IsActive, es.MarksObtained
             FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID
@@ -1223,7 +1223,7 @@ def get_exam_details(exam_id):
         exam = None
         for exam_sql in [
             # MSSQL safe — no StartTime/EndTime
-            "SELECT e.ExamID, ISNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, CONVERT(VARCHAR(10),e.ExamDate,23) AS ExamDate, e.Duration, e.TotalMarks, ISNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, CONVERT(VARCHAR(5),ISNULL(e.StartTime,'00:00'),108) AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
+            "SELECT e.ExamID, ISNULL(e.ExamTitle,e.ExamType) AS ExamName, e.ExamType, CONVERT(VARCHAR(10),e.ExamDate,23) AS ExamDate, e.Duration, e.TotalMarks, ISNULL(e.Instructions,'') AS Instructions, 1 AS IsActive, CONVERT(VARCHAR(5),ISNULL(e.StartTime,'00:00'),108) AS StartTime, CONVERT(VARCHAR(5),ISNULL(e.EndTime,'00:00'),108) AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             "SELECT e.ExamID, e.ExamType AS ExamName, e.ExamType, e.ExamDate, e.Duration, e.TotalMarks, NULL AS Instructions, 1 AS IsActive, NULL AS StartTime, NULL AS EndTime, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
             # SQLite full columns
             "SELECT e.ExamID, e.ExamName, e.ExamType, e.ExamDate, e.StartTime, e.EndTime, e.Duration, e.TotalMarks, e.Instructions, e.IsActive, s.SubjectName, s.SubjectCode FROM Exams e JOIN Subjects s ON e.SubjectID = s.SubjectID WHERE e.ExamID = ?",
@@ -1262,7 +1262,7 @@ def get_exam_details(exam_id):
             try:
                 rows = db.execute_query(_qsql, _qparams) or []
                 questions = serialize_rows(rows)
-                if questions is not None:
+                if questions:  # Only break if we actually got rows back
                     break
             except Exception as _qe:
                 print(f'[ExamDetails] questions fallback err: {_qe}')
