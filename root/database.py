@@ -748,7 +748,7 @@ class Database:
                         CreatedAt       DATETIME    DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
-                cur.execute("""
+                cursor.execute("""
                     CREATE TABLE IF NOT EXISTS StudentFaceData (
                         FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
                         StudentID     INT NOT NULL UNIQUE,
