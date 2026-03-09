@@ -1327,18 +1327,48 @@ async function captureFaceFrame(){
       })
     });
     const d=await res.json();
-    if(d.success&&d.recognised&&d.recognised.length){
-      d.recognised.forEach(function(r){
+    if(d.success){
+      // mlEnabled=true  → server matched faces in this frame (newlyRecognised)
+      // mlEnabled=false → ML libs not installed; show hint but keep manual mark working
+      const newMatches = d.newlyRecognised || [];
+      const allRecognised = d.recognised || [];
+
+      // Add any newly server-matched students to the UI
+      newMatches.forEach(function(r){
         if(!_faceRecognised.has(String(r.studentId))){
           _faceRecognised.set(String(r.studentId),{FullName:r.fullName||'Student',RollNumber:r.rollNumber||''});
           addToRecognisedList(r.studentId,r.fullName||'Student',r.rollNumber||'');
         }
       });
-      updateFaceCounters();
-      document.getElementById('faceCamStatus').textContent='✓ '+_faceRecognised.size+' recognised';
+
+      // Sync any previously recognised students that are in the session
+      // (e.g. added via manual mark on another frame)
+      allRecognised.forEach(function(r){
+        if(!_faceRecognised.has(String(r.studentId))){
+          _faceRecognised.set(String(r.studentId),{FullName:r.fullName||'Student',RollNumber:r.rollNumber||''});
+          addToRecognisedList(r.studentId,r.fullName||'Student',r.rollNumber||'');
+        }
+      });
+
+      if(_faceRecognised.size>0) updateFaceCounters();
+
+      // Update camera status pill
+      const camStatus=document.getElementById('faceCamStatus');
+      if(camStatus){
+        if(d.mlEnabled===false){
+          camStatus.textContent='⚠ ML offline — use Manual Mark';
+          camStatus.style.background='rgba(234,179,8,.8)';
+        } else {
+          camStatus.textContent= _faceRecognised.size>0
+            ? '✓ '+_faceRecognised.size+' recognised'
+            : 'Scanning…';
+          camStatus.style.background='';
+        }
+      }
     }
   }catch(e){
     // Face capture errors are non-fatal — keep scanning
+    console.warn('[face capture]',e);
   }
 }
 
