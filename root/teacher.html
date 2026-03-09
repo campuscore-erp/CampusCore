@@ -514,12 +514,54 @@ textarea.form-input{resize:vertical;min-height:80px}
         <div class="form-group"><label class="form-label">Duration (mins)</label><input id="examDuration" class="form-input" type="number" value="60" min="1"></div>
         <div class="form-group"><label class="form-label">Exam Date *</label><input id="examDate" class="form-input" type="date"></div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem">
+        <div class="form-group"><label class="form-label">Start Time *</label><input id="examStartTime" class="form-input" type="time"></div>
+        <div class="form-group"><label class="form-label">End Time *</label><input id="examEndTime" class="form-input" type="time"></div>
+      </div>
       <div class="form-group"><label class="form-label">Instructions</label><textarea id="examInstructions" class="form-input" placeholder="Optional instructions for students…"></textarea></div>
       <div id="examMdlErr" style="display:none" class="alert alert-error"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeMdl('createExamMdl')">Cancel</button>
       <button class="btn btn-primary" onclick="createExam()">📄 Create Exam</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MODAL: ADD QUESTION ═══════════════════════ -->
+<div class="modal-overlay" id="addQuestionMdl">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-hdr"><h3>❓ Add Question</h3><button class="btn-close" onclick="closeMdl('addQuestionMdl')">✕</button></div>
+    <div class="modal-body">
+      <div id="addQExamLabel" style="font-size:.8rem;color:var(--amber);font-family:var(--mono);margin-bottom:.75rem"></div>
+      <div class="form-group"><label class="form-label">Question Text *</label><textarea id="qText" class="form-input" rows="3" placeholder="Enter the question…"></textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem">
+        <div class="form-group"><label class="form-label">Question Type</label>
+          <select id="qType" class="form-input" onchange="toggleQOptions()">
+            <option value="MCQ">MCQ (Multiple Choice)</option>
+            <option value="TF">True / False</option>
+            <option value="SHORT">Short Answer</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Marks *</label><input id="qMarks" class="form-input" type="number" value="1" min="0.5" step="0.5"></div>
+      </div>
+      <div id="qOptionsBlock">
+        <div class="form-group"><label class="form-label">Option A *</label><input id="qOptA" class="form-input" type="text" placeholder="Option A"></div>
+        <div class="form-group"><label class="form-label">Option B *</label><input id="qOptB" class="form-input" type="text" placeholder="Option B"></div>
+        <div class="form-group"><label class="form-label">Option C</label><input id="qOptC" class="form-input" type="text" placeholder="Option C"></div>
+        <div class="form-group"><label class="form-label">Option D</label><input id="qOptD" class="form-input" type="text" placeholder="Option D"></div>
+      </div>
+      <div id="qTFBlock" style="display:none">
+        <div class="form-group"><label class="form-label">Correct Answer</label>
+          <select id="qTFAnswer" class="form-input"><option value="True">True</option><option value="False">False</option></select>
+        </div>
+      </div>
+      <div id="qAnswerBlock" class="form-group"><label class="form-label">Correct Answer *</label><input id="qAnswer" class="form-input" type="text" placeholder="e.g. A  or  exact answer text"></div>
+      <div id="addQErr" style="display:none" class="alert alert-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeMdl('addQuestionMdl')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAddQuestion()">❓ Add Question</button>
     </div>
   </div>
 </div>
@@ -1512,23 +1554,90 @@ async function saveMarks(){
 }
 
 /* ══════════════════════════ EXAMS ══════════════════════════ */
+/* ══════════════════════════ ADD QUESTION ══════════════════════════ */
+let _addQExamId = null;
+
+function openAddQuestion(examId, btn) {
+  _addQExamId = examId;
+  // Find exam name from the row
+  const row = btn ? btn.closest('tr') : null;
+  const examName = row ? row.cells[1].textContent.trim() : ('Exam #' + examId);
+  document.getElementById('addQExamLabel').textContent = 'Exam: ' + examName;
+  ['qText','qOptA','qOptB','qOptC','qOptD','qAnswer'].forEach(function(id){ document.getElementById(id).value=''; });
+  document.getElementById('qMarks').value = '1';
+  document.getElementById('qType').value = 'MCQ';
+  document.getElementById('addQErr').style.display = 'none';
+  toggleQOptions();
+  openMdl('addQuestionMdl');
+}
+
+function toggleQOptions() {
+  var t = document.getElementById('qType').value;
+  document.getElementById('qOptionsBlock').style.display = (t === 'MCQ') ? 'block' : 'none';
+  document.getElementById('qTFBlock').style.display = (t === 'TF') ? 'block' : 'none';
+  document.getElementById('qAnswerBlock').style.display = (t === 'TF') ? 'none' : 'block';
+}
+
+async function submitAddQuestion() {
+  var errEl = document.getElementById('addQErr');
+  errEl.style.display = 'none';
+  var questionText  = document.getElementById('qText').value.trim();
+  var questionType  = document.getElementById('qType').value;
+  var marks         = parseFloat(document.getElementById('qMarks').value) || 1;
+  var correctAnswer = (questionType === 'TF')
+    ? document.getElementById('qTFAnswer').value
+    : document.getElementById('qAnswer').value.trim();
+  var optionA = document.getElementById('qOptA').value.trim();
+  var optionB = document.getElementById('qOptB').value.trim();
+  var optionC = document.getElementById('qOptC').value.trim();
+  var optionD = document.getElementById('qOptD').value.trim();
+
+  if(!questionText){ errEl.textContent='Question text is required.'; errEl.style.display='block'; return; }
+  if(questionType==='MCQ' && (!optionA||!optionB)){ errEl.textContent='At least Option A and B are required.'; errEl.style.display='block'; return; }
+  if(questionType!=='TF' && !correctAnswer){ errEl.textContent='Correct answer is required.'; errEl.style.display='block'; return; }
+
+  var payload = {
+    examId: _addQExamId,
+    questionText: questionText,
+    questionType: questionType,
+    marks: marks,
+    correctAnswer: correctAnswer,
+    optionA: optionA||null,
+    optionB: optionB||null,
+    optionC: optionC||null,
+    optionD: optionD||null
+  };
+  var d = await api('/api/teacher/exam-questions', {method:'POST', body:JSON.stringify(payload)});
+  if(d && d.success){
+    closeMdl('addQuestionMdl');
+    toast('Question added successfully!','success');
+    loadExams();
+  } else {
+    errEl.textContent = (d && d.error) ? d.error : 'Failed to add question.';
+    errEl.style.display = 'block';
+  }
+}
+
 async function loadExams(){
   const d=await api('/api/teacher/exams');
   const el=document.getElementById('examsList');
   if(!d.success||!d.exams?.length){
     el.innerHTML=`<div class="empty"><div class="empty-icon">📄</div><div class="empty-text">No exams created yet</div><div class="empty-sub">Create your first exam using the button above</div></div>`;return
   }
-  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Exam Name</th><th>Subject</th><th>Type</th><th>Date</th><th>Marks</th><th>Duration</th><th>Questions</th><th>Submissions</th></tr></thead><tbody>
+  el.innerHTML=`<div class="table-wrap"><table><thead><tr><th>#</th><th>Exam Name</th><th>Subject</th><th>Type</th><th>Date</th><th>Start</th><th>End</th><th>Marks</th><th>Duration</th><th>Questions</th><th>Submissions</th><th>Actions</th></tr></thead><tbody>
     ${d.exams.map((e,i)=>`<tr>
       <td style="color:var(--text3)">${i+1}</td>
       <td style="font-weight:600">${e.ExamName||e.ExamTitle||e.ExamType||'—'}</td>
       <td>${e.SubjectName||''} <span style="font-family:var(--mono);color:var(--text3);font-size:.72rem">${e.SubjectCode||''}</span></td>
       <td><span class="badge badge-orange">${e.ExamType||'—'}</span></td>
       <td style="font-family:var(--mono);font-size:.78rem">${e.ExamDate||'—'}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${e.StartTime||'—'}</td>
+      <td style="font-family:var(--mono);font-size:.78rem">${e.EndTime||'—'}</td>
       <td style="font-family:var(--mono)">${e.TotalMarks||'—'}</td>
       <td style="font-family:var(--mono)">${e.Duration||'—'} min</td>
       <td><span class="badge badge-blue">${e.QuestionCount||0} Q</span></td>
       <td><span class="badge badge-green">${e.SubmissionCount||0}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openAddQuestion(${e.ExamID||0},this)">＋ Add Question</button></td>
     </tr>`).join('')}
   </tbody></table></div>`;
 }
@@ -1540,18 +1649,22 @@ async function createExam(){
   const totalMarks=parseInt(document.getElementById('examMarks').value)||100;
   const duration=parseInt(document.getElementById('examDuration').value)||60;
   const examDate=document.getElementById('examDate').value;
+  const startTime=document.getElementById('examStartTime').value;
+  const endTime=document.getElementById('examEndTime').value;
   const instructions=document.getElementById('examInstructions').value;
   const errEl=document.getElementById('examMdlErr');
   errEl.style.display='none';
   if(!subjectId){errEl.textContent='Please select a subject.';errEl.style.display='block';return}
   if(!examName){errEl.textContent='Please enter an exam name.';errEl.style.display='block';return}
   if(!examDate){errEl.textContent='Please enter an exam date.';errEl.style.display='block';return}
-  const d=await api('/api/teacher/exams',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),examName,examType,totalMarks,duration,examDate,instructions})});
+  if(!startTime){errEl.textContent='Please enter a start time.';errEl.style.display='block';return}
+  if(!endTime){errEl.textContent='Please enter an end time.';errEl.style.display='block';return}
+  const d=await api('/api/teacher/exams',{method:'POST',body:JSON.stringify({subjectId:parseInt(subjectId),examName,examType,totalMarks,duration,examDate,startTime,endTime,instructions})});
   if(d.success){
     closeMdl('createExamMdl');
     toast(d.message||'Exam created!','success');
     // Reset form
-    ['examSubject','examName','examDate','examInstructions'].forEach(id=>document.getElementById(id).value='');
+    ['examSubject','examName','examDate','examStartTime','examEndTime','examInstructions'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('examMarks').value='100';
     document.getElementById('examDuration').value='60';
     loadExams();

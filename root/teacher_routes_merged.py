@@ -632,7 +632,7 @@ def students_by_class(department_id, semester):
            LEFT JOIN Departments d ON d.DepartmentID=u.DepartmentID
            WHERE u.UserType='Student' AND u.IsActive=1
              AND u.DepartmentID=? AND u.Semester=?
-           ORDER BY u.FullName""", (department_id, semester)) or []
+           ORDER BY u.UserCode""", (department_id, semester)) or []
 
     result = _serialize(students)
     for i, s in enumerate(result, 1):
@@ -1156,6 +1156,8 @@ def create_exam():
     total_marks = int(data.get('totalMarks', 100))
     exam_date   = data.get('examDate')
     duration    = int(data.get('duration') or data.get('durationMinutes') or 60)
+    start_time  = data.get('startTime', '')
+    end_time    = data.get('endTime', '')
     instructions = data.get('instructions', '')
 
     if not subject_id or not exam_date: return _err('subjectId and examDate are required')
@@ -1299,7 +1301,7 @@ def get_exam_submissions(exam_id):
                        FROM Users u
                        WHERE u.UserType='Student' AND u.IsActive=1
                          AND u.DepartmentID=? AND u.Semester=?
-                       ORDER BY u.FullName""",
+                       ORDER BY u.UserCode""",
                     (cohort['DepartmentID'], cohort['Semester'])) or []
         except Exception:
             pass
@@ -1400,6 +1402,71 @@ def get_questions(exam_id):
 # =============================================================================
 # EXAM QUESTIONS — ADD (multi-fallback)
 # =============================================================================
+
+@bp_teacher.route('/exam-questions', methods=['POST'])
+@jwt_required()
+def add_question_flat():
+    """Flat POST /exam-questions with examId in body."""
+    data = request.get_json() or {}
+    exam_id_raw = data.get('examId')
+    try:
+        exam_id = int(exam_id_raw)
+    except (TypeError, ValueError):
+        return _err(f'Invalid examId: {exam_id_raw}', 400)
+
+    uid, err = _get_teacher_user_id()
+    if err: return err
+
+    exam = _try_queries([
+        ('SELECT TOP 1 ExamID FROM Exams WHERE ExamID=? AND TeacherID=?', (exam_id, uid)),
+        ('SELECT ExamID FROM Exams WHERE ExamID=? AND TeacherID=? LIMIT 1', (exam_id, uid)),
+        ('SELECT TOP 1 ExamID FROM Exams WHERE ExamID=?', (exam_id,)),
+        ('SELECT ExamID FROM Exams WHERE ExamID=? LIMIT 1', (exam_id,)),
+    ], fetch_one=True)
+    if not exam:
+        return _err(f'Exam {exam_id} not found', 404)
+
+    question_text  = (data.get('questionText') or '').strip()
+    question_type  = data.get('questionType', 'MCQ')
+    marks          = float(data.get('marks', 1))
+    correct_answer = (data.get('correctAnswer') or '').strip()
+    opt_a = data.get('optionA') or ''
+    opt_b = data.get('optionB') or ''
+    opt_c = data.get('optionC') or ''
+    opt_d = data.get('optionD') or ''
+
+    if not question_text:  return _err('questionText is required')
+    if not correct_answer and question_type != 'TF': return _err('correctAnswer is required')
+    if question_type == 'TF': correct_answer = correct_answer or 'True'
+
+    max_order = 0
+    for q in [
+        'SELECT COALESCE(MAX(QuestionOrder),0) AS MaxOrder FROM ExamQuestions WHERE ExamID=?',
+        'SELECT COUNT(*) AS MaxOrder FROM ExamQuestions WHERE ExamID=?',
+    ]:
+        try:
+            row = db.execute_query(q, (exam_id,), fetch_one=True)
+            if row:
+                max_order = int(list(row.values())[0] or 0)
+            break
+        except Exception:
+            pass
+
+    order_num = max_order + 1
+    ok, last_e = _try_inserts('ExamQuestions', [
+        ('ExamID,QuestionText,QuestionType,OptionA,OptionB,OptionC,OptionD,CorrectAnswer,Marks,QuestionOrder,CreatedAt',
+         (exam_id, question_text, question_type, opt_a, opt_b, opt_c, opt_d, correct_answer, marks, order_num, datetime.now())),
+        ('ExamID,QuestionText,QuestionType,OptionA,OptionB,OptionC,OptionD,CorrectAnswer,Marks,QuestionOrder',
+         (exam_id, question_text, question_type, opt_a, opt_b, opt_c, opt_d, correct_answer, marks, order_num)),
+        ('ExamID,QuestionText,QuestionType,CorrectAnswer,Marks,QuestionOrder',
+         (exam_id, question_text, question_type, correct_answer, marks, order_num)),
+        ('ExamID,QuestionText,CorrectAnswer,Marks',
+         (exam_id, question_text, correct_answer, marks)),
+    ])
+    if not ok:
+        return _err(f'Failed to insert question: {last_e}', 500)
+    return _ok({'message': 'Question added successfully', 'examId': exam_id})
+
 
 @bp_teacher.route('/exams/<int:exam_id>/questions', methods=['POST'])
 @jwt_required()
@@ -1733,7 +1800,7 @@ def get_students_for_marks():
            LEFT JOIN Marks m ON m.StudentID = u.UserID AND m.SubjectID = ?
            WHERE u.UserType='Student' AND u.IsActive=1
              AND u.DepartmentID=? AND u.Semester=?
-           ORDER BY u.FullName""",
+           ORDER BY u.UserCode""",
     ]:
         try:
             students = db.execute_query(sql, (subject_id, dept_id, semester))
