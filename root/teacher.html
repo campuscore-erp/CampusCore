@@ -581,9 +581,20 @@ textarea.form-input{resize:vertical;min-height:80px}
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Or Upload File from Device <span style="color:var(--text3);font-weight:400;font-size:.72rem">(max 50 MB)</span></label>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+          <label class="form-label" style="margin-bottom:0">Or Upload File from Device</label>
+          <span style="font-size:.72rem;font-weight:700;background:var(--bg4);border:1px solid var(--border);padding:.18rem .55rem;border-radius:.4rem;color:var(--amber);font-family:var(--mono)">MAX 50 MB</span>
+        </div>
         <input id="matFile" class="form-input" type="file" accept=".pdf" style="padding:.45rem" onchange="checkMatSize(this)">
-        <div id="matFileSizeInfo" style="font-size:.73rem;margin-top:.3rem;display:none"></div>
+        <div id="matFileSizeInfo" style="margin-top:.5rem;display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">
+            <span id="matFileSizeLabel" style="font-size:.73rem;font-weight:600"></span>
+            <span id="matFileSizePct" style="font-size:.7rem;color:var(--text3)"></span>
+          </div>
+          <div style="background:var(--bg4);border-radius:100px;height:6px;overflow:hidden">
+            <div id="matFileSizeBar" style="height:100%;border-radius:100px;width:0%;transition:width .3s"></div>
+          </div>
+        </div>
       </div>
       <div id="matMdlErr" style="display:none" class="alert alert-error"></div>
     </div>
@@ -1703,8 +1714,18 @@ function checkMatSize(input){
   const info=document.getElementById('matFileSizeInfo');
   if(!input.files||!input.files[0]){info.style.display='none';return;}
   const mb=(input.files[0].size/1024/1024);
-  if(mb>50){info.style.display='block';info.style.color='var(--red)';info.textContent=`❌ File is ${mb.toFixed(1)} MB — max allowed is 50 MB.`;input.value='';return;}
-  info.style.display='block';info.style.color='var(--green)';info.textContent=`✅ ${input.files[0].name} · ${mb.toFixed(1)} MB`;
+  const pct=Math.min((mb/50)*100,100);
+  const over=mb>50;
+  const barColor=over?'var(--red)':mb>40?'var(--amber)':'var(--green)';
+  document.getElementById('matFileSizeLabel').textContent=over
+    ?'❌ '+mb.toFixed(2)+' MB — exceeds 50 MB limit!'
+    :'✅ '+mb.toFixed(2)+' MB of 50 MB';
+  document.getElementById('matFileSizeLabel').style.color=over?'var(--red)':'var(--green)';
+  document.getElementById('matFileSizePct').textContent=pct.toFixed(0)+'%';
+  document.getElementById('matFileSizeBar').style.width=pct+'%';
+  document.getElementById('matFileSizeBar').style.background=barColor;
+  info.style.display='block';
+  if(over){input.value='';return;}
 }
 async function saveMaterial(){
   const subjectId=document.getElementById('matSubject').value;
