@@ -42,7 +42,7 @@ def _import_cv2():
 
 def _import_face_recognition():
     try:
-        import face_recognition
+        import face_recognition  # type: ignore[import]
         return face_recognition
     except ImportError:
         raise ImportError(
@@ -332,7 +332,7 @@ def check_dependencies() -> dict:
         status['opencv_error'] = 'opencv-python-headless not installed'
 
     try:
-        import face_recognition
+        import face_recognition  # type: ignore[import]
         status['face_recognition'] = True
     except ImportError:
         status['face_recognition_error'] = 'face_recognition not installed'
