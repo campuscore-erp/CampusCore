@@ -897,6 +897,22 @@ async function checkAndPromptFaceRegistration(){
         dashEl.prepend(prompt);
       }
       if(banner) banner.innerHTML = '<div class="alert alert-info">&#x1F4F7; Your face is not registered yet. Click Start Camera below to register.</div>';
+    } else if(d && d.hasFaceData && d.needsReRegister){
+      // Has face data but it's a thumbnail fallback — not usable for recognition
+      const dashEl = document.getElementById('view-dashboard');
+      const existing = document.getElementById('facePromptBanner');
+      if(!existing && dashEl){
+        const prompt = document.createElement('div');
+        prompt.id = 'facePromptBanner';
+        prompt.className = 'alert alert-warning';
+        prompt.style.cssText = 'margin-bottom:1rem;cursor:pointer';
+        prompt.innerHTML = '&#x26A0;&#xFE0F; <strong>Face re-registration required!</strong> Your face was saved but could not be fully encoded. Please re-register so automatic attendance works. <span style="text-decoration:underline">Click here →</span>';
+        prompt.onclick = ()=>go('scan');
+        dashEl.prepend(prompt);
+      }
+      if(banner) banner.innerHTML = '<div class="alert alert-warning">&#x26A0;&#xFE0F; Face saved but not fully encoded. Please re-register your face for automatic attendance to work.</div>';
+    } else if(d && d.hasFaceData && d.mlReady){
+      if(banner) banner.innerHTML = '<div class="alert alert-success">&#x2705; Face registered and ready. Attendance will be marked automatically.</div>';
     } else if(d && d.hasFaceData){
       if(banner) banner.innerHTML = '<div class="alert alert-success">&#x2705; Face registered. Attendance is being marked automatically.</div>';
     }

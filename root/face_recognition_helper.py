@@ -138,13 +138,44 @@ def deserialise_encoding(blob: bytes) -> Optional[np.ndarray]:
     """
     Deserialise a LONGBLOB from MySQL back into a numpy array for comparison.
     Handles both raw pickle bytes and bytes coming from pymysql as-is.
+
+    IMPORTANT: Student portal may store a raw JPEG thumbnail as a fallback
+    when face_recognition libs were unavailable at registration time.
+    These blobs start with JPEG magic bytes (FF D8 FF) and are NOT valid
+    pickle data — we detect and skip them instead of crashing with a
+    misleading error, which was causing zero recognitions in the teacher portal.
     """
     if blob is None:
         return None
     try:
         if isinstance(blob, memoryview):
             blob = bytes(blob)
-        return pickle.loads(blob)
+
+        # Detect JPEG thumbnail fallback: starts with FF D8 FF (JPEG magic)
+        # These are raw image bytes stored when ML libs were unavailable during
+        # student face registration — they cannot be used for face comparison.
+        if len(blob) >= 3 and blob[:3] == b'\xff\xd8\xff':
+            print('[FaceHelper] deserialise_encoding: blob is a JPEG thumbnail fallback '
+                  '(not a face encoding). Student must re-register face with ML libs active.')
+            return None
+
+        # Detect PNG fallback: starts with PNG magic bytes
+        if len(blob) >= 8 and blob[:8] == b'\x89PNG\r\n\x1a\n':
+            print('[FaceHelper] deserialise_encoding: blob is a PNG thumbnail — skipping.')
+            return None
+
+        enc = pickle.loads(blob)
+
+        # Validate it is actually a 128-d face encoding numpy array
+        if not isinstance(enc, np.ndarray):
+            print(f'[FaceHelper] deserialise_encoding: unpickled object is {type(enc)}, not ndarray — skipping.')
+            return None
+        if enc.shape != (128,):
+            print(f'[FaceHelper] deserialise_encoding: wrong shape {enc.shape}, expected (128,) — skipping.')
+            return None
+
+        return enc
+
     except Exception as e:
         print(f'[FaceHelper] deserialise_encoding error: {e}')
         return None

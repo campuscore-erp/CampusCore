@@ -1829,6 +1829,7 @@ def _ensure_face_table():
                FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
                StudentID     INT NOT NULL UNIQUE,
                FaceEncoding  LONGBLOB,
+               EncodingType  VARCHAR(32) DEFAULT 'ml_encoding',
                RegisteredAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
                UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
            )""",
@@ -1837,12 +1838,18 @@ def _ensure_face_table():
                FaceDataID    INTEGER PRIMARY KEY AUTOINCREMENT,
                StudentID     INTEGER NOT NULL UNIQUE,
                FaceEncoding  BLOB,
+               EncodingType  TEXT DEFAULT 'ml_encoding',
                RegisteredAt  TEXT DEFAULT (datetime('now')),
                UpdatedAt     TEXT DEFAULT (datetime('now'))
            )""",
     ]:
         try:
             db.execute_non_query(sql)
+            # Try adding EncodingType column if table already existed without it
+            try:
+                db.execute_non_query("ALTER TABLE StudentFaceData ADD COLUMN EncodingType VARCHAR(32) DEFAULT 'ml_encoding'")
+            except Exception:
+                pass  # column already exists — fine
             return  # first successful CREATE wins
         except Exception:
             pass  # try next variant
@@ -1854,7 +1861,7 @@ def get_face_status():
     """
     GET /api/student/face-status
     Returns whether this student has face data stored.
-    Response: { success, hasFaceData, registeredAt }
+    Response: { success, hasFaceData, registeredAt, mlReady, encodingType }
     """
     err = student_required()
     if err: return err
@@ -1868,20 +1875,33 @@ def get_face_status():
         for sid in [student_id, user_id]:
             try:
                 row = db.execute_query(
-                    "SELECT FaceDataID, RegisteredAt FROM StudentFaceData WHERE StudentID = ?",
+                    "SELECT FaceDataID, RegisteredAt, EncodingType FROM StudentFaceData WHERE StudentID = ?",
                     (sid,), fetch_one=True)
                 if row:
                     break
-            except Exception as e:
-                print(f'[FaceStatus] query err sid={sid}: {e}')
+            except Exception:
+                # EncodingType column may not exist yet — fallback query
+                try:
+                    row = db.execute_query(
+                        "SELECT FaceDataID, RegisteredAt FROM StudentFaceData WHERE StudentID = ?",
+                        (sid,), fetch_one=True)
+                    if row:
+                        break
+                except Exception as e:
+                    print(f'[FaceStatus] query err sid={sid}: {e}')
 
         has_face = bool(row and row.get('FaceDataID'))
-        registered_at = str(row.get('RegisteredAt', '')) if row else None
+        registered_at  = str(row.get('RegisteredAt', '')) if row else None
+        encoding_type  = row.get('EncodingType', 'unknown') if row else None
+        ml_ready       = has_face and encoding_type == 'ml_encoding'
 
         return jsonify({
-            'success':      True,
-            'hasFaceData':  has_face,
-            'registeredAt': registered_at,
+            'success':       True,
+            'hasFaceData':   has_face,
+            'registeredAt':  registered_at,
+            'encodingType':  encoding_type,
+            'mlReady':       ml_ready,
+            'needsReRegister': has_face and not ml_ready,
         }), 200
 
     except Exception as e:
@@ -1975,12 +1995,19 @@ def register_face():
 
         # MySQL: INSERT … ON DUPLICATE KEY UPDATE
         for upsert_sql in [
+            """INSERT INTO StudentFaceData (StudentID, FaceEncoding, EncodingType, RegisteredAt, UpdatedAt)
+               VALUES (?, ?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE FaceEncoding=VALUES(FaceEncoding), EncodingType=VALUES(EncodingType), UpdatedAt=VALUES(UpdatedAt)""",
+            # fallback without EncodingType if column doesn't exist yet
             """INSERT INTO StudentFaceData (StudentID, FaceEncoding, RegisteredAt, UpdatedAt)
                VALUES (?, ?, ?, ?)
                ON DUPLICATE KEY UPDATE FaceEncoding=VALUES(FaceEncoding), UpdatedAt=VALUES(UpdatedAt)""",
         ]:
             try:
-                db.execute_non_query(upsert_sql, (student_id, encoding_blob, now, now))
+                if 'EncodingType' in upsert_sql:
+                    db.execute_non_query(upsert_sql, (student_id, encoding_blob, method_used, now, now))
+                else:
+                    db.execute_non_query(upsert_sql, (student_id, encoding_blob, now, now))
                 saved = True
                 break
             except Exception as e:
@@ -1992,24 +2019,42 @@ def register_face():
                 try:
                     db.execute_non_query(
                         """INSERT OR REPLACE INTO StudentFaceData
-                           (StudentID, FaceEncoding, RegisteredAt, UpdatedAt)
-                           VALUES (?, ?, ?, ?)""",
-                        (sid, encoding_blob, now, now))
+                           (StudentID, FaceEncoding, EncodingType, RegisteredAt, UpdatedAt)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (sid, encoding_blob, method_used, now, now))
                     saved = True
                     student_id = sid
                     break
-                except Exception as e:
-                    print(f'[RegisterFace] SQLite upsert err sid={sid}: {e}')
+                except Exception:
+                    try:
+                        db.execute_non_query(
+                            """INSERT OR REPLACE INTO StudentFaceData
+                               (StudentID, FaceEncoding, RegisteredAt, UpdatedAt)
+                               VALUES (?, ?, ?, ?)""",
+                            (sid, encoding_blob, now, now))
+                        saved = True
+                        student_id = sid
+                        break
+                    except Exception as e:
+                        print(f'[RegisterFace] SQLite upsert err sid={sid}: {e}')
 
         if not saved:
             return jsonify({'success': False, 'error': 'Failed to save face data. Please try again.'}), 500
 
-        msg = ('Face registered successfully! ' +
-               ('Attendance will now be marked automatically.'
-                if method_used == 'ml_encoding'
-                else 'Face saved. Full recognition will activate once the system is ready.'))
+        if method_used == 'ml_encoding':
+            msg = ('Face registered successfully! '
+                   'Your face has been encoded and attendance will be marked automatically by the teacher portal.')
+        else:
+            msg = ('Face image saved, but full face encoding could not be generated — '
+                   'the ML recognition system may not be fully initialised yet. '
+                   'Please re-register your face in a few minutes for automatic attendance to work.')
 
-        return jsonify({'success': True, 'message': msg, 'method': method_used}), 200
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'method':  method_used,
+            'mlReady': method_used == 'ml_encoding',
+        }), 200
 
     except Exception as e:
         print(f'[RegisterFace] Error: {e}')

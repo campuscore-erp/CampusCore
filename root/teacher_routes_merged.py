@@ -882,8 +882,18 @@ def face_attendance_capture():
                 semester = dept_sem.get('Semester')
 
                 # Load face encodings for students in this class only
+                # Prefer EncodingType='ml_encoding' rows — skip thumbnail fallbacks
                 for q, p in [
-                    # Join Users → StudentFaceData via UserID = StudentID
+                    # Best: dept+semester filter, ml_encoding only
+                    ("""SELECT u.UserID AS StudentID, sfd.FaceEncoding
+                        FROM Users u
+                        JOIN StudentFaceData sfd ON sfd.StudentID = u.UserID
+                        WHERE u.UserType='Student' AND u.IsActive=1
+                          AND u.DepartmentID=? AND u.Semester=?
+                          AND sfd.FaceEncoding IS NOT NULL
+                          AND (sfd.EncodingType='ml_encoding' OR sfd.EncodingType IS NULL)""",
+                     (dept_id, semester)),
+                    # Fallback: dept+semester, any encoding
                     ("""SELECT u.UserID AS StudentID, sfd.FaceEncoding
                         FROM Users u
                         JOIN StudentFaceData sfd ON sfd.StudentID = u.UserID
@@ -891,7 +901,11 @@ def face_attendance_capture():
                           AND u.DepartmentID=? AND u.Semester=?
                           AND sfd.FaceEncoding IS NOT NULL""",
                      (dept_id, semester)),
-                    # Fallback: load all registered face data
+                    # Last resort: all registered face data (ml_encoding only)
+                    ("""SELECT StudentID, FaceEncoding FROM StudentFaceData
+                        WHERE FaceEncoding IS NOT NULL
+                          AND (EncodingType='ml_encoding' OR EncodingType IS NULL)""", ()),
+                    # Last resort: all registered face data any type
                     ("""SELECT StudentID, FaceEncoding FROM StudentFaceData
                         WHERE FaceEncoding IS NOT NULL""", ()),
                 ]:
@@ -899,16 +913,26 @@ def face_attendance_capture():
                         rows = db.execute_query(q, p) if p else db.execute_query(q)
                         if rows:
                             stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
+                            print(f'[face_capture] Loaded {len(stored_blobs)} face encoding(s) from DB')
                             break
                     except Exception as e:
                         print(f'[face_capture] blob load err: {e}')
             else:
                 # No dept/sem resolved — load all face data as fallback
+                print(f'[face_capture] WARNING: could not resolve dept/sem for subjectId={subject_id}')
                 try:
                     rows = db.execute_query(
-                        "SELECT StudentID, FaceEncoding FROM StudentFaceData WHERE FaceEncoding IS NOT NULL")
+                        """SELECT StudentID, FaceEncoding FROM StudentFaceData
+                           WHERE FaceEncoding IS NOT NULL
+                             AND (EncodingType='ml_encoding' OR EncodingType IS NULL)""")
                     if rows:
                         stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
+                    else:
+                        # absolute fallback — any encoding type
+                        rows = db.execute_query(
+                            "SELECT StudentID, FaceEncoding FROM StudentFaceData WHERE FaceEncoding IS NOT NULL")
+                        if rows:
+                            stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
                 except Exception as e:
                     print(f'[face_capture] fallback blob load err: {e}')
 

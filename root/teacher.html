@@ -1308,14 +1308,17 @@ async function startFaceCamera(){
 async function captureFaceFrame(){
   const vid=document.getElementById('faceVideo');
   const canvas=document.getElementById('faceCanvas');
-  if(!vid||!canvas||!vid.readyState||vid.readyState<2)return;
+  // readyState 2 = HAVE_CURRENT_DATA, 3 = HAVE_FUTURE_DATA, 4 = HAVE_ENOUGH_DATA
+  // Use >= 2 but also ensure video dimensions are available
+  if(!vid||!canvas)return;
+  if(vid.readyState<2||!vid.videoWidth||!vid.videoHeight)return;
   // Draw frame to hidden canvas
-  canvas.width=vid.videoWidth||320;
-  canvas.height=vid.videoHeight||240;
+  canvas.width=vid.videoWidth;
+  canvas.height=vid.videoHeight;
   const ctx=canvas.getContext('2d');
   ctx.drawImage(vid,0,0,canvas.width,canvas.height);
-  // Convert to base64 JPEG for server
-  const imageData=canvas.toDataURL('image/jpeg',0.7);
+  // Convert to base64 JPEG for server — use 0.85 quality for better face detection
+  const imageData=canvas.toDataURL('image/jpeg',0.85);
   try{
     const res=await fetch(API+'/api/teacher/attendance/face/capture',{
       method:'POST',
@@ -1359,6 +1362,10 @@ async function captureFaceFrame(){
         if(d.mlEnabled===false){
           camStatus.textContent='⚠ ML offline — use Manual Mark';
           camStatus.style.background='rgba(234,179,8,.8)';
+          if(!window._mlOfflineToastShown){
+            window._mlOfflineToastShown=true;
+            toast('Face recognition ML is not active. Students must re-register face after ML is ready.','warning');
+          }
         } else {
           camStatus.textContent= _faceRecognised.size>0
             ? '✓ '+_faceRecognised.size+' recognised'
