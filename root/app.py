@@ -150,6 +150,20 @@ def change_password_page():
     from flask import send_from_directory
     return send_from_directory(_ROOT, 'change_password.html')
 
+@app.route('/favicon.ico')
+def favicon():
+    """Serve an inline SVG favicon — no file needed, eliminates 404 error."""
+    from flask import Response
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+        '<rect width="32" height="32" rx="8" fill="#2563eb"/>'
+        '<text x="16" y="23" font-size="20" text-anchor="middle" '
+        'font-family="Arial,sans-serif" font-weight="bold" fill="#ffffff">C</text>'
+        '</svg>'
+    )
+    return Response(svg, mimetype='image/svg+xml',
+                    headers={'Cache-Control': 'public, max-age=86400'})
+
 @app.route('/timetable.html')
 def timetable_page():
     from flask import send_from_directory
