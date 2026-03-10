@@ -137,26 +137,47 @@ def encode_face_from_multiple_images(images_b64: List[str]) -> Optional[bytes]:
 def deserialise_encoding(blob: bytes) -> Optional[np.ndarray]:
     """
     Deserialise a LONGBLOB from MySQL back into a numpy array for comparison.
-    Handles both raw pickle bytes and bytes coming from pymysql as-is.
+    Handles multiple formats:
+      - raw bytes (normal pymysql)
+      - memoryview (some MySQL drivers)
+      - base64 string (some Railway MySQL driver versions return BLOB as str)
 
-    IMPORTANT: Student portal may store a raw JPEG thumbnail as a fallback
-    when face_recognition libs were unavailable at registration time.
-    These blobs start with JPEG magic bytes (FF D8 FF) and are NOT valid
-    pickle data — we detect and skip them instead of crashing with a
-    misleading error, which was causing zero recognitions in the teacher portal.
+    Also detects and skips JPEG/PNG thumbnail fallback blobs stored when
+    ML libs were unavailable during student face registration.
     """
     if blob is None:
         return None
     try:
+        # Handle memoryview from some MySQL drivers
         if isinstance(blob, memoryview):
             blob = bytes(blob)
 
-        # Detect JPEG thumbnail fallback: starts with FF D8 FF (JPEG magic)
-        # These are raw image bytes stored when ML libs were unavailable during
-        # student face registration — they cannot be used for face comparison.
+        # Handle base64 string — some Railway MySQL driver versions return
+        # LONGBLOB columns as base64-encoded strings instead of raw bytes.
+        # Error seen: "a bytes-like object is required, not 'str'"
+        if isinstance(blob, str):
+            import base64 as _b64
+            try:
+                blob = _b64.b64decode(blob)
+            except Exception:
+                # Not valid base64 — try encoding as latin-1 bytes directly
+                try:
+                    blob = blob.encode('latin-1')
+                except Exception as e:
+                    print(f'[FaceHelper] deserialise_encoding: could not convert str blob: {e}')
+                    return None
+
+        # Ensure we have bytes at this point
+        if not isinstance(blob, (bytes, bytearray)):
+            print(f'[FaceHelper] deserialise_encoding: unexpected blob type {type(blob)} — skipping.')
+            return None
+
+        # Detect JPEG thumbnail fallback: starts with FF D8 FF (JPEG magic bytes)
+        # These are raw JPEG frames stored when ML libs were unavailable during
+        # student face registration — not valid face encodings, skip them.
         if len(blob) >= 3 and blob[:3] == b'\xff\xd8\xff':
             print('[FaceHelper] deserialise_encoding: blob is a JPEG thumbnail fallback '
-                  '(not a face encoding). Student must re-register face with ML libs active.')
+                  '— student must re-register face with ML libs active.')
             return None
 
         # Detect PNG fallback: starts with PNG magic bytes
