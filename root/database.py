@@ -295,7 +295,14 @@ def _to_mysql_sql(sql: str) -> str:
     return sql
 
 def _serialize_db_value(v: Any) -> Any:
-    """Convert DB-specific scalar types to JSON-safe primitives."""
+    """Convert DB-specific scalar types to JSON-safe primitives.
+
+    IMPORTANT: bytes values that are binary blobs (face encodings, file data)
+    must NOT be decoded to a string — that corrupts binary data like pickle-
+    serialised numpy arrays stored in LONGBLOB columns.
+    We only decode bytes that are clearly text (valid UTF-8 with no null bytes).
+    Binary blobs are returned as-is so face_recognition_helper can process them.
+    """
     if isinstance(v, datetime):
         return v.isoformat()
     if isinstance(v, date):
@@ -310,8 +317,25 @@ def _serialize_db_value(v: Any) -> Any:
         return f'{h:02d}:{m:02d}'
     if isinstance(v, Decimal):
         return float(v)
-    if isinstance(v, bytes):
-        return v.decode('utf-8', errors='replace')
+    if isinstance(v, (bytes, bytearray)):
+        # Check if this looks like binary data (contains null bytes or
+        # starts with known binary magic bytes like pickle \x80, JPEG \xff\xd8,
+        # or other non-text data). If so, return raw bytes — do NOT decode.
+        if len(v) == 0:
+            return v
+        # Pickle data starts with \x80 (protocol byte)
+        # JPEG starts with \xff\xd8
+        # Binary data typically contains null bytes
+        if v[0] in (0x80, 0xff, 0x89) or b'\x00' in v[:64]:
+            return bytes(v)  # preserve as raw bytes
+        # Try decoding as UTF-8 — if it works cleanly, it's text
+        try:
+            return v.decode('utf-8')
+        except (UnicodeDecodeError, ValueError):
+            return bytes(v)  # not valid UTF-8 → keep as bytes
+    if isinstance(v, memoryview):
+        # memoryview from MySQL driver — convert to bytes, preserve binary
+        return bytes(v)
     return v
 
 
