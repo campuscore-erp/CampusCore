@@ -36,7 +36,7 @@ def _cv2():
 
 def _fr():
     try:
-        import face_recognition
+        import face_recognition  # type: ignore[import]
         return face_recognition
     except ImportError:
         raise ImportError("pip install face_recognition")
@@ -285,14 +285,14 @@ def check_dependencies() -> dict:
     """
     status = {'opencv': False, 'face_recognition': False, 'numpy': True}
     try:
-        import cv2
+        import cv2  # type: ignore[import]
         status['opencv']         = True
         status['opencv_version'] = cv2.__version__
     except ImportError as e:
         status['opencv_error'] = str(e)
 
     try:
-        import face_recognition
+        import face_recognition  # type: ignore[import]
         status['face_recognition'] = True
     except ImportError as e:
         status['face_recognition_error'] = str(e)
