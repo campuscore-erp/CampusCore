@@ -1220,6 +1220,99 @@ def mark_absent_non_scanners():
     return _ok({'message': f'{absent_count} students marked absent', 'absentCount': absent_count})
 
 
+
+# =============================================================================
+# FACE DEBUG — GET /api/teacher/face/debug
+# =============================================================================
+# Returns dependency status, stored encoding count, and session list.
+# Used to diagnose face recognition issues without reading server logs.
+# Safe to leave in production — requires valid JWT.
+
+@bp_teacher.route('/face/debug')
+@jwt_required()
+def face_debug():
+    uid, err = _get_teacher_user_id()
+    if err: return err
+    teacher_db_id = _get_teacher_db_id(uid)
+
+    # Check ML dependencies
+    deps = {}
+    try:
+        from face_recognition_helper import check_dependencies
+        deps = check_dependencies()
+    except Exception as e:
+        deps = {'ready': False, 'import_error': str(e)}
+
+    # Count stored face encodings total
+    total_encodings = 0
+    ml_encodings    = 0
+    thumb_encodings = 0
+    try:
+        rows = db.execute_query(
+            "SELECT StudentID, EncodingType, FaceEncoding FROM StudentFaceData WHERE FaceEncoding IS NOT NULL") or []
+        total_encodings = len(rows)
+        for r in rows:
+            et = r.get('EncodingType', '')
+            if et == 'ml_encoding':
+                ml_encodings += 1
+            elif et == 'thumbnail_fallback':
+                thumb_encodings += 1
+    except Exception as e:
+        total_encodings = -1
+
+    # Count encodings for THIS teacher's class
+    class_encodings = 0
+    dept_sem = _get_dept_semester(teacher_db_id, None) if teacher_db_id else None
+    subjects_info = []
+    try:
+        subj_rows = db.execute_query(
+            """SELECT DISTINCT s.SubjectID, s.SubjectName
+               FROM Timetable t JOIN Subjects s ON s.SubjectID=t.SubjectID
+               WHERE t.TeacherID=? LIMIT 10""", (teacher_db_id,)) or []
+        for sr in subj_rows:
+            sid = sr.get('SubjectID')
+            ds = _get_dept_semester(teacher_db_id, sid)
+            enc_count = 0
+            if ds:
+                enc_rows = db.execute_query(
+                    """SELECT COUNT(*) AS cnt FROM StudentFaceData sfd
+                       JOIN Users u ON u.UserID=sfd.StudentID
+                       WHERE u.DepartmentID=? AND u.Semester=?
+                         AND sfd.FaceEncoding IS NOT NULL""",
+                    (ds.get('DepartmentID'), ds.get('Semester')), fetch_one=True)
+                enc_count = (enc_rows or {}).get('cnt', 0)
+            subjects_info.append({
+                'subjectId':   sid,
+                'subjectName': sr.get('SubjectName'),
+                'deptSem':     ds,
+                'encodingsInClass': enc_count,
+            })
+    except Exception as e:
+        subjects_info = [{'error': str(e)}]
+
+    # Active sessions
+    sessions_info = [
+        {'token': t[:8]+'...', 'subjectId': s.get('subjectId'),
+         'date': s.get('date'), 'recognised': len(s.get('recognised', set()))}
+        for t, s in _face_sessions.items()
+    ]
+
+    return _ok({
+        'mlDependencies':    deps,
+        'mlReady':           deps.get('ready', False),
+        'dbBackend':         getattr(db, '_backend', 'unknown'),
+        'teacherUserId':     uid,
+        'teacherDbId':       teacher_db_id,
+        'totalEncodings':    total_encodings,
+        'mlEncodings':       ml_encodings,
+        'thumbnailFallbacks': thumb_encodings,
+        'subjectsWithClass': subjects_info,
+        'activeSessions':    sessions_info,
+        'hint': ('ML ready — face recognition active' if deps.get('ready')
+                 else 'ML not ready — check dlib/face_recognition install'),
+    })
+
+
 # EXAMS — LIST
 # =============================================================================
 

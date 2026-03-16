@@ -1261,18 +1261,26 @@ function stopFaceCamera(){
 async function initFaceSession(){
   if(_faceSessionToken)return;  // already started
   if(!_attSubjId||!_attDate)return;
-  const d=await api('/api/teacher/attendance/face/start',{
-    method:'POST',
-    body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate})
-  });
-  if(d.success){
-    _faceSessionToken=d.sessionToken;
-    const total=d.totalStudents||0;
-    document.getElementById('faceCountTotal').textContent=total;
-    document.getElementById('faceCountPending').textContent=total;
-    setFaceStatus('Session started — '+total+' students in class','info');
-  }else{
-    setFaceStatus(d.error||'Failed to start session','error');
+  try{
+    const d=await api('/api/teacher/attendance/face/start',{
+      method:'POST',
+      body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate})
+    });
+    if(d&&d.success&&d.sessionToken){
+      _faceSessionToken=d.sessionToken;
+      const total=d.totalStudents||0;
+      document.getElementById('faceCountTotal').textContent=total;
+      document.getElementById('faceCountPending').textContent=total;
+      setFaceStatus('Session started — '+total+' students in class','info');
+      console.log('[face/start] session token:',_faceSessionToken,'students:',total);
+    }else{
+      const msg=(d&&d.error)||'Failed to start face session';
+      setFaceStatus(msg,'error');
+      console.error('[face/start] error:',msg,d);
+    }
+  }catch(e){
+    setFaceStatus('Network error starting session','error');
+    console.error('[face/start] network error:',e);
   }
 }
 
@@ -1292,8 +1300,14 @@ async function startFaceCamera(){
     if(stopBtn)stopBtn.style.display='';
     document.getElementById('faceScanLine').style.display='block';
     document.getElementById('faceCamStatus').textContent='Scanning…';
-    // Ensure face session is open
+    // Ensure face session is open — await it so token is ready before scanning
     await initFaceSession();
+    // Only start scanning if session was created successfully
+    if(!_faceSessionToken){
+      setFaceStatus('Could not start session — check subject selection','error');
+      stopFaceCamera();
+      return;
+    }
     // Start periodic face capture & submit every 3s
     _faceScanInterval=setInterval(captureFaceFrame,3000);
     // Refresh live status every 5s
@@ -1306,6 +1320,12 @@ async function startFaceCamera(){
 }
 
 async function captureFaceFrame(){
+  // Guard: do nothing if session token not yet ready
+  if(!_faceSessionToken){
+    // Try to recover session if it failed earlier
+    await initFaceSession();
+    if(!_faceSessionToken)return;
+  }
   const vid=document.getElementById('faceVideo');
   const canvas=document.getElementById('faceCanvas');
   // readyState 2 = HAVE_CURRENT_DATA, 3 = HAVE_FUTURE_DATA, 4 = HAVE_ENOUGH_DATA
@@ -1331,6 +1351,18 @@ async function captureFaceFrame(){
       })
     });
     const d=await res.json();
+    // Log every frame response to browser console for debugging
+    if(d.mlEnabled===false){
+      console.warn('[face/capture] ML not ready — deps missing on server');
+    } else if(d.frameProcessed){
+      console.log('[face/capture] frame processed, newly matched:',
+        (d.newlyRecognised||[]).length, 'message:', d.message);
+    }
+    if(!d.sessionActive){
+      console.error('[face/capture] session lost — reinitialising');
+      _faceSessionToken=null;
+      await initFaceSession();
+    }
     if(d.success){
       // mlEnabled=true  → server matched faces in this frame (newlyRecognised)
       // mlEnabled=false → ML libs not installed; show hint but keep manual mark working
