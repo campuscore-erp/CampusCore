@@ -1,104 +1,94 @@
 """
 face_recognition_helper.py  —  CampusCore University ERP
 =========================================================
-Face Recognition Attendance System Helper Module
+Face Recognition Attendance System — complete rewrite v3
 
-WHAT THIS DOES:
-  - Provides utilities to encode face images and compare against stored encodings
-  - Uses OpenCV for image preprocessing and face_recognition for 128-d face encodings
-  - All encodings are stored as BLOB (numpy array bytes) in MySQL student_face_data table
-  - Designed to work in Railway deployment — no GUI, no display required
-  - Works with images sent as base64 from browser webcam captures
+PIPELINE:
+  Registration (student portal):
+    encode_face_from_multiple_images(images_b64) -> bytes (pickle'd numpy)
 
-DEPENDENCIES (add to requirements.txt):
-  face_recognition>=1.3.0
-  opencv-python-headless>=4.8.0   # headless = no display needed for Railway
-  numpy>=1.24.0
+  Recognition (teacher portal):
+    identify_faces_in_classroom(frame_b64, stored_encodings) -> [student_id, ...]
 
-NOTE:
-  face_recognition uses dlib under the hood. On Railway (Linux), ensure the
-  buildpack includes cmake and dlib build dependencies, or use a pre-built wheel.
-  See nixpacks.toml section in README for configuration.
+NOTES:
+  - Uses dlib-bin (pre-built wheels, no compile) + face_recognition + opencv-headless
+  - All encodings: 128-d float64 numpy arrays, pickle-serialised as LONGBLOB
+  - Handles memoryview / raw bytes / base64-string blobs from MySQL driver
+  - Skips JPEG/PNG thumbnail fallback blobs gracefully
 """
 
 import base64
-import io
 import pickle
 import traceback
 from typing import Optional, List, Tuple
 
 import numpy as np
 
-# ── Lazy imports — fail gracefully if libraries not installed ─────────────────
 
-def _import_cv2():
+# ── Lazy imports ──────────────────────────────────────────────────────────────
+
+def _cv2():
     try:
         import cv2
         return cv2
     except ImportError:
-        raise ImportError(
-            "OpenCV is required: pip install opencv-python-headless"
-        )
+        raise ImportError("pip install opencv-python-headless")
 
-def _import_face_recognition():
+def _fr():
     try:
-        import face_recognition  # type: ignore[import]
+        import face_recognition
         return face_recognition
     except ImportError:
-        raise ImportError(
-            "face_recognition is required: pip install face_recognition"
-        )
+        raise ImportError("pip install face_recognition")
 
 
-# =============================================================================
-# ENCODING UTILITIES
-# =============================================================================
+# ── Image decoding ────────────────────────────────────────────────────────────
 
-def encode_face_from_base64(image_b64: str) -> Optional[bytes]:
-    """
-    Given a base64-encoded image (from browser webcam), detect a face and
-    return the 128-d face encoding serialised as bytes (pickle) for DB storage.
-
-    Returns:
-        bytes  — serialised numpy array (store as LONGBLOB in MySQL)
-        None   — if no face detected or on error
-    """
-    cv2 = _import_cv2()
-    fr  = _import_face_recognition()
-
+def _decode_image(image_b64: str):
+    """Decode base64 image string to RGB numpy array. Returns None on failure."""
+    cv2 = _cv2()
     try:
-        # Decode base64 → numpy image array
         if ',' in image_b64:
-            image_b64 = image_b64.split(',', 1)[1]      # strip "data:image/jpeg;base64,"
-
+            image_b64 = image_b64.split(',', 1)[1]
         img_bytes = base64.b64decode(image_b64)
         nparr     = np.frombuffer(img_bytes, np.uint8)
         img_bgr   = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
         if img_bgr is None:
-            print('[FaceHelper] cv2.imdecode returned None — bad image data')
             return None
+        return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    except Exception as e:
+        print(f'[FaceHelper] _decode_image error: {e}')
+        return None
 
-        # Convert BGR (OpenCV default) → RGB (face_recognition requirement)
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        # Detect face locations using HOG model (fast, CPU-friendly)
-        face_locations = fr.face_locations(img_rgb, model='hog')
-        if not face_locations:
-            print('[FaceHelper] No faces detected in image')
+def _normalise(enc: np.ndarray) -> np.ndarray:
+    """Normalise a 128-d encoding to unit length for consistent distance comparison."""
+    n = np.linalg.norm(enc)
+    return enc / n if n > 1e-10 else enc
+
+
+# ── Encoding utilities ────────────────────────────────────────────────────────
+
+def encode_face_from_base64(image_b64: str) -> Optional[bytes]:
+    """
+    Detect and encode a face from a single base64 image.
+    Returns pickle'd 128-d numpy array, or None if no face found.
+    """
+    fr = _fr()
+    img_rgb = _decode_image(image_b64)
+    if img_rgb is None:
+        print('[FaceHelper] encode_face_from_base64: could not decode image')
+        return None
+    try:
+        locations = fr.face_locations(img_rgb, model='hog')
+        if not locations:
+            print('[FaceHelper] encode_face_from_base64: no face detected')
             return None
-
-        # Use the first (largest) face
-        encodings = fr.face_encodings(img_rgb, face_locations)
+        encodings = fr.face_encodings(img_rgb, [locations[0]], num_jitters=1)
         if not encodings:
-            print('[FaceHelper] face_encodings returned empty list')
+            print('[FaceHelper] encode_face_from_base64: face_encodings returned empty')
             return None
-
-        encoding = encodings[0]   # 128-d numpy float64 array
-
-        # Serialise with pickle for LONGBLOB storage
-        return pickle.dumps(encoding)
-
+        return pickle.dumps(encodings[0])
     except Exception as e:
         print(f'[FaceHelper] encode_face_from_base64 error: {e}')
         traceback.print_exc()
@@ -107,141 +97,86 @@ def encode_face_from_base64(image_b64: str) -> Optional[bytes]:
 
 def encode_face_from_multiple_images(images_b64: List[str]) -> Optional[bytes]:
     """
-    Encode face from multiple base64 images and average the encodings for
-    improved accuracy. Used during student face registration (captures 5 frames).
-
-    Returns:
-        bytes  — serialised averaged numpy encoding
-        None   — if fewer than 1 valid encoding found
+    Encode a face from multiple base64 frames and return the averaged encoding.
+    Used during student registration (5 frames captured).
+    Returns pickle'd averaged 128-d numpy array, or None if no valid frames.
     """
-    fr = _import_face_recognition()
-
-    valid_encodings = []
-    for idx, img_b64 in enumerate(images_b64):
-        enc_bytes = encode_face_from_base64(img_b64)
-        if enc_bytes:
-            enc_array = pickle.loads(enc_bytes)
-            valid_encodings.append(enc_array)
-            print(f'[FaceHelper] Image {idx+1}/{len(images_b64)}: face encoded OK')
+    valid = []
+    for i, img_b64 in enumerate(images_b64):
+        b = encode_face_from_base64(img_b64)
+        if b:
+            valid.append(pickle.loads(b))
+            print(f'[FaceHelper] Registration frame {i+1}/{len(images_b64)}: OK')
         else:
-            print(f'[FaceHelper] Image {idx+1}/{len(images_b64)}: no face detected')
+            print(f'[FaceHelper] Registration frame {i+1}/{len(images_b64)}: no face')
 
-    if not valid_encodings:
+    if not valid:
+        print('[FaceHelper] encode_face_from_multiple_images: no valid frames')
         return None
 
-    # Average all valid encodings — reduces noise from lighting variations
-    averaged = np.mean(valid_encodings, axis=0)
-    return pickle.dumps(averaged)
+    avg = np.mean(valid, axis=0)
+    print(f'[FaceHelper] Averaged {len(valid)} encodings for registration')
+    return pickle.dumps(avg)
 
 
-def deserialise_encoding(blob: bytes) -> Optional[np.ndarray]:
+# ── Deserialisation ───────────────────────────────────────────────────────────
+
+def deserialise_encoding(blob) -> Optional[np.ndarray]:
     """
-    Deserialise a LONGBLOB from MySQL back into a numpy array for comparison.
-    Handles multiple formats:
-      - raw bytes (normal pymysql)
-      - memoryview (some MySQL drivers)
-      - base64 string (some Railway MySQL driver versions return BLOB as str)
-
-    Also detects and skips JPEG/PNG thumbnail fallback blobs stored when
-    ML libs were unavailable during student face registration.
+    Convert a DB BLOB back to a 128-d numpy array.
+    Handles: raw bytes, bytearray, memoryview, base64 string.
+    Returns None if blob is a thumbnail fallback or invalid.
     """
     if blob is None:
         return None
+
     try:
-        # Handle memoryview from some MySQL drivers
+        # memoryview → bytes
         if isinstance(blob, memoryview):
             blob = bytes(blob)
 
-        # Handle base64 string — some Railway MySQL driver versions return
-        # LONGBLOB columns as base64-encoded strings instead of raw bytes.
-        # Error seen: "a bytes-like object is required, not 'str'"
+        # base64 string (some Railway MySQL driver versions)
         if isinstance(blob, str):
-            import base64 as _b64
             try:
-                blob = _b64.b64decode(blob)
+                blob = base64.b64decode(blob)
             except Exception:
-                # Not valid base64 — try encoding as latin-1 bytes directly
                 try:
                     blob = blob.encode('latin-1')
                 except Exception as e:
-                    print(f'[FaceHelper] deserialise_encoding: could not convert str blob: {e}')
+                    print(f'[FaceHelper] deserialise: str blob unhandled: {e}')
                     return None
 
-        # Ensure we have bytes at this point
         if not isinstance(blob, (bytes, bytearray)):
-            print(f'[FaceHelper] deserialise_encoding: unexpected blob type {type(blob)} — skipping.')
+            print(f'[FaceHelper] deserialise: unexpected type {type(blob)}')
             return None
 
-        # Detect JPEG thumbnail fallback: starts with FF D8 FF (JPEG magic bytes)
-        # These are raw JPEG frames stored when ML libs were unavailable during
-        # student face registration — not valid face encodings, skip them.
+        # Detect JPEG thumbnail fallback (registered when ML was not ready)
         if len(blob) >= 3 and blob[:3] == b'\xff\xd8\xff':
-            print('[FaceHelper] deserialise_encoding: blob is a JPEG thumbnail fallback '
-                  '— student must re-register face with ML libs active.')
+            print('[FaceHelper] deserialise: JPEG thumbnail — student must re-register')
             return None
 
-        # Detect PNG fallback: starts with PNG magic bytes
+        # Detect PNG fallback
         if len(blob) >= 8 and blob[:8] == b'\x89PNG\r\n\x1a\n':
-            print('[FaceHelper] deserialise_encoding: blob is a PNG thumbnail — skipping.')
+            print('[FaceHelper] deserialise: PNG thumbnail — student must re-register')
             return None
 
         enc = pickle.loads(blob)
 
-        # Validate it is actually a 128-d face encoding numpy array
         if not isinstance(enc, np.ndarray):
-            print(f'[FaceHelper] deserialise_encoding: unpickled object is {type(enc)}, not ndarray — skipping.')
+            print(f'[FaceHelper] deserialise: not ndarray, got {type(enc)}')
             return None
         if enc.shape != (128,):
-            print(f'[FaceHelper] deserialise_encoding: wrong shape {enc.shape}, expected (128,) — skipping.')
+            print(f'[FaceHelper] deserialise: wrong shape {enc.shape}')
             return None
 
         return enc
 
     except Exception as e:
-        print(f'[FaceHelper] deserialise_encoding error: {e}')
+        print(f'[FaceHelper] deserialise error: {e}')
         return None
 
 
-# =============================================================================
-# COMPARISON UTILITIES
-# =============================================================================
-
-def compare_face_to_stored(
-    live_encoding_b64: str,
-    stored_blobs: List[Tuple[int, bytes]],
-    tolerance: float = 0.5
-) -> Optional[int]:
-    """
-    Compare a live webcam image against all stored face encodings.
-
-    Args:
-        live_encoding_b64: base64 image from webcam (single frame)
-        stored_blobs: list of (student_id, face_encoding_blob) tuples
-        tolerance: match threshold — lower = stricter (default 0.5 is standard)
-
-    Returns:
-        int   — matched student_id
-        None  — no match found
-    """
-    fr = _import_face_recognition()
-
-    live_bytes = encode_face_from_base64(live_encoding_b64)
-    if live_bytes is None:
-        return None
-
-    live_enc = pickle.loads(live_bytes)
-
-    for student_id, blob in stored_blobs:
-        stored_enc = deserialise_encoding(blob)
-        if stored_enc is None:
-            continue
-        matches = fr.compare_faces([stored_enc], live_enc, tolerance=tolerance)
-        if matches and matches[0]:
-            print(f'[FaceHelper] MATCH: student_id={student_id}')
-            return student_id
-
-    return None
-
+# ── Classroom recognition ─────────────────────────────────────────────────────
 
 def identify_faces_in_classroom(
     frame_b64: str,
@@ -249,159 +184,118 @@ def identify_faces_in_classroom(
     tolerance: float = 0.6
 ) -> List[int]:
     """
-    Identify ALL faces visible in a single classroom frame.
-    Used by the teacher portal Face Recognition Attendance feature.
+    Identify all registered students visible in a single classroom webcam frame.
 
     Args:
-        frame_b64: base64-encoded classroom image (may contain multiple faces)
-        stored_encodings: list of (student_id, face_encoding_blob) tuples
-        tolerance: match threshold — 0.6 is more reliable when stored encodings
-                   are averaged across multiple registration frames
+        frame_b64:        base64 JPEG from teacher's webcam
+        stored_encodings: [(student_id, encoding_blob), ...]  from StudentFaceData
+        tolerance:        L2 distance threshold — 0.6 works well for averaged
+                          registration encodings vs single live frames
 
     Returns:
-        List of identified student_ids (may be empty if no matches)
+        List of matched student_ids (deduplicated, may be empty)
 
-    FIX NOTES (v2):
-      1. Scale factor changed from 0.25 -> 0.5.
-         HOG face detection requires faces to be at least ~80px tall.
-         At 0.25x a typical webcam face (~200px) becomes ~50px — below HOG's
-         reliable detection floor, causing missed detections in classroom frames.
-         At 0.5x the same face is ~100px, well within HOG's operating range.
-      2. Location scale-back multiplier updated from x4 -> x2 to match the new
-         0.5x scale factor. The previous x4 with 0.25x was arithmetically correct
-         but produced imprecise bounding boxes due to low-res detection; x2 with
-         0.5x gives tighter, more accurate face crop regions for encoding.
-      3. Tolerance raised from 0.5 -> 0.6 (default).
-         Student registrations use averaged encodings across 5 frames.
-         Averaged encodings sit slightly further from any single live-frame
-         encoding in L2 space, so the stricter 0.5 threshold caused false
-         non-matches even for the correct student. 0.6 matches the practical
-         accuracy sweet-spot for averaged-registration vs single-frame-live
-         comparisons while remaining strict enough to avoid false positives.
-      4. Normalise both stored and live encodings to unit vectors before
-         comparison so that distance is computed consistently regardless of
-         minor float precision differences between pickle-serialisation rounds.
+    Algorithm:
+        1. Decode frame → RGB
+        2. Resize to 50% for fast HOG detection (50% keeps faces ~100px, above HOG floor)
+        3. Scale locations back to full resolution (×2)
+        4. Encode detected faces at full resolution with num_jitters=1
+        5. Normalise both live and stored encodings to unit vectors
+        6. Use face_distance() to find best match per detected face
+        7. Accept match if distance <= tolerance
     """
-    cv2 = _import_cv2()
-    fr  = _import_face_recognition()
+    cv2 = _cv2()
+    fr  = _fr()
 
-    identified_students = []
+    identified = []
 
     try:
-        # Decode classroom frame
-        if ',' in frame_b64:
-            frame_b64 = frame_b64.split(',', 1)[1]
-
-        img_bytes = base64.b64decode(frame_b64)
-        nparr     = np.frombuffer(img_bytes, np.uint8)
-        img_bgr   = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        if img_bgr is None:
-            print('[FaceHelper] identify_faces: cv2.imdecode returned None')
+        img_rgb = _decode_image(frame_b64)
+        if img_rgb is None:
+            print('[FaceHelper] identify_faces: could not decode frame')
             return []
 
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        # Step 2: Detect faces at 50% resolution
+        # 50% keeps a typical 200px-tall webcam face at ~100px — above HOG's ~80px floor
+        # 25% (old value) shrank faces to ~50px causing systematic missed detections
+        h, w = img_rgb.shape[:2]
+        small = cv2.resize(img_rgb, (w // 2, h // 2))
+        locations_half = fr.face_locations(small, model='hog')
 
-        # FIX 1: Scale down to 1/2 resolution (was 1/4).
-        # HOG needs faces >= ~80px tall; 0.5x keeps typical webcam faces ~100px
-        # which is reliably detectable, whereas 0.25x shrank them to ~50px
-        # causing systematic missed detections in classroom frames.
-        scale_factor = 0.5
-        small_rgb = cv2.resize(img_rgb, (0, 0), fx=scale_factor, fy=scale_factor)
-        locations = fr.face_locations(small_rgb, model='hog')
-
-        if not locations:
-            print('[FaceHelper] No faces found in classroom frame')
+        if not locations_half:
+            print('[FaceHelper] identify_faces: no faces detected in frame')
             return []
 
-        print(f'[FaceHelper] Found {len(locations)} face(s) in classroom frame')
+        print(f'[FaceHelper] Detected {len(locations_half)} face(s)')
 
-        # FIX 2: Scale locations back using the correct inverse of scale_factor.
-        # Previously hardcoded x4 (matched old 0.25x); now computed from
-        # scale_factor so the bounding boxes align precisely with original image.
-        inv_scale = int(round(1.0 / scale_factor))  # 2 for scale_factor=0.5
-        locations_full = [(
-            top    * inv_scale,
-            right  * inv_scale,
-            bottom * inv_scale,
-            left   * inv_scale
-        ) for (top, right, bottom, left) in locations]
+        # Step 3: Scale locations back to full resolution (×2)
+        locations_full = [
+            (top * 2, right * 2, bottom * 2, left * 2)
+            for top, right, bottom, left in locations_half
+        ]
 
-        # Encode all detected faces at full resolution using the scaled-back
-        # locations (num_jitters=1 matches what registration uses by default)
-        live_encodings = fr.face_encodings(img_rgb, locations_full, num_jitters=1)
-
-        if not live_encodings:
-            print('[FaceHelper] face_encodings returned empty for detected faces')
+        # Step 4: Encode at full resolution
+        live_encs = fr.face_encodings(img_rgb, locations_full, num_jitters=1)
+        if not live_encs:
+            print('[FaceHelper] identify_faces: face_encodings returned empty')
             return []
 
-        # Deserialise all stored encodings once
-        stored_deserialized = []
+        # Step 5: Deserialise stored encodings
+        stored = []
         for sid, blob in stored_encodings:
             enc = deserialise_encoding(blob)
             if enc is not None:
-                stored_deserialized.append((sid, enc))
+                stored.append((sid, _normalise(enc)))
 
-        if not stored_deserialized:
-            print('[FaceHelper] No valid stored encodings to compare against')
+        if not stored:
+            print('[FaceHelper] identify_faces: no valid stored encodings to compare')
             return []
 
-        # FIX 4: Normalise encodings to unit vectors before distance comparison.
-        # face_recognition encodings are already near-unit but pickle round-trips
-        # and averaging can introduce small magnitude drifts. Normalising ensures
-        # L2 distance is computed on the unit hypersphere consistently for both
-        # registration-time averaged encodings and live single-frame encodings.
-        def _normalise(enc: np.ndarray) -> np.ndarray:
-            norm = np.linalg.norm(enc)
-            return enc / norm if norm > 1e-10 else enc
+        stored_ids  = [s[0] for s in stored]
+        stored_arrs = [s[1] for s in stored]
 
-        stored_enc_arrays = [_normalise(enc) for _, enc in stored_deserialized]
-        stored_ids        = [sid for sid, _ in stored_deserialized]
+        # Step 6+7: Match each detected face
+        for live_enc in live_encs:
+            live_norm = _normalise(live_enc)
+            dists     = fr.face_distance(stored_arrs, live_norm)
+            best_idx  = int(np.argmin(dists))
+            best_dist = float(dists[best_idx])
 
-        # For each detected face, find best match in stored encodings
-        for live_enc in live_encodings:
-            live_enc_norm = _normalise(live_enc)
-            distances = fr.face_distance(stored_enc_arrays, live_enc_norm)
-            best_idx  = int(np.argmin(distances))
-
-            # FIX 3: Default tolerance raised to 0.6 from 0.5
-            if distances[best_idx] <= tolerance:
-                matched_sid = stored_ids[best_idx]
-                if matched_sid not in identified_students:
-                    identified_students.append(matched_sid)
-                    print(f'[FaceHelper] Classroom match: student_id={matched_sid} (dist={distances[best_idx]:.3f})')
+            if best_dist <= tolerance:
+                sid = stored_ids[best_idx]
+                if sid not in identified:
+                    identified.append(sid)
+                    print(f'[FaceHelper] MATCH student_id={sid} dist={best_dist:.3f}')
             else:
-                print(f'[FaceHelper] No match for face (best dist={distances[best_idx]:.3f})')
+                print(f'[FaceHelper] No match (best dist={best_dist:.3f} > {tolerance})')
 
     except Exception as e:
         print(f'[FaceHelper] identify_faces_in_classroom error: {e}')
         traceback.print_exc()
 
-    return identified_students
+    return identified
 
 
-# =============================================================================
-# HEALTH CHECK
-# =============================================================================
+# ── Health check ──────────────────────────────────────────────────────────────
 
 def check_dependencies() -> dict:
     """
-    Check if all face recognition dependencies are installed.
-    Called at startup and exposed via /api/face/health endpoint.
+    Check whether all face recognition dependencies are installed.
+    Returns dict with 'ready': True/False and version info.
     """
     status = {'opencv': False, 'face_recognition': False, 'numpy': True}
     try:
         import cv2
-        status['opencv'] = True
+        status['opencv']         = True
         status['opencv_version'] = cv2.__version__
-    except ImportError:
-        status['opencv_error'] = 'opencv-python-headless not installed'
+    except ImportError as e:
+        status['opencv_error'] = str(e)
 
     try:
-        import face_recognition  # type: ignore[import]
+        import face_recognition
         status['face_recognition'] = True
-    except ImportError:
-        status['face_recognition_error'] = 'face_recognition not installed'
+    except ImportError as e:
+        status['face_recognition_error'] = str(e)
 
     try:
         import numpy as np
@@ -409,5 +303,9 @@ def check_dependencies() -> dict:
     except ImportError:
         status['numpy'] = False
 
-    status['ready'] = status['opencv'] and status['face_recognition'] and status['numpy']
+    status['ready'] = (
+        status['opencv'] and
+        status['face_recognition'] and
+        status['numpy']
+    )
     return status

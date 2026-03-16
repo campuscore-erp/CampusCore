@@ -1055,89 +1055,67 @@ function renderStudentTable() {
 /* ═══════════════════════ ATTENDANCE + FACE RECOGNITION ═══════════════════════ */
 let attRosterData=[], _attSubjId=null, _attDate=null, _attDeptId=null, _attSem=null, _attLocked=false;
 let _faceSessionToken=null, _faceStream=null, _faceScanInterval=null, _faceStatusInterval=null;
-let _faceRecognised=new Map();   // studentId → { FullName, RollNumber }
-let _faceAllStudents=[];         // full student list for this class
+let _faceRecognised=new Map();  // studentId → {fullName, rollNumber}
+let _faceAllStudents=[];
 
 /* ── Tab switcher ── */
 function switchAttTab(tab){
-  const isManual = tab==='manual', isFace = tab==='face';
-  document.getElementById('tabManual').style.display = isManual ? 'block' : 'none';
-  document.getElementById('tabFace').style.display   = isFace   ? 'block' : 'none';
-  const mb=document.getElementById('tabManualBtn');
-  const fb=document.getElementById('tabFaceBtn');
-  mb.style.background = isManual ? 'var(--orange)' : 'transparent';
-  mb.style.color      = isManual ? '#fff' : 'var(--text2)';
-  fb.style.background = isFace   ? 'var(--orange)' : 'transparent';
-  fb.style.color      = isFace   ? '#fff' : 'var(--text2)';
-  if(isFace && _attSubjId && _attDate && !_attLocked) initFaceSession();
+  const isManual=tab==='manual', isFace=tab==='face';
+  document.getElementById('tabManual').style.display=isManual?'block':'none';
+  document.getElementById('tabFace').style.display=isFace?'block':'none';
+  const mb=document.getElementById('tabManualBtn'), fb=document.getElementById('tabFaceBtn');
+  mb.style.background=isManual?'var(--orange)':'transparent'; mb.style.color=isManual?'#fff':'var(--text2)';
+  fb.style.background=isFace?'var(--orange)':'transparent';   fb.style.color=isFace?'#fff':'var(--text2)';
   if(!isFace) stopFaceCamera();
 }
 
 /* ── Called when teacher clicks a timetable cell ── */
-function openAttFromTT(subjectId, subjectName, date, deptId, semester, alreadyDone){
-  _attSubjId  = subjectId;
-  _attDate    = date;
-  _attDeptId  = deptId;
-  _attSem     = semester;
-  _attLocked  = alreadyDone;
+function openAttFromTT(subjectId, subjectName, attDate, deptId, semester, alreadyDone){
+  _attSubjId=subjectId; _attDate=attDate; _attDeptId=deptId; _attSem=semester; _attLocked=alreadyDone;
+  // Reset face session state when switching to a new class
+  _faceSessionToken=null; _faceRecognised=new Map();
   stopFaceCamera();
 
-  const fmt = new Date(date + 'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('attContextSub').textContent = subjectName + '  ·  ' + fmt;
-
-  document.querySelectorAll('.view').forEach(function(e){e.classList.remove('active');});
+  const fmt=new Date(attDate+'T00:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('attContextSub').textContent=subjectName+'  \u00b7  '+fmt;
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.getElementById('view-attendance').classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(function(e){e.classList.remove('active');});
-  document.getElementById('pageTitle').textContent = 'Attendance';
-  document.getElementById('pageSub').textContent   = subjectName + ' · ' + date;
-
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('pageTitle').textContent='Attendance';
+  document.getElementById('pageSub').textContent=subjectName+' \u00b7 '+attDate;
   switchAttTab('manual');
   loadAttView();
   loadAttHistory();
 }
 
-/* ── Load the roster or read-only view ── */
+/* ── Load roster ── */
 async function loadAttView(){
-  const roster  = document.getElementById('attRoster');
-  const locked  = document.getElementById('attLockedBanner');
-  const saveBar = document.getElementById('attSaveBar');
-  const tabBar  = document.getElementById('attTabBar');
-
-  if(!_attSubjId || !_attDate){
-    roster.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable</div></div>';
-    locked.style.display='none'; saveBar.style.display='none'; tabBar.style.display='none';
-    return;
+  const roster=document.getElementById('attRoster');
+  const locked=document.getElementById('attLockedBanner');
+  const saveBar=document.getElementById('attSaveBar');
+  const tabBar=document.getElementById('attTabBar');
+  if(!_attSubjId||!_attDate){
+    roster.innerHTML='<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable</div></div>';
+    locked.style.display='none'; saveBar.style.display='none'; tabBar.style.display='none'; return;
   }
-
-  roster.innerHTML = '<div class="loading"><div class="spinner"></div> Loading students...</div>';
-  const d = await api('/api/teacher/students/by-class/' + _attDeptId + '/' + _attSem);
-  if(!d.success || !(d.students && d.students.length)){
-    roster.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F465;</div><div class="empty-text">No students found for this class</div></div>';
-    return;
+  roster.innerHTML='<div class="loading"><div class="spinner"></div> Loading students...</div>';
+  const d=await api('/api/teacher/students/by-class/'+_attDeptId+'/'+_attSem);
+  if(!d.success||!(d.students&&d.students.length)){
+    roster.innerHTML='<div class="empty"><div class="empty-icon">&#x1F465;</div><div class="empty-text">No students found for this class</div></div>'; return;
   }
-
-  _faceAllStudents = d.students;
-
-  // Populate manual-override dropdown in face tab
-  const sel = document.getElementById('faceManualStudent');
+  _faceAllStudents=d.students;
+  const sel=document.getElementById('faceManualStudent');
   if(sel){
-    sel.innerHTML = '<option value="">— Select student —</option>' +
-      d.students.map(function(s){
-        return '<option value="'+s.StudentID+'">'+s.FullName+' ('+s.RollNumber+')</option>';
-      }).join('');
+    sel.innerHTML='<option value="">— Select student —</option>'+
+      d.students.map(s=>'<option value="'+s.StudentID+'">'+s.FullName+' ('+s.RollNumber+')</option>').join('');
   }
-
   if(_attLocked){
-    locked.style.display  = 'block';
-    saveBar.style.display = 'none';
-    tabBar.style.display  = 'none';
-    const hist = await api('/api/teacher/attendance/history');
-    const dayRecs = (hist.attendance||[]).filter(function(a){
-      return String(a.SubjectID)===String(_attSubjId) && a.AttendanceDate===_attDate;
-    });
+    locked.style.display='block'; saveBar.style.display='none'; tabBar.style.display='none';
+    const hist=await api('/api/teacher/attendance/history');
+    const dayRecs=(hist.attendance||[]).filter(a=>String(a.SubjectID)===String(_attSubjId)&&a.AttendanceDate===_attDate);
     let rows='';
-    d.students.forEach(function(s,i){
-      const rec=dayRecs.find(function(a){return a.UserCode===s.RollNumber;})||{};
+    d.students.forEach((s,i)=>{
+      const rec=dayRecs.find(a=>a.UserCode===s.RollNumber)||{};
       const st=rec.Status||'—';
       const cls=st==='Present'?'badge-green':st==='Absent'?'badge-red':'badge-amber';
       rows+='<div style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.6rem 1rem;border-bottom:1px solid var(--border)">'
@@ -1146,77 +1124,316 @@ async function loadAttView(){
            +'<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'
            +'<span class="badge '+cls+'">'+st+'</span></div>';
     });
-    roster.innerHTML='<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">'+rows+'</div>';
-    return;
+    roster.innerHTML='<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">'+rows+'</div>'; return;
   }
-
-  locked.style.display  = 'none';
-  tabBar.style.display  = 'block';
-  saveBar.style.display = 'flex';
-  attRosterData = d.students.map(function(s){ return Object.assign({},s,{status:'Present'}); });
+  locked.style.display='none'; tabBar.style.display='block'; saveBar.style.display='flex';
+  attRosterData=d.students.map(s=>Object.assign({},s,{status:'Present'}));
   renderAttRoster();
   updateFaceCounters();
 }
 
 function renderAttRoster(){
   const el=document.getElementById('attRoster');
-  const present=attRosterData.filter(function(s){return s.status==='Present';}).length;
-  const absent=attRosterData.filter(function(s){return s.status==='Absent';}).length;
+  const present=attRosterData.filter(s=>s.status==='Present').length;
+  const absent=attRosterData.filter(s=>s.status==='Absent').length;
   let h='<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;padding:.6rem 1rem;background:var(--bg3);border-radius:var(--r-sm);flex-wrap:wrap">'
-      +'<span style="font-size:.8rem;color:var(--text3)">'+attRosterData.length+' students</span>'
-      +'<span class="badge badge-green">&#x2705; Present: '+present+'</span>'
-      +'<span class="badge badge-red">&#x274C; Absent: '+absent+'</span>'
-      +'<div style="margin-left:auto;display:flex;gap:.5rem">'
-      +'<button onclick="markAllPresent()" style="padding:.3rem .7rem;border-radius:5px;font-size:.75rem;font-weight:700;background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3);cursor:pointer">All Present</button>'
-      +'<button onclick="markAllAbsent()"  style="padding:.3rem .7rem;border-radius:5px;font-size:.75rem;font-weight:700;background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);cursor:pointer">All Absent</button>'
-      +'</div></div>'
-      +'<div style="font-size:.73rem;color:var(--text3);margin-bottom:.5rem;padding:.4rem .75rem;background:var(--bg4);border-radius:var(--r-sm)">&#x1F446; Tap a student to toggle Present &#x2194; Absent</div>'
-      +'<div style="background:var(--bg3);border-radius:var(--r-sm);overflow:hidden">';
-  attRosterData.forEach(function(s,i){
+       +'<span style="font-size:.8rem;color:var(--text2)">Quick set:</span>'
+       +'<button class="btn btn-ghost btn-sm" onclick="setAllStatus(\'Present\')">All Present</button>'
+       +'<button class="btn btn-ghost btn-sm" onclick="setAllStatus(\'Absent\')">All Absent</button>'
+       +'<span style="margin-left:auto;font-size:.8rem;color:var(--text2)">P:'+present+' A:'+absent+'</span></div>';
+  attRosterData.forEach((s,i)=>{
     const isP=s.status==='Present';
-    h+='<div onclick="toggleAtt('+s.StudentID+')" style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.65rem 1rem;border-bottom:1px solid var(--border);cursor:pointer;'
-      +'background:'+(isP?'rgba(20,60,35,.4)':'rgba(80,15,15,.35)')+';">'
+    h+='<div style="display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:.75rem;padding:.55rem 1rem;border-bottom:1px solid var(--border)">'
       +'<span style="color:var(--text3);font-size:.8rem">'+(i+1)+'</span>'
-      +'<div><div style="font-weight:600;font-size:.83rem">'+(s.FullName||'')+'</div>'
-      +'<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+(s.RollNumber||'')+'</div></div>'
-      +'<span style="font-size:1.15rem">'+(isP?'&#x1F7E2;':'&#x1F534;')+'</span></div>';
+      +'<div><div style="font-weight:600;font-size:.83rem">'+s.FullName+'</div>'
+      +'<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+s.RollNumber+'</div></div>'
+      +'<label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.8rem">'
+      +'<input type="checkbox" '+(isP?'checked':'')
+      +' onchange="toggleStudent('+s.StudentID+', this.checked)" style="width:16px;height:16px;accent-color:var(--green)">'
+      +'<span style="color:'+(isP?'var(--green)':'var(--red)')+'">'+s.status+'</span></label></div>';
   });
-  h+='</div>';
   el.innerHTML=h;
 }
 
-function toggleAtt(sid){
-  const s=attRosterData.find(function(x){return x.StudentID===sid||String(x.StudentID)===String(sid);});
-  if(s){s.status=s.status==='Present'?'Absent':'Present';renderAttRoster();}
+function toggleStudent(id, checked){
+  const s=attRosterData.find(x=>x.StudentID===id); if(s) s.status=checked?'Present':'Absent';
+  renderAttRoster();
 }
-function markAllPresent(){attRosterData.forEach(function(s){s.status='Present';});renderAttRoster();}
-function markAllAbsent() {attRosterData.forEach(function(s){s.status='Absent'; });renderAttRoster();}
+function setAllStatus(status){ attRosterData.forEach(s=>s.status=status); renderAttRoster(); }
 
-async function submitAttendance(){
-  if(_attLocked){toast('Already saved — cannot change','warning');return;}
+async function saveAttendance(){
   if(!_attSubjId||!_attDate){toast('No class selected','warning');return;}
-  if(!attRosterData.length){toast('No students loaded','warning');return;}
-  const btn=document.getElementById('attSaveBtn');
-  if(btn){btn.disabled=true;btn.textContent='Saving...';}
-  const records=attRosterData.map(function(s){return{studentId:s.StudentID,status:s.status};});
+  const records=attRosterData.map(s=>({studentId:s.StudentID,status:s.status}));
   const d=await api('/api/teacher/attendance/submit',{method:'POST',body:JSON.stringify({subjectId:parseInt(_attSubjId),attendanceDate:_attDate,attendance:records})});
-  if(btn){btn.disabled=false;btn.textContent='&#x1F4BE; Save Attendance';}
-  if(d.success){
-    toast(d.message||'Attendance saved!','success');
-    _attLocked=true;
-    _attCache[String(_attSubjId)+'_'+_attDate]=true;
-    loadAttView(); loadAttHistory(); loadTT();
-  }else{
-    toast(d.error||'Failed to save','error');
+  if(d.success){toast('Attendance saved for '+d.saved+' students','success'); loadAttHistory();}
+  else toast(d.error||'Save failed','error');
+}
+
+/* ══════════════════════════════════════════════
+   FACE RECOGNITION
+   ══════════════════════════════════════════════ */
+
+function setFaceStatus(msg, type){
+  const el=document.getElementById('faceStatusBar');
+  if(!el) return;
+  const colors={info:'var(--blue)',success:'var(--green)',error:'var(--red)',warning:'var(--amber)'};
+  el.innerHTML='<div style="padding:.5rem .85rem;border-radius:6px;font-size:.8rem;font-weight:600;background:'+
+    (colors[type]||colors.info)+'22;color:'+(colors[type]||colors.info)+';border:1px solid '+(colors[type]||colors.info)+'44">'+msg+'</div>';
+}
+
+function updateFaceCounters(){
+  const recog=_faceRecognised.size;
+  const total=_faceAllStudents.length||0;
+  const pending=Math.max(0,total-recog);
+  const pe=document.getElementById('faceCountPresent'),
+        pend=document.getElementById('faceCountPending'),
+        tot=document.getElementById('faceCountTotal');
+  if(pe) pe.textContent=recog;
+  if(pend) pend.textContent=pending;
+  if(tot) tot.textContent=total;
+}
+
+function addToRecognisedList(studentId, fullName, rollNumber){
+  const list=document.getElementById('faceRecognisedList');
+  if(!list) return;
+  const ph=list.querySelector('[data-face-placeholder]');
+  if(ph) ph.remove();
+  if(document.getElementById('face-rec-'+studentId)) return; // already added
+  const row=document.createElement('div');
+  row.className='face-rec-row'; row.id='face-rec-'+studentId;
+  const initials=(fullName||'S').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  row.innerHTML='<div class="face-rec-av">'+initials+'</div>'
+    +'<div><div style="font-weight:600">'+fullName+'</div>'
+    +'<div style="font-family:var(--mono);color:var(--amber);font-size:.72rem">'+rollNumber+'</div></div>'
+    +'<span class="badge badge-green">Present</span>';
+  list.appendChild(row);
+}
+
+/* ── Session init ── */
+async function initFaceSession(){
+  if(_faceSessionToken) return;  // already have a valid session
+  if(!_attSubjId||!_attDate){ setFaceStatus('Select a class first','warning'); return; }
+  try{
+    const d=await api('/api/teacher/attendance/face/start',{
+      method:'POST',
+      body:JSON.stringify({subjectId:parseInt(_attSubjId), attendanceDate:_attDate})
+    });
+    if(d&&d.success&&d.sessionToken){
+      _faceSessionToken=d.sessionToken;
+      const total=d.totalStudents||0;
+      document.getElementById('faceCountTotal').textContent=total;
+      document.getElementById('faceCountPending').textContent=total;
+      setFaceStatus(d.message||('Session started \u2014 '+total+' students in class'),'info');
+      console.log('[face/start] OK token='+_faceSessionToken+' students='+total);
+    } else {
+      const msg=(d&&d.error)||'Failed to start session';
+      setFaceStatus(msg,'error');
+      console.error('[face/start] FAIL', msg, d);
+    }
+  } catch(e){
+    setFaceStatus('Network error starting session','error');
+    console.error('[face/start] network error', e);
   }
 }
 
-async function loadAtt(){
-  document.getElementById('attRoster').innerHTML='<div class="empty"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">Click a class on the timetable to begin</div></div>';
-  document.getElementById('attLockedBanner').style.display='none';
-  document.getElementById('attSaveBar').style.display='none';
-  document.getElementById('attTabBar').style.display='none';
-  loadAttHistory();
+/* ── Camera ── */
+async function startFaceCamera(){
+  if(!_attSubjId||!_attDate){ toast('Click a timetable cell first','warning'); return; }
+  const startBtn=document.getElementById('faceCamStartBtn');
+  const stopBtn=document.getElementById('faceCamStopBtn');
+  if(startBtn){ startBtn.disabled=true; startBtn.textContent='Starting...'; }
+  try{
+    _faceStream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:640},height:{ideal:480},facingMode:'user'}, audio:false
+    });
+    const vid=document.getElementById('faceVideo');
+    vid.srcObject=_faceStream; await vid.play();
+    if(startBtn) startBtn.style.display='none';
+    if(stopBtn)  stopBtn.style.display='';
+    document.getElementById('faceScanLine').style.display='block';
+    document.getElementById('faceCamStatus').textContent='Connecting...';
+
+    // Start session first — must succeed before scanning
+    await initFaceSession();
+    if(!_faceSessionToken){
+      setFaceStatus('Could not start session — please try again','error');
+      stopFaceCamera();
+      if(startBtn){ startBtn.disabled=false; startBtn.textContent='&#x1F4F7; Start Camera'; }
+      return;
+    }
+    document.getElementById('faceCamStatus').textContent='Scanning\u2026';
+
+    // Scan every 2 seconds for faster recognition
+    _faceScanInterval  = setInterval(captureFaceFrame, 2000);
+    _faceStatusInterval= setInterval(refreshFaceStatus, 4000);
+  } catch(e){
+    setFaceStatus('Camera access denied \u2014 allow camera permission in browser','error');
+    if(startBtn){ startBtn.disabled=false; startBtn.textContent='&#x1F4F7; Start Camera'; }
+    console.error('[face camera]', e);
+  }
+}
+
+function stopFaceCamera(){
+  if(_faceStream){ _faceStream.getTracks().forEach(t=>t.stop()); _faceStream=null; }
+  if(_faceScanInterval){  clearInterval(_faceScanInterval);   _faceScanInterval=null; }
+  if(_faceStatusInterval){clearInterval(_faceStatusInterval); _faceStatusInterval=null; }
+  const vid=document.getElementById('faceVideo');
+  const scanLine=document.getElementById('faceScanLine');
+  const camStatus=document.getElementById('faceCamStatus');
+  const startBtn=document.getElementById('faceCamStartBtn');
+  const stopBtn=document.getElementById('faceCamStopBtn');
+  if(vid)      vid.srcObject=null;
+  if(scanLine) scanLine.style.display='none';
+  if(camStatus)camStatus.textContent='Camera off';
+  if(startBtn){ startBtn.style.display=''; startBtn.disabled=false; startBtn.innerHTML='&#x1F4F7; Start Camera'; }
+  if(stopBtn)  stopBtn.style.display='none';
+}
+
+/* ── Frame capture and recognition ── */
+async function captureFaceFrame(){
+  // Guard: recover session if lost
+  if(!_faceSessionToken){
+    await initFaceSession();
+    if(!_faceSessionToken) return;
+  }
+  const vid=document.getElementById('faceVideo');
+  const canvas=document.getElementById('faceCanvas');
+  if(!vid||!canvas) return;
+  if(vid.readyState<2||!vid.videoWidth||!vid.videoHeight) return;
+
+  canvas.width=vid.videoWidth; canvas.height=vid.videoHeight;
+  canvas.getContext('2d').drawImage(vid,0,0,canvas.width,canvas.height);
+  const imageData=canvas.toDataURL('image/jpeg',0.9);
+
+  try{
+    const res=await fetch(API+'/api/teacher/attendance/face/capture',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify({
+        sessionToken: _faceSessionToken,
+        subjectId:    parseInt(_attSubjId),
+        attendanceDate: _attDate,
+        image:        imageData
+      })
+    });
+    const d=await res.json();
+    console.log('[face/capture]', d.mlEnabled?'ML':'noML',
+      'new='+((d.newlyRecognised||[]).length), 'total='+d.recognisedCount, d.message);
+
+    if(!d.sessionActive){
+      console.warn('[face/capture] session lost — reinitialising');
+      _faceSessionToken=null;
+      return;
+    }
+
+    if(d.success){
+      // Update UI for newly matched students
+      (d.newlyRecognised||[]).forEach(r=>{
+        if(!_faceRecognised.has(String(r.studentId))){
+          _faceRecognised.set(String(r.studentId),{fullName:r.fullName,rollNumber:r.rollNumber});
+          addToRecognisedList(r.studentId, r.fullName||'Student', r.rollNumber||'');
+          // Also mark as Present in the manual roster
+          const s=attRosterData.find(x=>String(x.StudentID)===String(r.studentId));
+          if(s) s.status='Present';
+          toast('\u2713 '+r.fullName+' recognised','success');
+        }
+      });
+      // Sync any previously recognised students from other devices/sessions
+      (d.recognised||[]).forEach(r=>{
+        if(!_faceRecognised.has(String(r.studentId))){
+          _faceRecognised.set(String(r.studentId),{fullName:r.fullName,rollNumber:r.rollNumber});
+          addToRecognisedList(r.studentId, r.fullName||'Student', r.rollNumber||'');
+        }
+      });
+      if(_faceRecognised.size>0) updateFaceCounters();
+
+      // Update camera status pill
+      const camStatus=document.getElementById('faceCamStatus');
+      if(camStatus){
+        if(d.mlEnabled===false){
+          camStatus.textContent='\u26a0 ML offline \u2014 Manual Mark only';
+          camStatus.style.background='rgba(234,179,8,.8)';
+          if(!window._mlOfflineShown){
+            window._mlOfflineShown=true;
+            toast('Face recognition ML is not active on server. Use Manual Mark.','warning');
+          }
+        } else {
+          camStatus.textContent=_faceRecognised.size>0
+            ? '\u2713 '+_faceRecognised.size+' recognised'
+            : 'Scanning\u2026';
+          camStatus.style.background='';
+        }
+      }
+    }
+  } catch(e){
+    console.warn('[face/capture] error:', e);
+  }
+}
+
+async function refreshFaceStatus(){
+  if(!_faceSessionToken) return;
+  try{
+    const d=await api('/api/teacher/attendance/face/status?token='+encodeURIComponent(_faceSessionToken));
+    if(d.success){
+      document.getElementById('faceCountPresent').textContent=d.present||0;
+      document.getElementById('faceCountPending').textContent=d.pending||0;
+      document.getElementById('faceCountTotal').textContent=d.total||0;
+    }
+  } catch(e){ /* non-fatal */ }
+}
+
+/* ── Manual mark override ── */
+async function faceMarkManual(){
+  const sel=document.getElementById('faceManualStudent');
+  if(!sel||!sel.value){ toast('Select a student first','warning'); return; }
+  const sid=parseInt(sel.value);
+  const sData=_faceAllStudents.find(s=>s.StudentID===sid);
+  if(!sData){ toast('Student not found','error'); return; }
+
+  // Write to DB immediately via submit
+  if(_attSubjId&&_attDate){
+    await api('/api/teacher/attendance/face/submit',{method:'POST',body:JSON.stringify({
+      sessionToken: _faceSessionToken||'',
+      subjectId:    parseInt(_attSubjId),
+      attendanceDate:_attDate,
+      records:[{studentId:sid, status:'Present'}]
+    })});
+  }
+
+  if(!_faceRecognised.has(String(sid))){
+    _faceRecognised.set(String(sid),{fullName:sData.FullName,rollNumber:sData.RollNumber});
+    addToRecognisedList(sid, sData.FullName, sData.RollNumber);
+    // Add to session recognised set
+    if(_faceSessionToken&&_face_sessions){/* server-side handled by submit */ }
+    const s=attRosterData.find(x=>x.StudentID===sid);
+    if(s) s.status='Present';
+    updateFaceCounters();
+    toast(sData.FullName+' marked Present','success');
+  } else {
+    toast(sData.FullName+' already marked','info');
+  }
+  sel.value='';
+}
+
+/* ── Finalise (mark unrecognised as Absent) ── */
+async function finaliseFaceAttendance(){
+  if(!_attSubjId||!_attDate){ toast('No session active','warning'); return; }
+  if(!confirm('Mark all unrecognised students as Absent?')) return;
+  const d=await api('/api/teacher/attendance/mark-absent',{method:'POST',body:JSON.stringify({
+    subjectId:     parseInt(_attSubjId),
+    attendanceDate:_attDate,
+    departmentId:  _attDeptId ? parseInt(_attDeptId) : undefined,
+    semester:      _attSem    ? parseInt(_attSem)    : undefined,
+    sessionToken:  _faceSessionToken||''
+  })});
+  if(d.success){
+    toast(d.message||'Absent records saved','success');
+    stopFaceCamera();
+    _faceSessionToken=null;
+    loadAttHistory();
+  } else {
+    toast(d.error||'Failed to save absent records','error');
+  }
 }
 
 async function loadAttHistory(){

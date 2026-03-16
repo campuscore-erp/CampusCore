@@ -744,71 +744,71 @@ def attendance_history():
 # =============================================================================
 
 # =============================================================================
-# ATTENDANCE — FACE RECOGNITION (replaces QR-based attendance)
+# =============================================================================
+# ATTENDANCE — FACE RECOGNITION
 # =============================================================================
 # Flow:
-#   1. POST /attendance/face/start   — teacher opens face session (returns session token)
-#   2. POST /attendance/face/submit  — submit per-student recognised results from browser
-#   3. GET  /attendance/face/status  — live count of recognised students in session
-#   4. POST /attendance/mark-absent  — mark anyone not yet recorded as Absent
+#   1. POST /attendance/face/start   — open session, get token
+#   2. POST /attendance/face/capture — send webcam frame, get matched students
+#   3. GET  /attendance/face/status  — live count
+#   4. POST /attendance/face/submit  — finalise manual overrides
+#   5. POST /attendance/mark-absent  — mark unrecognised students absent
 # =============================================================================
 
-import base64, hashlib
+import base64 as _base64_mod, hashlib
 
-# In-memory face sessions: { session_token: { subjectId, date, teacherUid, recognised: set() } }
-_face_sessions = {}
+# In-memory sessions: { token: { subjectId, date, teacherUid, recognised: set() } }
+_face_sessions: dict = {}
 
 
 @bp_teacher.route('/attendance/face/start', methods=['POST'])
 @jwt_required()
 def face_attendance_start():
-    """
-    Open a face-recognition attendance session for a subject + date.
-    Returns a session token the browser uses to tag subsequent submissions.
-    """
+    """Start a face recognition attendance session. Returns session token."""
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
 
     data       = request.get_json() or {}
     subject_id = data.get('subjectId')
     att_date   = data.get('attendanceDate', date.today().isoformat())
-    if not subject_id: return _err('subjectId required')
+    if not subject_id:
+        return _err('subjectId required')
 
-    # Verify teacher teaches this subject — use teacher_db_id for Timetable lookup
-    tt = _try_queries([
+    # Verify teacher teaches this subject (try both uid directly and teacher_db_id)
+    teacher_db_id = _get_teacher_db_id(uid)
+    teaches = _try_queries([
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (teacher_db_id, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
-    if not tt: return _err('You do not teach this subject', 403)
+    if not teaches:
+        return _err('You do not teach this subject', 403)
 
-    # Generate a lightweight session token
-    raw = f'{uid}|{subject_id}|{att_date}|{secrets.token_urlsafe(8)}'
+    raw           = f'{uid}|{subject_id}|{att_date}|{secrets.token_urlsafe(8)}'
     session_token = hashlib.sha1(raw.encode()).hexdigest()[:20]
 
     _face_sessions[session_token] = {
-        'subjectId':  subject_id,
-        'date':       att_date,
-        'teacherUid': uid,
-        'teacherDbId': teacher_db_id,
-        'recognised': set(),    # StudentIDs confirmed present so far
+        'subjectId':    subject_id,
+        'date':         att_date,
+        'teacherUid':   uid,
+        'teacherDbId':  teacher_db_id,
+        'recognised':   set(),
     }
 
-    # How many students are in this class?
-    dept_sem = _get_dept_semester(teacher_db_id, subject_id)
+    dept_sem = _get_dept_semester(teacher_db_id, subject_id) or _get_dept_semester(uid, subject_id)
     total = 0
     if dept_sem:
         total = _safe_scalar(
-            "SELECT COUNT(*) FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
-            (dept_sem['DepartmentID'], dept_sem['Semester'])
-        )
+            "SELECT COUNT(*) FROM Users WHERE UserType=\'Student\' AND IsActive=1 AND DepartmentID=? AND Semester=?",
+            (dept_sem.get('DepartmentID'), dept_sem.get('Semester'))
+        ) or 0
 
+    print(f'[face/start] token={session_token} subjectId={subject_id} date={att_date} students={total}')
     return _ok({
-        'sessionToken': session_token,
-        'subjectId':    subject_id,
+        'sessionToken':   session_token,
+        'subjectId':      subject_id,
         'attendanceDate': att_date,
-        'totalStudents': total,
-        'message': 'Face recognition session started',
+        'totalStudents':  total,
+        'message':        f'Session started — {total} students in class',
     })
 
 
@@ -816,38 +816,13 @@ def face_attendance_start():
 @jwt_required()
 def face_attendance_capture():
     """
-    Receive a base64 image frame from the teacher's camera and perform
-    server-side face recognition against stored StudentFaceData encodings.
+    Receive a webcam frame, run face recognition, write attendance for matched students.
 
-    FIX: Previously this route only echoed back whoever was already in the
-    session — it never ran any matching logic, so counts always stayed 0.
-
-    Now it:
-      1. Loads all StudentFaceData blobs for this class (dept + semester)
-      2. Calls face_recognition_helper.identify_faces_in_classroom() to match
-         all faces visible in the frame against stored encodings
-      3. Adds newly matched students to the session's recognised set
-      4. Auto-submits Present records for newly identified students
-      5. Falls back gracefully if face_recognition libs are not installed
-
-    Body: {
-        sessionToken: str,
-        subjectId:    int,
-        attendanceDate: str,
-        image:        str   (base64 JPEG data URL)
-    }
-    Response: {
-        success: true,
-        recognised: [ { studentId, fullName, rollNumber } ],
-        newlyRecognised: [ ... ],
-        sessionActive: bool,
-        frameProcessed: bool,
-        mlEnabled: bool
-    }
+    Body:  { sessionToken, subjectId, attendanceDate, image: <base64 JPEG> }
+    Returns: { success, recognised, newlyRecognised, sessionActive, frameProcessed, mlEnabled }
     """
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
 
     data          = request.get_json() or {}
     session_token = data.get('sessionToken', '')
@@ -857,190 +832,196 @@ def face_attendance_capture():
     # ── Validate session ──────────────────────────────────────────────────────
     session = _face_sessions.get(session_token)
     if not session:
+        print(f'[face/capture] session not found: {session_token!r}')
         return _ok({
             'recognised':     [],
+            'newlyRecognised':[],
             'sessionActive':  False,
             'frameProcessed': False,
+            'mlEnabled':      False,
             'message':        'Session not found — call /face/start first',
         })
 
-    frame_valid = bool(image_data) and len(image_data) > 1000
-    if not frame_valid:
+    if not image_data or len(image_data) < 500:
         return _ok({
             'recognised':     [],
+            'newlyRecognised':[],
             'sessionActive':  True,
             'frameProcessed': False,
+            'mlEnabled':      False,
             'message':        'Frame too small or missing',
         })
 
+    teacher_db_id = session.get('teacherDbId') or _get_teacher_db_id(uid)
+    att_date      = session.get('date', date.today().isoformat())
     newly_recognised = []
     ml_enabled       = False
 
-    # ── SERVER-SIDE FACE MATCHING ─────────────────────────────────────────────
+    # ── ML face matching ──────────────────────────────────────────────────────
     try:
         from face_recognition_helper import identify_faces_in_classroom, check_dependencies
-        deps = check_dependencies()
 
-        if deps.get('ready'):
+        deps = check_dependencies()
+        if not deps.get('ready'):
+            print(f'[face/capture] ML not ready: {deps}')
+        else:
             ml_enabled = True
 
-            # Determine which students belong to this class (dept + semester)
-            dept_sem = _get_dept_semester_for_subject(subject_id) if subject_id else None
-            stored_blobs = []  # list of (student_id, face_encoding_blob)
-
-            if dept_sem:
-                dept_id  = dept_sem.get('DepartmentID')
-                semester = dept_sem.get('Semester')
-
-                # Load face encodings for students in this class only
-                # NOTE: We do NOT filter by EncodingType in SQL because the column
-                # may not exist yet in the DB. Thumbnail vs real encoding is handled
-                # in deserialise_encoding() via JPEG magic byte detection instead.
-                for q, p in [
-                    # Best: dept+semester filter
-                    ("""SELECT u.UserID AS StudentID, sfd.FaceEncoding
-                        FROM Users u
-                        JOIN StudentFaceData sfd ON sfd.StudentID = u.UserID
-                        WHERE u.UserType='Student' AND u.IsActive=1
-                          AND u.DepartmentID=? AND u.Semester=?
-                          AND sfd.FaceEncoding IS NOT NULL""",
-                     (dept_id, semester)),
-                    # Fallback: all registered face data
-                    ("""SELECT StudentID, FaceEncoding FROM StudentFaceData
-                        WHERE FaceEncoding IS NOT NULL""", ()),
-                ]:
-                    try:
-                        rows = db.execute_query(q, p) if p else db.execute_query(q)
-                        if rows:
-                            stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
-                            print(f'[face_capture] Loaded {len(stored_blobs)} face encoding(s) from DB')
-                            break
-                    except Exception as e:
-                        print(f'[face_capture] blob load err: {e}')
-            else:
-                # No dept/sem resolved — load all face data as fallback
-                print(f'[face_capture] WARNING: could not resolve dept/sem for subjectId={subject_id}')
-                try:
-                    rows = db.execute_query(
-                        "SELECT StudentID, FaceEncoding FROM StudentFaceData WHERE FaceEncoding IS NOT NULL")
-                    if rows:
-                        stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
-                except Exception as e:
-                    print(f'[face_capture] fallback blob load err: {e}')
+            # Load stored face encodings — try dept+semester filter first, then all
+            stored_blobs = _load_face_encodings(subject_id, teacher_db_id, uid)
+            print(f'[face/capture] Loaded {len(stored_blobs)} encoding(s) from DB')
 
             if stored_blobs:
-                print(f'[face_capture] Comparing frame against {len(stored_blobs)} stored encoding(s)')
                 matched_ids = identify_faces_in_classroom(image_data, stored_blobs, tolerance=0.6)
+                print(f'[face/capture] Matched student IDs: {matched_ids}')
 
-                for matched_sid in (matched_ids or []):
-                    sid_str = str(matched_sid)
-                    if sid_str not in session.get('recognised', set()):
-                        # Newly identified — fetch name and mark in session
-                        session.setdefault('recognised', set()).add(sid_str)
+                for sid in (matched_ids or []):
+                    sid_str = str(sid)
+                    if sid_str in session['recognised']:
+                        continue  # already marked this session
 
-                        # Auto-submit Present record to DB
-                        att_date = session.get('date', date.today().isoformat())
-                        class_id = None
-                        tt = _try_queries([
-                            ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1',
-                             (teacher_db_id, subject_id)),
-                            ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',
-                             (teacher_db_id, subject_id)),
-                        ], fetch_one=True)
-                        if tt: class_id = tt.get('ClassID')
+                    session['recognised'].add(sid_str)
 
-                        try:
-                            existing = _try_queries([
-                                ('SELECT AttendanceID FROM Attendance WHERE StudentID=? AND SubjectID=? AND AttendanceDate=?',
-                                 (matched_sid, subject_id, att_date)),
-                            ], fetch_one=True)
-                            if not existing:
-                                _try_inserts('Attendance', [
-                                    ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
-                                     (matched_sid, subject_id, class_id, att_date, 'Present')),
-                                    ('StudentID,SubjectID,AttendanceDate,Status',
-                                     (matched_sid, subject_id, att_date, 'Present')),
-                                ])
-                            else:
-                                db.execute_non_query(
-                                    'UPDATE Attendance SET Status=? WHERE AttendanceID=?',
-                                    ('Present', existing['AttendanceID']))
-                        except Exception as dbe:
-                            print(f'[face_capture] DB write err for sid={matched_sid}: {dbe}')
+                    # Write Present to Attendance table
+                    _write_attendance_present(sid, subject_id, att_date, teacher_db_id, uid)
 
-                        # Fetch name for response
-                        try:
-                            urow = db.execute_query(
-                                "SELECT UserID, FullName, UserCode FROM Users WHERE UserID=?",
-                                (matched_sid,), fetch_one=True)
-                            if urow:
-                                newly_recognised.append({
-                                    'studentId':  urow.get('UserID'),
-                                    'fullName':   urow.get('FullName', ''),
-                                    'rollNumber': urow.get('UserCode', ''),
-                                })
-                        except Exception as ne:
-                            print(f'[face_capture] name lookup err: {ne}')
-                            newly_recognised.append({'studentId': matched_sid, 'fullName': 'Student', 'rollNumber': ''})
+                    # Fetch name for response
+                    urow = None
+                    try:
+                        urow = db.execute_query(
+                            "SELECT UserID, FullName, UserCode FROM Users WHERE UserID=?",
+                            (sid,), fetch_one=True)
+                    except Exception:
+                        pass
+                    newly_recognised.append({
+                        'studentId':  sid,
+                        'fullName':   (urow or {}).get('FullName', 'Student'),
+                        'rollNumber': (urow or {}).get('UserCode', ''),
+                    })
             else:
-                print('[face_capture] No stored face encodings found for this class')
-        else:
-            print(f'[face_capture] ML deps not ready: {deps}')
+                print('[face/capture] No stored encodings found — student must register face first')
 
     except ImportError:
-        print('[face_capture] face_recognition_helper not available — ML matching skipped')
-    except Exception as fre:
-        print(f'[face_capture] ML error: {fre}')
+        print('[face/capture] face_recognition_helper not available')
+    except Exception as e:
+        print(f'[face/capture] ML error: {e}')
         import traceback; traceback.print_exc()
 
-    # ── Build full recognised list from session (all students recognised so far) ─
-    recognised_ids   = session.get('recognised', set())
-    recognised_list  = []
+    # ── Build full recognised list ────────────────────────────────────────────
+    recognised_ids  = session.get('recognised', set())
+    recognised_list = []
     if recognised_ids:
-        ids_ph = ','.join(['?'] * len(recognised_ids))
+        id_ph = ','.join(['?'] * len(recognised_ids))
         try:
             rows = db.execute_query(
-                f"SELECT UserID, FullName, UserCode FROM Users WHERE UserID IN ({ids_ph})",
+                f"SELECT UserID, FullName, UserCode FROM Users WHERE UserID IN ({id_ph})",
                 tuple(int(i) for i in recognised_ids))
-            for row in (rows or []):
-                recognised_list.append({
-                    'studentId':  row.get('UserID'),
-                    'fullName':   row.get('FullName', ''),
-                    'rollNumber': row.get('UserCode', ''),
-                })
+            recognised_list = [{
+                'studentId':  r['UserID'],
+                'fullName':   r.get('FullName', ''),
+                'rollNumber': r.get('UserCode', ''),
+            } for r in (rows or [])]
         except Exception as e:
-            print(f'[face_capture] recognised list lookup err: {e}')
+            print(f'[face/capture] recognised list err: {e}')
 
     return _ok({
         'recognised':       recognised_list,
         'newlyRecognised':  newly_recognised,
         'sessionActive':    True,
-        'frameProcessed':   frame_valid,
+        'frameProcessed':   True,
         'mlEnabled':        ml_enabled,
         'recognisedCount':  len(recognised_ids),
-        'message': (f'✓ {len(newly_recognised)} new face(s) matched. '
-                    f'{len(recognised_ids)} total recognised.')
-                   if ml_enabled else
-                   f'Frame received (ML libs not installed — use Manual Mark below). '
-                   f'{len(recognised_ids)} manually marked so far.',
+        'message':          (f'\u2713 {len(newly_recognised)} new match(es). {len(recognised_ids)} total.')
+                             if ml_enabled else
+                             'ML not active — use Manual Mark below',
     })
 
+
+def _load_face_encodings(subject_id, teacher_db_id, uid):
+    """Load (student_id, encoding_blob) tuples for the given subject's class."""
+    stored_blobs = []
+
+    # Try to resolve dept+semester for this subject
+    dept_sem = (_get_dept_semester_for_subject(subject_id)
+                or _get_dept_semester(teacher_db_id, subject_id)
+                or _get_dept_semester(uid, subject_id))
+
+    if dept_sem:
+        dept_id  = dept_sem.get('DepartmentID')
+        semester = dept_sem.get('Semester')
+        # Join Users to get students in the correct class
+        for q, p in [
+            ("""SELECT u.UserID AS StudentID, sfd.FaceEncoding
+                FROM Users u
+                JOIN StudentFaceData sfd ON sfd.StudentID = u.UserID
+                WHERE u.UserType='Student' AND u.IsActive=1
+                  AND u.DepartmentID=? AND u.Semester=?
+                  AND sfd.FaceEncoding IS NOT NULL""",
+             (dept_id, semester)),
+        ]:
+            try:
+                rows = db.execute_query(q, p)
+                if rows:
+                    stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
+                    return stored_blobs
+            except Exception as e:
+                print(f'[_load_face_encodings] dept+sem query err: {e}')
+
+    # Fallback: load all registered encodings
+    try:
+        rows = db.execute_query(
+            "SELECT StudentID, FaceEncoding FROM StudentFaceData WHERE FaceEncoding IS NOT NULL")
+        if rows:
+            stored_blobs = [(r['StudentID'], r['FaceEncoding']) for r in rows]
+    except Exception as e:
+        print(f'[_load_face_encodings] fallback err: {e}')
+
+    return stored_blobs
+
+
+def _write_attendance_present(student_id, subject_id, att_date, teacher_db_id, uid):
+    """Write or update a Present record in the Attendance table."""
+    # Get ClassID
+    class_id = None
+    tt = _try_queries([
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+    ], fetch_one=True)
+    if tt:
+        class_id = tt.get('ClassID')
+
+    try:
+        existing = _try_queries([
+            ('SELECT AttendanceID FROM Attendance WHERE StudentID=? AND SubjectID=? AND AttendanceDate=?',
+             (student_id, subject_id, att_date)),
+        ], fetch_one=True)
+
+        if existing:
+            db.execute_non_query(
+                'UPDATE Attendance SET Status=? WHERE AttendanceID=?',
+                ('Present', existing['AttendanceID']))
+            print(f'[face] Updated attendance Present for student={student_id}')
+        else:
+            ok, err = _try_inserts('Attendance', [
+                ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
+                 (student_id, subject_id, class_id, att_date, 'Present')),
+                ('StudentID,SubjectID,AttendanceDate,Status',
+                 (student_id, subject_id, att_date, 'Present')),
+            ])
+            if ok:
+                print(f'[face] Inserted attendance Present for student={student_id}')
+            else:
+                print(f'[face] Attendance insert failed: {err}')
+    except Exception as e:
+        print(f'[face] _write_attendance_present error: {e}')
 
 
 @bp_teacher.route('/attendance/face/submit', methods=['POST'])
 @jwt_required()
 def face_attendance_submit():
     """
-    Receive face-recognition results from the browser.
-    The browser sends one or more recognised studentIds; this endpoint
-    immediately writes Present records and updates the in-memory session.
-
-    Body: {
-        sessionToken: str,
-        subjectId:    int,
-        attendanceDate: str,       (fallback if no session)
-        records: [ { studentId, status } ]   -- status: 'Present' | 'Absent' | 'Unknown'
-    }
+    Submit final attendance records from the face session (includes manual overrides).
+    Body: { sessionToken, subjectId, attendanceDate, records: [{studentId, status}] }
     """
     uid, err = _get_teacher_user_id()
     if err: return err
@@ -1051,20 +1032,11 @@ def face_attendance_submit():
     subject_id    = data.get('subjectId')
     records       = data.get('records', [])
 
-    # Resolve attendance date from session or body
-    session = _face_sessions.get(session_token, {})
+    session  = _face_sessions.get(session_token, {})
     att_date = session.get('date') or data.get('attendanceDate', date.today().isoformat())
 
     if not subject_id or not records:
-        return _err('subjectId and records are required')
-
-    # Resolve ClassID for Attendance FK
-    class_id = None
-    tt = _try_queries([
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (teacher_db_id, subject_id)),
-    ], fetch_one=True)
-    if tt: class_id = tt.get('ClassID')
+        return _err('subjectId and records required')
 
     saved = 0
     for rec in records:
@@ -1077,18 +1049,18 @@ def face_attendance_submit():
                 ('SELECT AttendanceID FROM Attendance WHERE StudentID=? AND SubjectID=? AND AttendanceDate=?',
                  (student_id, subject_id, att_date)),
             ], fetch_one=True)
-
             if existing:
-                for upd, uv in [
-                    ('UPDATE Attendance SET Status=?,MarkedAt=? WHERE AttendanceID=?',
-                     (status, datetime.now(), existing['AttendanceID'])),
-                    ('UPDATE Attendance SET Status=? WHERE AttendanceID=?',
-                     (status, existing['AttendanceID'])),
-                ]:
-                    try: db.execute_non_query(upd, uv); break
-                    except Exception: pass
+                db.execute_non_query(
+                    'UPDATE Attendance SET Status=? WHERE AttendanceID=?',
+                    (status, existing['AttendanceID']))
                 saved += 1
             else:
+                class_id = None
+                tt = _try_queries([
+                    ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
+                    ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+                ], fetch_one=True)
+                if tt: class_id = tt.get('ClassID')
                 ok, _ = _try_inserts('Attendance', [
                     ('StudentID,SubjectID,ClassID,AttendanceDate,Status',
                      (student_id, subject_id, class_id, att_date, status)),
@@ -1096,110 +1068,84 @@ def face_attendance_submit():
                      (student_id, subject_id, att_date, status)),
                 ])
                 if ok: saved += 1
-
-            # Track recognised students in-memory session
-            if session and status == 'Present':
-                session['recognised'].add(str(student_id))
-
         except Exception as e:
-            print(f'[face_attendance_submit] row err: {e}')
+            print(f'[face/submit] row error sid={student_id}: {e}')
 
-    recognised_count = len(session.get('recognised', set())) if session else saved
-    return _ok({
-        'message': f'Face attendance saved for {saved} student(s)',
-        'saved': saved,
-        'recognisedCount': recognised_count,
-        'sessionToken': session_token,
-    })
+    return _ok({'message': f'Saved {saved} attendance records', 'saved': saved})
 
 
 @bp_teacher.route('/attendance/face/status')
 @jwt_required()
 def face_attendance_status():
-    """
-    Live status of an ongoing face-recognition session.
-    GET /api/teacher/attendance/face/status?token=<sessionToken>
-    """
+    """GET /api/teacher/attendance/face/status?token=<sessionToken>"""
     uid, err = _get_teacher_user_id()
     if err: return err
-
-    token   = request.args.get('token', '').strip()
+    token   = request.args.get('token', '')
     session = _face_sessions.get(token, {})
-
-    subject_id = session.get('subjectId') or request.args.get('subjectId')
-    att_date   = session.get('date')      or request.args.get('date', date.today().isoformat())
-
     recognised = len(session.get('recognised', set()))
 
-    # Live DB counts
-    present = _safe_scalar(
-        "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Present'",
-        (subject_id, att_date)) if subject_id else 0
-    absent  = _safe_scalar(
-        "SELECT COUNT(*) FROM Attendance WHERE SubjectID=? AND AttendanceDate=? AND Status='Absent'",
-        (subject_id, att_date)) if subject_id else 0
-
-    # Total class size
+    dept_sem   = _get_dept_semester(session.get('teacherDbId') or uid, session.get('subjectId'))
     total = 0
-    dept_sem = _get_dept_semester_for_subject(subject_id) if subject_id else None
     if dept_sem:
         total = _safe_scalar(
             "SELECT COUNT(*) FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
-            (dept_sem['DepartmentID'], dept_sem['Semester'])
-        )
+            (dept_sem.get('DepartmentID'), dept_sem.get('Semester'))) or 0
 
     return _ok({
-        'recognised':   recognised,
-        'present':      present,
-        'absent':       absent,
-        'total':        total,
-        'pending':      max(0, total - present - absent),
-        'sessionToken': token,
+        'sessionActive': bool(session),
+        'present':       recognised,
+        'pending':       max(0, total - recognised),
+        'total':         total,
     })
 
-
-# =============================================================================
-# ATTENDANCE — MARK ABSENT (unchanged — used to finalise face session too)
-# =============================================================================
 
 @bp_teacher.route('/attendance/mark-absent', methods=['POST'])
 @jwt_required()
 def mark_absent_non_scanners():
     """
-    Mark every student not yet recorded as Absent.
-    Used at end of face-recognition session to finalise.
-    Body: { subjectId, attendanceDate, sessionToken? }
+    Mark all students not yet recorded for this subject+date as Absent.
+    Called at end of face session to finalise.
+    Body: { subjectId, attendanceDate, sessionToken?, departmentId?, semester? }
     """
     uid, err = _get_teacher_user_id()
     if err: return err
     teacher_db_id = _get_teacher_db_id(uid)
+
     data          = request.get_json() or {}
     subject_id    = data.get('subjectId')
     att_date      = data.get('attendanceDate', date.today().isoformat())
     dept_id       = data.get('departmentId')
     semester      = data.get('semester')
     session_token = data.get('sessionToken', '')
-    if not subject_id: return _err('subjectId required')
+    if not subject_id:
+        return _err('subjectId required')
 
     if not dept_id or not semester:
-        tt = _get_dept_semester(teacher_db_id, subject_id)
-        if tt: dept_id = tt['DepartmentID']; semester = tt['Semester']
+        ds = (_get_dept_semester(teacher_db_id, subject_id)
+              or _get_dept_semester(uid, subject_id))
+        if ds:
+            dept_id  = ds.get('DepartmentID')
+            semester = ds.get('Semester')
 
-    if not dept_id or not semester: return _err('Could not determine class.')
+    if not dept_id or not semester:
+        return _err('Could not determine class — provide departmentId and semester')
 
     all_students = db.execute_query(
         "SELECT UserID AS StudentID FROM Users WHERE UserType='Student' AND IsActive=1 AND DepartmentID=? AND Semester=?",
         (dept_id, semester)) or []
-    already = {r['StudentID'] for r in (db.execute_query(
-        'SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=?',
-        (subject_id, att_date)) or [])}
+    already = {
+        r['StudentID'] for r in
+        (db.execute_query(
+            'SELECT StudentID FROM Attendance WHERE SubjectID=? AND AttendanceDate=?',
+            (subject_id, att_date)) or [])
+    }
 
     class_id = None
-    tt2 = _try_queries([
+    tt = _try_queries([
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (teacher_db_id, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True)
-    if tt2: class_id = tt2.get('ClassID')
+    if tt: class_id = tt.get('ClassID')
 
     absent_count = 0
     for s in all_students:
@@ -1213,89 +1159,45 @@ def mark_absent_non_scanners():
             ])
             if ok: absent_count += 1
 
-    # Clean up in-memory session
     if session_token and session_token in _face_sessions:
         del _face_sessions[session_token]
 
     return _ok({'message': f'{absent_count} students marked absent', 'absentCount': absent_count})
 
 
-
-# =============================================================================
-# FACE DEBUG — GET /api/teacher/face/debug
-# =============================================================================
-# Returns dependency status, stored encoding count, and session list.
-# Used to diagnose face recognition issues without reading server logs.
-# Safe to leave in production — requires valid JWT.
-
 @bp_teacher.route('/face/debug')
 @jwt_required()
 def face_debug():
+    """
+    Diagnostic endpoint. Returns ML status, stored encoding counts, active sessions.
+    Open /api/teacher/face/debug in browser (while logged in) to check system health.
+    """
     uid, err = _get_teacher_user_id()
     if err: return err
     teacher_db_id = _get_teacher_db_id(uid)
 
-    # Check ML dependencies
     deps = {}
     try:
         from face_recognition_helper import check_dependencies
         deps = check_dependencies()
     except Exception as e:
-        deps = {'ready': False, 'import_error': str(e)}
+        deps = {'ready': False, 'error': str(e)}
 
-    # Count stored face encodings total
-    total_encodings = 0
-    ml_encodings    = 0
-    thumb_encodings = 0
+    total_enc = 0
+    ml_enc    = 0
+    thumb_enc = 0
     try:
         rows = db.execute_query(
-            "SELECT StudentID, EncodingType, FaceEncoding FROM StudentFaceData WHERE FaceEncoding IS NOT NULL") or []
-        total_encodings = len(rows)
+            "SELECT EncodingType FROM StudentFaceData WHERE FaceEncoding IS NOT NULL") or []
+        total_enc = len(rows)
         for r in rows:
-            et = r.get('EncodingType', '')
+            et = (r.get('EncodingType') or '').strip()
             if et == 'ml_encoding':
-                ml_encodings += 1
+                ml_enc += 1
             elif et == 'thumbnail_fallback':
-                thumb_encodings += 1
+                thumb_enc += 1
     except Exception as e:
-        total_encodings = -1
-
-    # Count encodings for THIS teacher's class
-    class_encodings = 0
-    dept_sem = _get_dept_semester(teacher_db_id, None) if teacher_db_id else None
-    subjects_info = []
-    try:
-        subj_rows = db.execute_query(
-            """SELECT DISTINCT s.SubjectID, s.SubjectName
-               FROM Timetable t JOIN Subjects s ON s.SubjectID=t.SubjectID
-               WHERE t.TeacherID=? LIMIT 10""", (teacher_db_id,)) or []
-        for sr in subj_rows:
-            sid = sr.get('SubjectID')
-            ds = _get_dept_semester(teacher_db_id, sid)
-            enc_count = 0
-            if ds:
-                enc_rows = db.execute_query(
-                    """SELECT COUNT(*) AS cnt FROM StudentFaceData sfd
-                       JOIN Users u ON u.UserID=sfd.StudentID
-                       WHERE u.DepartmentID=? AND u.Semester=?
-                         AND sfd.FaceEncoding IS NOT NULL""",
-                    (ds.get('DepartmentID'), ds.get('Semester')), fetch_one=True)
-                enc_count = (enc_rows or {}).get('cnt', 0)
-            subjects_info.append({
-                'subjectId':   sid,
-                'subjectName': sr.get('SubjectName'),
-                'deptSem':     ds,
-                'encodingsInClass': enc_count,
-            })
-    except Exception as e:
-        subjects_info = [{'error': str(e)}]
-
-    # Active sessions
-    sessions_info = [
-        {'token': t[:8]+'...', 'subjectId': s.get('subjectId'),
-         'date': s.get('date'), 'recognised': len(s.get('recognised', set()))}
-        for t, s in _face_sessions.items()
-    ]
+        total_enc = -1
 
     return _ok({
         'mlDependencies':    deps,
@@ -1303,13 +1205,12 @@ def face_debug():
         'dbBackend':         getattr(db, '_backend', 'unknown'),
         'teacherUserId':     uid,
         'teacherDbId':       teacher_db_id,
-        'totalEncodings':    total_encodings,
-        'mlEncodings':       ml_encodings,
-        'thumbnailFallbacks': thumb_encodings,
-        'subjectsWithClass': subjects_info,
-        'activeSessions':    sessions_info,
+        'totalEncodings':    total_enc,
+        'mlEncodings':       ml_enc,
+        'thumbnailFallbacks':thumb_enc,
+        'activeSessions':    len(_face_sessions),
         'hint': ('ML ready — face recognition active' if deps.get('ready')
-                 else 'ML not ready — check dlib/face_recognition install'),
+                  else 'ML not ready — dlib-bin or face_recognition not installed'),
     })
 
 

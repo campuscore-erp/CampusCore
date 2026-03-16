@@ -777,6 +777,7 @@ class Database:
                         FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
                         StudentID     INT NOT NULL UNIQUE,
                         FaceEncoding  LONGBLOB,
+                        EncodingType  VARCHAR(32) DEFAULT 'ml_encoding',
                         RegisteredAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
                         UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
@@ -868,10 +869,13 @@ class Database:
                         FaceDataID    INT PRIMARY KEY AUTO_INCREMENT,
                         StudentID     INT NOT NULL UNIQUE,
                         FaceEncoding  LONGBLOB,
+                        EncodingType  VARCHAR(32) DEFAULT 'ml_encoding',
                         RegisteredAt  DATETIME DEFAULT CURRENT_TIMESTAMP,
                         UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
                 """)
+                # Ensure EncodingType column exists on pre-existing tables
+                _add_col('StudentFaceData', 'EncodingType', "VARCHAR(32) DEFAULT 'ml_encoding'")
                 conn.commit()
                 print('[DB] MySQL column migration complete.')
         except Exception as e:
