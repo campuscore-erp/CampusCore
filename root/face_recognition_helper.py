@@ -246,7 +246,7 @@ def compare_face_to_stored(
 def identify_faces_in_classroom(
     frame_b64: str,
     stored_encodings: List[Tuple[int, bytes]],
-    tolerance: float = 0.5
+    tolerance: float = 0.6
 ) -> List[int]:
     """
     Identify ALL faces visible in a single classroom frame.
@@ -255,10 +255,32 @@ def identify_faces_in_classroom(
     Args:
         frame_b64: base64-encoded classroom image (may contain multiple faces)
         stored_encodings: list of (student_id, face_encoding_blob) tuples
-        tolerance: match threshold
+        tolerance: match threshold — 0.6 is more reliable when stored encodings
+                   are averaged across multiple registration frames
 
     Returns:
         List of identified student_ids (may be empty if no matches)
+
+    FIX NOTES (v2):
+      1. Scale factor changed from 0.25 -> 0.5.
+         HOG face detection requires faces to be at least ~80px tall.
+         At 0.25x a typical webcam face (~200px) becomes ~50px — below HOG's
+         reliable detection floor, causing missed detections in classroom frames.
+         At 0.5x the same face is ~100px, well within HOG's operating range.
+      2. Location scale-back multiplier updated from x4 -> x2 to match the new
+         0.5x scale factor. The previous x4 with 0.25x was arithmetically correct
+         but produced imprecise bounding boxes due to low-res detection; x2 with
+         0.5x gives tighter, more accurate face crop regions for encoding.
+      3. Tolerance raised from 0.5 -> 0.6 (default).
+         Student registrations use averaged encodings across 5 frames.
+         Averaged encodings sit slightly further from any single live-frame
+         encoding in L2 space, so the stricter 0.5 threshold caused false
+         non-matches even for the correct student. 0.6 matches the practical
+         accuracy sweet-spot for averaged-registration vs single-frame-live
+         comparisons while remaining strict enough to avoid false positives.
+      4. Normalise both stored and live encodings to unit vectors before
+         comparison so that distance is computed consistently regardless of
+         minor float precision differences between pickle-serialisation rounds.
     """
     cv2 = _import_cv2()
     fr  = _import_face_recognition()
@@ -280,9 +302,13 @@ def identify_faces_in_classroom(
 
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        # Detect all faces in the frame (scale down for speed — 1/4 resolution)
-        small_rgb  = cv2.resize(img_rgb, (0, 0), fx=0.25, fy=0.25)
-        locations  = fr.face_locations(small_rgb, model='hog')
+        # FIX 1: Scale down to 1/2 resolution (was 1/4).
+        # HOG needs faces >= ~80px tall; 0.5x keeps typical webcam faces ~100px
+        # which is reliably detectable, whereas 0.25x shrank them to ~50px
+        # causing systematic missed detections in classroom frames.
+        scale_factor = 0.5
+        small_rgb = cv2.resize(img_rgb, (0, 0), fx=scale_factor, fy=scale_factor)
+        locations = fr.face_locations(small_rgb, model='hog')
 
         if not locations:
             print('[FaceHelper] No faces found in classroom frame')
@@ -290,16 +316,24 @@ def identify_faces_in_classroom(
 
         print(f'[FaceHelper] Found {len(locations)} face(s) in classroom frame')
 
-        # Scale locations back to original size
+        # FIX 2: Scale locations back using the correct inverse of scale_factor.
+        # Previously hardcoded x4 (matched old 0.25x); now computed from
+        # scale_factor so the bounding boxes align precisely with original image.
+        inv_scale = int(round(1.0 / scale_factor))  # 2 for scale_factor=0.5
         locations_full = [(
-            top    * 4,
-            right  * 4,
-            bottom * 4,
-            left   * 4
+            top    * inv_scale,
+            right  * inv_scale,
+            bottom * inv_scale,
+            left   * inv_scale
         ) for (top, right, bottom, left) in locations]
 
-        # Encode all detected faces
-        live_encodings = fr.face_encodings(img_rgb, locations_full)
+        # Encode all detected faces at full resolution using the scaled-back
+        # locations (num_jitters=1 matches what registration uses by default)
+        live_encodings = fr.face_encodings(img_rgb, locations_full, num_jitters=1)
+
+        if not live_encodings:
+            print('[FaceHelper] face_encodings returned empty for detected faces')
+            return []
 
         # Deserialise all stored encodings once
         stored_deserialized = []
@@ -312,14 +346,25 @@ def identify_faces_in_classroom(
             print('[FaceHelper] No valid stored encodings to compare against')
             return []
 
-        # For each detected face, find best match in stored encodings
-        stored_enc_arrays = [enc for _, enc in stored_deserialized]
+        # FIX 4: Normalise encodings to unit vectors before distance comparison.
+        # face_recognition encodings are already near-unit but pickle round-trips
+        # and averaging can introduce small magnitude drifts. Normalising ensures
+        # L2 distance is computed on the unit hypersphere consistently for both
+        # registration-time averaged encodings and live single-frame encodings.
+        def _normalise(enc: np.ndarray) -> np.ndarray:
+            norm = np.linalg.norm(enc)
+            return enc / norm if norm > 1e-10 else enc
+
+        stored_enc_arrays = [_normalise(enc) for _, enc in stored_deserialized]
         stored_ids        = [sid for sid, _ in stored_deserialized]
 
+        # For each detected face, find best match in stored encodings
         for live_enc in live_encodings:
-            distances = fr.face_distance(stored_enc_arrays, live_enc)
+            live_enc_norm = _normalise(live_enc)
+            distances = fr.face_distance(stored_enc_arrays, live_enc_norm)
             best_idx  = int(np.argmin(distances))
 
+            # FIX 3: Default tolerance raised to 0.6 from 0.5
             if distances[best_idx] <= tolerance:
                 matched_sid = stored_ids[best_idx]
                 if matched_sid not in identified_students:

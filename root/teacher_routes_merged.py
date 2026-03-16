@@ -252,7 +252,6 @@ def _islab_col():
 def profile():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     row = db.execute_query(
         """SELECT u.UserID, u.UserCode, u.FullName, u.Email, u.Phone,
                   u.Gender, u.DateOfBirth, u.JoinDate, u.UserType,
@@ -267,9 +266,9 @@ def profile():
     p['Designation'] = 'Faculty'
     p['JoiningDate'] = p.get('JoinDate', '')
     p['subjectCount'] = _safe_scalar(
-        'SELECT COUNT(DISTINCT SubjectID) FROM TeacherSubjects WHERE TeacherID=?', (teacher_db_id,)
-    ) or _safe_scalar('SELECT COUNT(DISTINCT SubjectID) FROM Timetable WHERE TeacherID=?', (teacher_db_id,))
-    p['periodsPerWeek'] = _safe_scalar('SELECT COUNT(*) FROM Timetable WHERE TeacherID=?', (teacher_db_id,))
+        'SELECT COUNT(DISTINCT SubjectID) FROM TeacherSubjects WHERE TeacherID=?', (uid,)
+    ) or _safe_scalar('SELECT COUNT(DISTINCT SubjectID) FROM Timetable WHERE TeacherID=?', (uid,))
+    p['periodsPerWeek'] = _safe_scalar('SELECT COUNT(*) FROM Timetable WHERE TeacherID=?', (uid,))
     return _ok({'profile': p})
 
 
@@ -282,19 +281,18 @@ def profile():
 def dashboard():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
 
     assigned_subjects = _safe_scalar(
-        'SELECT COUNT(DISTINCT SubjectID) FROM TeacherSubjects WHERE TeacherID=?', (teacher_db_id,)
-    ) or _safe_scalar('SELECT COUNT(DISTINCT SubjectID) FROM Timetable WHERE TeacherID=?', (teacher_db_id,))
-    total_classes = _safe_scalar('SELECT COUNT(*) FROM Timetable WHERE TeacherID=?', (teacher_db_id,))
+        'SELECT COUNT(DISTINCT SubjectID) FROM TeacherSubjects WHERE TeacherID=?', (uid,)
+    ) or _safe_scalar('SELECT COUNT(DISTINCT SubjectID) FROM Timetable WHERE TeacherID=?', (uid,))
+    total_classes = _safe_scalar('SELECT COUNT(*) FROM Timetable WHERE TeacherID=?', (uid,))
     total_students = _safe_scalar(
         """SELECT COUNT(DISTINCT u.UserID) FROM Users u
            WHERE u.UserType='Student' AND u.IsActive=1
              AND EXISTS (SELECT 1 FROM Timetable t
                          JOIN Classes c ON t.ClassID=c.ClassID
-                         WHERE t.TeacherID=? AND c.DepartmentID=u.DepartmentID AND c.Semester=u.Semester)""", (teacher_db_id,))
-    active_exams = _safe_scalar('SELECT COUNT(*) FROM Exams WHERE TeacherID=?', (teacher_db_id,))
+                         WHERE t.TeacherID=? AND c.DepartmentID=u.DepartmentID AND c.Semester=u.Semester)""", (uid,))
+    active_exams = _safe_scalar('SELECT COUNT(*) FROM Exams WHERE TeacherID=?', (uid,))
 
     today_name = datetime.now().strftime('%A')
     todays_schedule = []
@@ -344,7 +342,7 @@ def dashboard():
                ORDER BY t.StartTime""",
         ]:
             try:
-                rows = db.execute_query(q, (teacher_db_id, today_name))
+                rows = db.execute_query(q, (uid, today_name))
                 if rows is not None: break
             except Exception as eq:
                 print(f'[dashboard] schedule query err: {eq}')
@@ -371,7 +369,6 @@ def dashboard():
 def subjects():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     # Real imported Railway schema: Subjects has NO IsLab column
     # Always use 0 AS IsLab and derive from SubjectCode suffix
     ilab = ', s.IsLab' if _islab_col() else ', 0 AS IsLab'
@@ -405,7 +402,7 @@ def subjects():
            WHERE ts.TeacherID=? ORDER BY ts.Semester, s.SubjectName""",
     ]:
         try:
-            rows = db.execute_query(q, (teacher_db_id,))
+            rows = db.execute_query(q, (uid,))
             if rows: break
         except Exception as e:
             print(f'[subjects] TeacherSubjects err: {e}')
@@ -440,7 +437,7 @@ def subjects():
                WHERE t.TeacherID=? ORDER BY t.Semester, s.SubjectName""",
         ]:
             try:
-                rows = db.execute_query(q, (teacher_db_id,))
+                rows = db.execute_query(q, (uid,))
                 if rows: break
             except Exception as e:
                 print(f'[subjects] Timetable fallback err: {e}')
@@ -463,7 +460,6 @@ def subjects():
 def timetable():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     ilab = ', s.IsLab' if _islab_col() else ', 0 AS IsLab'
     rows = None
 
@@ -496,7 +492,7 @@ def timetable():
                WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 ELSE 6 END, t.StartTime""",
     ]:
         try:
-            rows = db.execute_query(q, (teacher_db_id,))
+            rows = db.execute_query(q, (uid,))
             if rows is not None: break
         except Exception as e:
             print(f'[timetable] Classes JOIN query err: {e}')
@@ -530,7 +526,7 @@ def timetable():
                    WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 ELSE 6 END, t.StartTime""",
         ]:
             try:
-                rows = db.execute_query(q, (teacher_db_id,))
+                rows = db.execute_query(q, (uid,))
                 if rows is not None: break
             except Exception as e:
                 print(f'[timetable] inline DeptID query err: {e}')
@@ -552,7 +548,6 @@ def timetable():
 def classes():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     combos = None
 
     # Strategy 1: imported schema — Timetable.ClassID → Classes
@@ -567,7 +562,7 @@ def classes():
            ORDER BY d.DepartmentName, c.Semester""",
     ]:
         try:
-            combos = db.execute_query(q, (teacher_db_id,))
+            combos = db.execute_query(q, (uid,))
             if combos is not None: break
         except Exception as e:
             print(f'[classes] Classes JOIN err: {e}')
@@ -583,7 +578,7 @@ def classes():
                    LEFT JOIN Departments d ON d.DepartmentID=t.DepartmentID
                    WHERE t.TeacherID=?
                    GROUP BY t.DepartmentID, t.Semester, d.DepartmentName, d.DepartmentCode
-                   ORDER BY d.DepartmentName, t.Semester""", (teacher_db_id,))
+                   ORDER BY d.DepartmentName, t.Semester""", (uid,))
         except Exception as e:
             print(f'[classes] inline DeptID err: {e}')
 
@@ -617,12 +612,11 @@ def classes():
 def students_by_class(department_id, semester):
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
 
     teaches = _try_queries([
-        ('SELECT t.ClassID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE t.TeacherID=? AND c.DepartmentID=? AND c.Semester=? LIMIT 1', (teacher_db_id, department_id, semester)),
-        ('SELECT TOP 1 SubjectID FROM TeacherSubjects WHERE TeacherID=? AND DepartmentID=? AND Semester=?', (teacher_db_id, department_id, semester)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND DepartmentID=? AND Semester=? LIMIT 1', (teacher_db_id, department_id, semester)),
+        ('SELECT t.ClassID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE t.TeacherID=? AND c.DepartmentID=? AND c.Semester=? LIMIT 1', (uid, department_id, semester)),
+        ('SELECT TOP 1 SubjectID FROM TeacherSubjects WHERE TeacherID=? AND DepartmentID=? AND Semester=?', (uid, department_id, semester)),
+        ('SELECT t.ClassID FROM Timetable t JOIN Classes c ON t.ClassID=c.ClassID WHERE t.TeacherID=? AND c.DepartmentID=? AND c.Semester=? LIMIT 1', (uid, department_id, semester)),
     ], fetch_one=True)
     if not teaches: return _err('You do not teach this department/semester combination', 403)
 
@@ -657,7 +651,6 @@ def students_by_class(department_id, semester):
 def attendance_submit():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
 
     data            = request.get_json() or {}
     subject_id      = data.get('subjectId')
@@ -665,12 +658,11 @@ def attendance_submit():
     records         = data.get('attendance', [])
     if not subject_id or not records: return _err('subjectId and attendance list required')
 
-    # Resolve ClassID — try with teacher_db_id first, then uid fallback
+    # Resolve ClassID — try Classes JOIN, fall back gracefully
     class_id = None
     for q, p in [
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (teacher_db_id, subject_id)),
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?', (uid, subject_id)),
     ]:
         try:
             tt = db.execute_query(q, p, fetch_one=True)
@@ -724,7 +716,6 @@ def attendance_submit():
 def attendance_history():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     rows = db.execute_query(
         """SELECT a.AttendanceID, a.AttendanceDate, a.Status,
                   a.SubjectID,
@@ -738,7 +729,7 @@ def attendance_history():
                UNION
                SELECT DISTINCT SubjectID FROM Timetable WHERE TeacherID=?
            )
-           ORDER BY a.AttendanceDate DESC, u.FullName""", (teacher_db_id, teacher_db_id)) or []
+           ORDER BY a.AttendanceDate DESC, u.FullName""", (uid, uid)) or []
     return _ok({'attendance': _serialize(rows)})
 
 
@@ -770,21 +761,15 @@ def face_attendance_start():
     uid, err = _get_teacher_user_id()
     if err: return err
 
-    # FIX: Timetable.TeacherID references Teachers.TeacherID, NOT Users.UserID.
-    # _get_teacher_db_id() converts Users.UserID → Teachers.TeacherID via UserCode.
-    teacher_db_id = _get_teacher_db_id(uid)
-
     data       = request.get_json() or {}
     subject_id = data.get('subjectId')
     att_date   = data.get('attendanceDate', date.today().isoformat())
     if not subject_id: return _err('subjectId required')
 
-    # Verify teacher teaches this subject — use teacher_db_id for Timetable lookup
+    # Verify teacher teaches this subject
     tt = _try_queries([
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (teacher_db_id, subject_id)),
-        # Fallback: also try with uid in case schema has Users.UserID in Timetable
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
     if not tt: return _err('You do not teach this subject', 403)
 
@@ -793,15 +778,14 @@ def face_attendance_start():
     session_token = hashlib.sha1(raw.encode()).hexdigest()[:20]
 
     _face_sessions[session_token] = {
-        'subjectId':    subject_id,
-        'date':         att_date,
-        'teacherUid':   uid,
-        'teacherDbId':  teacher_db_id,
-        'recognised':   set(),    # StudentIDs confirmed present so far
+        'subjectId':  subject_id,
+        'date':       att_date,
+        'teacherUid': uid,
+        'recognised': set(),    # StudentIDs confirmed present so far
     }
 
-    # How many students are in this class? — use teacher_db_id for Timetable lookup
-    dept_sem = _get_dept_semester(teacher_db_id, subject_id)
+    # How many students are in this class?
+    dept_sem = _get_dept_semester(uid, subject_id)
     total = 0
     if dept_sem:
         total = _safe_scalar(
@@ -869,10 +853,6 @@ def face_attendance_capture():
             'message':        'Session not found — call /face/start first',
         })
 
-    # FIX: resolve teacher_db_id (Teachers.TeacherID) from session or via lookup.
-    # Timetable.TeacherID = Teachers.TeacherID, NOT Users.UserID.
-    teacher_db_id = session.get('teacherDbId') or _get_teacher_db_id(uid)
-
     frame_valid = bool(image_data) and len(image_data) > 1000
     if not frame_valid:
         return _ok({
@@ -939,7 +919,7 @@ def face_attendance_capture():
 
             if stored_blobs:
                 print(f'[face_capture] Comparing frame against {len(stored_blobs)} stored encoding(s)')
-                matched_ids = identify_faces_in_classroom(image_data, stored_blobs, tolerance=0.5)
+                matched_ids = identify_faces_in_classroom(image_data, stored_blobs, tolerance=0.6)
 
                 for matched_sid in (matched_ids or []):
                     sid_str = str(matched_sid)
@@ -950,15 +930,10 @@ def face_attendance_capture():
                         # Auto-submit Present record to DB
                         att_date = session.get('date', date.today().isoformat())
                         class_id = None
-                        # FIX: use teacher_db_id (Teachers.TeacherID) for Timetable lookup.
-                        # Also handle schemas where ClassID column doesn't exist in Timetable.
                         tt = _try_queries([
                             ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1',
-                             (teacher_db_id, subject_id)),
+                             (uid, subject_id)),
                             ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',
-                             (teacher_db_id, subject_id)),
-                            # Fallback with uid in case schema uses Users.UserID
-                            ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1',
                              (uid, subject_id)),
                         ], fetch_one=True)
                         if tt: class_id = tt.get('ClassID')
@@ -1058,7 +1033,6 @@ def face_attendance_submit():
     """
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
 
     data          = request.get_json() or {}
     session_token = data.get('sessionToken', '')
@@ -1075,9 +1049,8 @@ def face_attendance_submit():
     # Resolve ClassID for Attendance FK
     class_id = None
     tt = _try_queries([
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (teacher_db_id, subject_id)),
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
     if tt: class_id = tt.get('ClassID')
 
@@ -1187,7 +1160,6 @@ def mark_absent_non_scanners():
     """
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     data          = request.get_json() or {}
     subject_id    = data.get('subjectId')
     att_date      = data.get('attendanceDate', date.today().isoformat())
@@ -1197,7 +1169,7 @@ def mark_absent_non_scanners():
     if not subject_id: return _err('subjectId required')
 
     if not dept_id or not semester:
-        tt = _get_dept_semester(teacher_db_id, subject_id)
+        tt = _get_dept_semester(uid, subject_id)
         if tt: dept_id = tt['DepartmentID']; semester = tt['Semester']
 
     if not dept_id or not semester: return _err('Could not determine class.')
@@ -1211,9 +1183,8 @@ def mark_absent_non_scanners():
 
     class_id = None
     tt2 = _try_queries([
-        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (teacher_db_id, subject_id)),
         ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT TOP 1 ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=?',   (uid, subject_id)),
     ], fetch_one=True)
     if tt2: class_id = tt2.get('ClassID')
 
@@ -1244,7 +1215,6 @@ def mark_absent_non_scanners():
 def get_exams():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     rows = None
     for sql in [
         # Full: ExamName + StartTime + EndTime + counts
@@ -1945,11 +1915,10 @@ def schedule_online_class():
 def get_students_for_marks():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     subject_id = request.args.get('subjectId')
     if not subject_id: return _err('subjectId required')
 
-    tt = _get_dept_semester(teacher_db_id, subject_id)
+    tt = _get_dept_semester(uid, subject_id)
     if not tt: return _err('You do not teach this subject', 403)
     dept_id  = tt['DepartmentID']
     semester = tt['Semester']
@@ -1988,7 +1957,6 @@ def get_students_for_marks():
 def save_marks():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     data          = request.get_json() or {}
     subject_id    = data.get('subjectId')
     marks_list    = data.get('marks', [])
@@ -1996,9 +1964,8 @@ def save_marks():
     if not subject_id or not marks_list: return _err('subjectId and marks list required')
 
     teaches = bool(_try_queries([
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT SubjectID FROM TeacherSubjects WHERE TeacherID=? AND SubjectID=? LIMIT 1', (teacher_db_id, subject_id)),
-        ('SELECT TimetableID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
+        ('SELECT ClassID FROM Timetable WHERE TeacherID=? AND SubjectID=? LIMIT 1', (uid, subject_id)),
     ], fetch_one=True))
     if not teaches: return _err('You do not teach this subject', 403)
 
@@ -2087,7 +2054,6 @@ def save_marks():
 def my_students():
     uid, err = _get_teacher_user_id()
     if err: return err
-    teacher_db_id = _get_teacher_db_id(uid)
     students = None
 
     # Strategy 1: Timetable → Classes join (imported schema)
@@ -2103,7 +2069,7 @@ def my_students():
            ORDER BY d.DepartmentName, u.Semester, u.UserCode""",
     ]:
         try:
-            students = db.execute_query(q, (teacher_db_id,))
+            students = db.execute_query(q, (uid,))
             if students is not None: break
         except Exception as e:
             print(f'[my_students] Classes JOIN err: {e}')
@@ -2122,7 +2088,7 @@ def my_students():
                          SELECT 1 FROM Timetable t
                          WHERE t.TeacherID=? AND t.DepartmentID=u.DepartmentID AND t.Semester=u.Semester
                      )
-                   ORDER BY d.DepartmentName, u.Semester, u.UserCode""", (teacher_db_id,))
+                   ORDER BY d.DepartmentName, u.Semester, u.UserCode""", (uid,))
         except Exception as e:
             print(f'[my_students] inline dept err: {e}')
 
@@ -2147,7 +2113,7 @@ def my_students():
            ORDER BY d.DepartmentName, t.Semester""",
     ]:
         try:
-            combos = db.execute_query(q, (teacher_db_id,))
+            combos = db.execute_query(q, (uid,))
             if combos is not None: break
         except Exception as e:
             print(f'[my_students] combos err: {e}')
