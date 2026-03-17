@@ -256,8 +256,28 @@ select.form-input option{background:var(--bg3)}
   .main{margin-left:0!important}
   .hamburger{display:flex!important}
   .mobile-overlay.active{opacity:1;pointer-events:all}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  /* content */
+  .content{padding:1rem}
+  .topbar{padding:.7rem 1rem .7rem 3.75rem}
+  .topbar h2{font-size:.95rem}
+  .topbar p{display:none}
+  /* modal */
+  .modal{width:calc(100vw - 1rem)!important;max-width:100%!important}
+  /* profile 2-col → 1-col */
+  .card{overflow-x:auto}
+  .tt-hdr-row,.tt-row{min-width:440px}
+  .marks-row{min-width:640px}
+  /* pay grid stacked */
+  .pay-method-grid{grid-template-columns:1fr}
 }
-@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .att-subj-grid{grid-template-columns:1fr}
+  .exam-cards-grid{grid-template-columns:1fr}
+  .card{padding:1rem}
+}
+@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}.content{padding:.75rem}}
 .hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:.6rem;border-radius:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);position:fixed;top:1rem;left:1rem;z-index:300}
 .hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all .3s}
 .hamburger.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
@@ -284,6 +304,54 @@ select.form-input option{background:var(--bg3)}
 .ec-score{font-size:.83rem;font-weight:800;font-family:var(--mono)}
 .ec-score.good{color:var(--green)}.ec-score.mid{color:var(--amber)}.ec-score.low{color:var(--red)}
 @keyframes scanLine{0%{top:4px;opacity:1}49%{top:calc(100% - 6px);opacity:1}50%{opacity:0}51%{top:4px;opacity:0}52%{opacity:1}100%{top:calc(100% - 6px);opacity:1}}
+</style>
+<style>
+/* ── STUDENT EXTRA MOBILE OVERRIDES ── */
+@media(max-width:768px){
+  /* Dashboard 2-col layout → stack */
+  [style*="grid-template-columns:1.3fr 1fr"],[style*="grid-template-columns:1.2fr 1fr"]{
+    display:flex!important;flex-direction:column!important;
+  }
+  /* Profile info grid */
+  [style*="grid-template-columns:1fr 1fr;gap:.85rem 1.5rem"]{
+    grid-template-columns:1fr!important;
+  }
+  /* Topbar */
+  .topbar{padding-left:3.75rem!important;}
+  /* Timetable horizontal scroll */
+  .tt-hdr-row,.tt-row{min-width:440px;}
+  .marks-row{min-width:640px;}
+  /* Face cam */
+  [style*="position:relative;width:100%;background:#000;border-radius:12px"]{
+    max-width:100%!important;
+  }
+  /* Payment grid */
+  [style*="grid-template-columns:1fr 1fr;gap:.75rem"]{
+    grid-template-columns:1fr!important;
+  }
+  /* fee grid */
+  [style*="grid-template-columns:1fr 1fr;gap:.85rem"]{
+    grid-template-columns:1fr!important;
+  }
+  /* Card max-width overrides for profile/fee */
+  .card[style*="max-width:640px"],.card[style*="max-width:560px"]{
+    max-width:100%!important;
+  }
+  /* Teachers grid: auto-fill → single col */
+  [style*="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))"]{
+    grid-template-columns:1fr!important;
+  }
+}
+@media(max-width:600px){
+  .stats-grid{grid-template-columns:1fr 1fr!important;}
+  .att-subj-grid{grid-template-columns:1fr;}
+  .exam-cards-grid{grid-template-columns:1fr;}
+  /* Materials grid */
+  [style*="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))"]{
+    grid-template-columns:1fr!important;
+  }
+  .card{padding:1rem!important;}
+}
 </style>
 </head>
 <body>
@@ -1392,6 +1460,21 @@ document.querySelectorAll('.nav-item').forEach(el=>{
 function adjustLayout(){
   const tb=document.querySelector('.topbar');
   if(tb) tb.style.paddingLeft=window.innerWidth<=768?'4.5rem':'1.5rem';
+  /* Reflow inline-style grids on small screens */
+  const isMobile=window.innerWidth<=768;
+  document.querySelectorAll('[style]').forEach(el=>{
+    const s=el.getAttribute('style')||'';
+    if(s.includes('grid-template-columns')){
+      if(isMobile){
+        if(!el.dataset.origStyle) el.dataset.origStyle=s;
+        el.style.display='flex';
+        el.style.flexDirection='column';
+        el.style.gap=el.style.gap||'1rem';
+      } else if(el.dataset.origStyle){
+        el.setAttribute('style',el.dataset.origStyle);
+      }
+    }
+  });
 }
 window.addEventListener('resize',adjustLayout);
 adjustLayout();
