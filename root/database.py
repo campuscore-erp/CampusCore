@@ -904,6 +904,53 @@ class Database:
                     except Exception as _e:
                         print(f'[DB] Could not rename Students.ID: {_e}')
 
+                # ── Rename Timetable columns if imported schema uses different names ──
+                _timetable_renames = [
+                    ('dept_id',       'DepartmentID', 'INT'),
+                    ('department_id', 'DepartmentID', 'INT'),
+                    ('subject_id',    'SubjectID',    'INT'),
+                    ('teacher_id',    'TeacherID',    'INT'),
+                    ('day_of_week',   'DayOfWeek',    'VARCHAR(20)'),
+                    ('period_number', 'PeriodNumber', 'INT'),
+                    ('start_time',    'StartTime',    'TIME'),
+                    ('end_time',      'EndTime',      'TIME'),
+                    ('room_number',   'RoomNumber',   'VARCHAR(50)'),
+                    ('academic_year', 'AcademicYear', 'VARCHAR(20)'),
+                ]
+                for old_col, new_col, defn in _timetable_renames:
+                    cur.execute(
+                        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='Timetable' AND COLUMN_NAME=%s",
+                        (old_col,)
+                    )
+                    if cur.fetchone():
+                        try:
+                            cur.execute(f"ALTER TABLE Timetable CHANGE COLUMN `{old_col}` `{new_col}` {defn}")
+                            conn.commit()
+                            print(f'[DB] Renamed Timetable.{old_col} -> {new_col}')
+                        except Exception as _e:
+                            print(f'[DB] Could not rename Timetable.{old_col}: {_e}')
+
+                # ── Rename TeacherSubjects columns if needed ──
+                _ts_renames = [
+                    ('teacher_id', 'TeacherID',    'INT NOT NULL'),
+                    ('subject_id', 'SubjectID',    'INT NOT NULL'),
+                    ('dept_id',    'DepartmentID', 'INT'),
+                ]
+                for old_col, new_col, defn in _ts_renames:
+                    cur.execute(
+                        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                        "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='TeacherSubjects' AND COLUMN_NAME=%s",
+                        (old_col,)
+                    )
+                    if cur.fetchone():
+                        try:
+                            cur.execute(f"ALTER TABLE TeacherSubjects CHANGE COLUMN `{old_col}` `{new_col}` {defn}")
+                            conn.commit()
+                            print(f'[DB] Renamed TeacherSubjects.{old_col} -> {new_col}')
+                        except Exception as _e:
+                            print(f'[DB] Could not rename TeacherSubjects.{old_col}: {_e}')
+
                 conn.commit()
                 print('[DB] MySQL column migration complete.')
         except Exception as e:
