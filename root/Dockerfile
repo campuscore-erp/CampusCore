@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     libopenblas-dev \
     liblapack-dev \
-    libx11-6 \
+    libx11-6 libx11-dev \
     libx11-dev \
     libgl1 \
     libglib2.0-0 \
