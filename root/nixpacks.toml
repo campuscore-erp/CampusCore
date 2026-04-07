@@ -1,31 +1,11 @@
-# nixpacks.toml — CampusCore (Railway)
-# Strategy: install pre-built dlib wheel to avoid C++ compile timeout
-
 [phases.setup]
-nixPkgs = [
-  "python311",
-  "gcc",
-  "g++",
-  "cmake",
-  "boost",
-  "blas",
-  "lapack",
-  "libffi",
-  "openssl",
-  "zlib",
-  "libjpeg",
-  "libpng",
-  "libGL",
-  "glib",
-]
+nixPkgs = ["python311", "libGL", "glib", "libjpeg", "libpng", "zlib", "openssl", "cmake", "gcc"]
 
 [phases.install]
 cmds = [
   "pip install --upgrade pip setuptools wheel",
-  "pip install cmake",
-  # Install dlib using pre-compiled wheel (avoids timeout)
-  "pip install dlib --prefer-binary",
-  "pip install face_recognition --prefer-binary",
+  "pip install dlib-bin",
+  "pip install face_recognition",
   "pip install -r root/requirements.txt"
 ]
 
