@@ -874,8 +874,36 @@ class Database:
                         UpdatedAt     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )
                 """)
-                # Ensure EncodingType column exists on pre-existing tables
-                _add_col('StudentFaceData', 'EncodingType', "VARCHAR(32) DEFAULT 'ml_encoding'")
+                # NOTE: EncodingType is already defined in the CREATE TABLE above;
+                # calling _add_col here would fire ALTER TABLE on new tables and
+                # cause "Duplicate column name 'EncodingType'" — removed intentionally.
+
+                # ── Rename Teachers.ID -> TeacherID if schema was imported with wrong name ──
+                cur.execute(
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='Teachers' AND COLUMN_NAME='ID'"
+                )
+                if cur.fetchone():
+                    try:
+                        cur.execute("ALTER TABLE Teachers CHANGE COLUMN `ID` `TeacherID` INT NOT NULL AUTO_INCREMENT")
+                        conn.commit()
+                        print('[DB] Renamed Teachers.ID -> TeacherID')
+                    except Exception as _e:
+                        print(f'[DB] Could not rename Teachers.ID: {_e}')
+
+                # ── Rename Students.ID -> StudentID if schema was imported with wrong name ──
+                cur.execute(
+                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='Students' AND COLUMN_NAME='ID'"
+                )
+                if cur.fetchone():
+                    try:
+                        cur.execute("ALTER TABLE Students CHANGE COLUMN `ID` `StudentID` INT NOT NULL AUTO_INCREMENT")
+                        conn.commit()
+                        print('[DB] Renamed Students.ID -> StudentID')
+                    except Exception as _e:
+                        print(f'[DB] Could not rename Students.ID: {_e}')
+
                 conn.commit()
                 print('[DB] MySQL column migration complete.')
         except Exception as e:
