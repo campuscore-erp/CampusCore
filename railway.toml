@@ -1,2 +1,5 @@
+[build]
+buildCommand = "pip install -r root/requirements.txt"
+
 [deploy]
 startCommand = "cd root && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
