@@ -9,17 +9,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
 RUN pip install --upgrade pip setuptools wheel
 
-# Install dlib-bin first (pre-built wheel, no cmake needed)
-RUN pip install dlib-bin
+# dlib-bin 20.x only has a Python 3.12 wheel.
+# 19.24.6 has a Python 3.11 wheel — pin it explicitly.
+RUN pip install "dlib-bin==19.24.6"
 
-# Install face_recognition (depends on dlib)
-RUN pip install face_recognition>=1.3.0
+RUN pip install "face_recognition>=1.3.0"
 
-# Install OpenCV headless
-RUN pip install opencv-python-headless>=4.8.0
+RUN pip install "opencv-python-headless>=4.8.0"
 
 WORKDIR /app
 COPY root/requirements.txt .
@@ -27,4 +25,4 @@ RUN pip install -r requirements.txt
 
 COPY root/ .
 
-CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "120"]
