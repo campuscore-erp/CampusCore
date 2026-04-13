@@ -9,5 +9,10 @@ pymysql>=1.1.0
 cryptography>=41.0.0
 numpy>=1.24.0
 opencv-python-headless>=4.8.0
+# FIX: dlib-bin provides a pre-built wheel for dlib.
+# Do NOT use "dlib>=19.24.0" here — that triggers a C++ source compile
+# which requires cmake/boost/lapack and takes 5-10 min, timing out on Railway.
+# dlib-bin and face_recognition are also installed explicitly in nixpacks.toml
+# and Dockerfile BEFORE this file is processed, so they are already present.
 dlib-bin
 face_recognition>=1.3.0

@@ -16,13 +16,26 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Install dependencies
-echo " Installing/checking dependencies..."
+# Upgrade pip/build tools
+echo " Upgrading pip..."
+python3 -m pip install --upgrade pip setuptools wheel --quiet
+
+# FIX: Install dlib-bin (pre-built wheel) BEFORE requirements.txt.
+# Without this, "pip install -r requirements.txt" tries to compile dlib
+# from C++ source which requires cmake/boost and takes ~5 min (or fails).
+echo " Installing dlib-bin (pre-built wheel, no compiler needed)..."
+pip3 install dlib-bin --quiet
+
+echo " Installing face_recognition..."
+pip3 install face_recognition --quiet
+
+# Install remaining dependencies
+echo " Installing remaining dependencies..."
 pip3 install -r requirements.txt --quiet
 
 echo ""
 echo " Starting Flask server on http://127.0.0.1:5000"
-echo " Open root/auth.html in your browser to access the website."
+echo " Open your browser to: http://127.0.0.1:5000/auth.html"
 echo " Press Ctrl+C to stop the server."
 echo ""
 

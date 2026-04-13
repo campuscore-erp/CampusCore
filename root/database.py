@@ -1149,6 +1149,10 @@ class Database:
         self._sqlite_add_column_if_missing(conn, 'StudentEnrollments', "EnrollmentDate TEXT DEFAULT (date('now'))")
         self._sqlite_add_column_if_missing(conn, 'StudentEnrollments', 'IsActive INTEGER DEFAULT 1')
 
+        # ── StudentFaceData: EncodingType was added in a later version ──────────
+        # Existing databases created before this column was added need the migration.
+        self._sqlite_add_column_if_missing(conn, 'StudentFaceData', "EncodingType TEXT DEFAULT 'ml_encoding'")
+
     def _ensure_sqlite_schema(self):
         stmts = [
             """CREATE TABLE IF NOT EXISTS Departments (
@@ -1391,6 +1395,7 @@ class Database:
                 FaceDataID    INTEGER PRIMARY KEY AUTOINCREMENT,
                 StudentID     INTEGER NOT NULL UNIQUE,
                 FaceEncoding  BLOB,
+                EncodingType  TEXT DEFAULT 'ml_encoding',
                 RegisteredAt  TEXT DEFAULT (datetime('now')),
                 UpdatedAt     TEXT DEFAULT (datetime('now'))
             )""",

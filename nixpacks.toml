@@ -1,41 +1,38 @@
 # nixpacks.toml — CampusCore University ERP (Railway deployment)
-# dlib requires cmake + gcc + boost to compile from source.
-# We install dlib in a SEPARATE step BEFORE requirements.txt so the
-# long C++ compile does not hit Railway's pip timeout.
+# ─────────────────────────────────────────────────────────────────
+# FIX: Use dlib-bin (pre-compiled wheel) instead of compiling dlib
+# from source. Compiling dlib from source takes 5–10 min and often
+# times out or fails on Railway. dlib-bin ships a ready-made .whl.
+#
+# NOTE: This file must be in the PROJECT ROOT (same folder as
+#       railway.toml), NOT inside the root/ subfolder.
+# ─────────────────────────────────────────────────────────────────
 
 [phases.setup]
 nixPkgs = [
   "python311",
-  "gcc",
-  "g++",
-  "cmake",          # Required to compile dlib
-  "boost",          # dlib C++ dependency
-  "blas",           # numpy/dlib linear algebra
-  "lapack",
-  "libffi",
-  "openssl",
-  "zlib",
-  "libjpeg",        # Pillow / OpenCV
-  "libpng",         # OpenCV
+  "libGL",          # OpenCV: libGL.so.1
+  "glib",           # OpenCV: libgthread-2.0.so.0
+  "libjpeg",        # Pillow / OpenCV JPEG support
+  "libpng",         # OpenCV PNG support
+  "zlib",           # compression
+  "openssl",        # cryptography package
 ]
 
 [phases.install]
 cmds = [
-  # Step 1 — upgrade pip/build tools
+  # Step 1 — upgrade build tools
   "pip install --upgrade pip setuptools wheel",
 
-  # Step 2 — install cmake Python wrapper (puts cmake on PATH for dlib)
-  "pip install cmake",
+  # Step 2 — install dlib-bin FIRST (pre-built wheel, no cmake needed)
+  "pip install dlib-bin",
 
-  # Step 3 — compile & install dlib FIRST (takes ~3 min; must succeed before face_recognition)
-  "pip install dlib>=19.24.0",
-
-  # Step 4 — install face_recognition (depends on dlib being already installed)
+  # Step 3 — install face_recognition (requires dlib already present)
   "pip install face_recognition>=1.3.0",
 
-  # Step 5 — install everything else (dlib & face_recognition already satisfied, skipped)
-  "pip install -r requirements.txt"
+  # Step 4 — install all other dependencies
+  "pip install -r root/requirements.txt"
 ]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+cmd = "cd root && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
