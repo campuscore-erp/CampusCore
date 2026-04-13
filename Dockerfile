@@ -1,6 +1,5 @@
 FROM python:3.11-slim
 
-# System libs needed by OpenCV and dlib-bin
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -11,11 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --upgrade pip setuptools wheel
 
-# dlib-bin 20.x only has a Python 3.12 wheel.
-# 19.24.6 has a Python 3.11 wheel — pin it explicitly.
 RUN pip install "dlib-bin==19.24.6"
-
-RUN pip install "face_recognition>=1.3.0"
+RUN pip install "face_recognition==1.3.0" --no-deps
+RUN pip install "face-recognition-models>=0.3.0" "Click>=6.0" "Pillow" "numpy"
 
 RUN pip install "opencv-python-headless>=4.8.0"
 
