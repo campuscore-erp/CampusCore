@@ -1,12 +1,12 @@
 ﻿[phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "libGL", "glib", "libjpeg", "libpng", "zlib", "openssl"]
+nixPkgs = ["libGL", "glib", "libjpeg", "libpng", "zlib", "openssl"]
 
 [phases.install]
 cmds = [
-  "python3 -m pip install --upgrade pip setuptools wheel --break-system-packages",
-  "python3 -m pip install dlib-bin --break-system-packages",
-  "python3 -m pip install face_recognition>=1.3.0 --break-system-packages",
-  "python3 -m pip install -r root/requirements.txt --break-system-packages"
+  "pip install --upgrade pip setuptools wheel",
+  "pip install dlib-bin",
+  "pip install face_recognition>=1.3.0",
+  "pip install -r root/requirements.txt"
 ]
 
 [start]
