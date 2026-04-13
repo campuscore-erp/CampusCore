@@ -1,4 +1,4 @@
-[phases.setup]
+﻿[phases.setup]
 nixPkgs = ["python311", "python311Packages.pip", "libGL", "glib", "libjpeg", "libpng", "zlib", "openssl"]
 
 [phases.install]
