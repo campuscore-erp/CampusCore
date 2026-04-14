@@ -846,6 +846,21 @@ class Database:
                 _add_col('Exams', 'Instructions', 'TEXT')
                 _add_col('Exams', 'IsActive',  'TINYINT NOT NULL DEFAULT 1')
 
+                # ── FeeStructure: patch columns present in some schemas but not others ──
+                _add_col('FeeStructure', 'TotalFee',       'DECIMAL(10,2) DEFAULT 0')
+                _add_col('FeeStructure', 'ExamFee',        'DECIMAL(10,2) DEFAULT 0')
+                _add_col('FeeStructure', 'DevelopmentFee', 'DECIMAL(10,2) DEFAULT 0')
+                _add_col('FeeStructure', 'OtherCharges',   'DECIMAL(10,2) DEFAULT 0')
+                _add_col('FeeStructure', 'SportsFee',      'DECIMAL(10,2) DEFAULT 0')
+                _add_col('FeeStructure', 'OtherFees',      'DECIMAL(10,2) DEFAULT 0')
+
+                # ── FeePayments: patch columns for flexible insert ──
+                _add_col('FeePayments', 'Description',   'VARCHAR(300)')
+                _add_col('FeePayments', 'AcademicYear',  "VARCHAR(20) DEFAULT '2024-25'")
+                _add_col('FeePayments', 'TransactionID', 'VARCHAR(100)')
+                _add_col('FeePayments', 'PaymentMode',   'VARCHAR(50)')
+                _add_col('FeePayments', 'Status',        "VARCHAR(20) DEFAULT 'Paid'")
+
                 # ── ExamSubmissions: ensure MarksObtained exists ──
                 _add_col('ExamSubmissions', 'MarksObtained', 'DECIMAL(5,2)')
                 _add_col('ExamSubmissions', 'SubmittedAt',   'DATETIME')

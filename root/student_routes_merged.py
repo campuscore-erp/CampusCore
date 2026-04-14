@@ -1541,12 +1541,16 @@ def get_fees():
         user_id = int(get_jwt_identity())
         student_id, dept_id, semester, _ = _resolve(user_id)
 
+        # ── Fetch fee structure — try multiple column layouts ──────────────
         fee_structure = None
         if dept_id and semester:
             for fs_sql in [
+                # Layout A: DB schema with SportsFee + OtherFees (no TotalFee column)
+                "SELECT FeeStructureID, DepartmentID, Semester, AcademicYear, TuitionFee, LibraryFee, LabFee, SportsFee, OtherFees FROM FeeStructure WHERE DepartmentID=? AND Semester=? ORDER BY AcademicYear DESC LIMIT 1",
+                # Layout B: older schema with TotalFee, ExamFee etc
                 "SELECT * FROM FeeStructure WHERE DepartmentID=? AND Semester=? AND AcademicYear='2024-25'",
-                "SELECT TOP 1 * FROM FeeStructure WHERE DepartmentID=? AND Semester=? ORDER BY AcademicYear DESC",
                 "SELECT * FROM FeeStructure WHERE DepartmentID=? AND Semester=? ORDER BY AcademicYear DESC LIMIT 1",
+                "SELECT TOP 1 * FROM FeeStructure WHERE DepartmentID=? AND Semester=? ORDER BY AcademicYear DESC",
             ]:
                 try:
                     row = db.execute_query(fs_sql, (dept_id, semester), fetch_one=True)
@@ -1556,13 +1560,34 @@ def get_fees():
                 except Exception:
                     pass
 
+        # Compute TotalFee from individual columns if TotalFee column is missing/zero
+        if fee_structure:
+            stored_total = float(fee_structure.get('TotalFee') or 0)
+            if stored_total == 0:
+                computed = (
+                    float(fee_structure.get('TuitionFee')     or 0) +
+                    float(fee_structure.get('LibraryFee')     or 0) +
+                    float(fee_structure.get('LabFee')         or 0) +
+                    float(fee_structure.get('SportsFee')      or 0) +
+                    float(fee_structure.get('OtherFees')      or 0) +
+                    float(fee_structure.get('ExamFee')        or 0) +
+                    float(fee_structure.get('DevelopmentFee') or 0) +
+                    float(fee_structure.get('OtherCharges')   or 0)
+                )
+                fee_structure['TotalFee'] = computed
+
+        # ── Fetch payments — try both UserID and StudentID ─────────────────
         payments = []
-        try:
-            payments = serialize_rows(db.execute_query(
-                "SELECT * FROM FeePayments WHERE StudentID=? ORDER BY PaymentDate DESC",
-                (student_id,))) or []
-        except Exception as e:
-            print(f'[Fees] payments err: {e}')
+        for pid_col, pid_val in [('StudentID', user_id), ('StudentID', student_id)]:
+            try:
+                rows = serialize_rows(db.execute_query(
+                    f"SELECT * FROM FeePayments WHERE {pid_col}=? ORDER BY PaymentDate DESC",
+                    (pid_val,))) or []
+                if rows:
+                    payments = rows
+                    break
+            except Exception as e:
+                print(f'[Fees] payments err ({pid_col}={pid_val}): {e}')
 
         total_paid = sum(float(p.get('AmountPaid', 0) or 0) for p in payments)
         total_fee  = float(fee_structure.get('TotalFee', 0) if fee_structure else 0)
@@ -1615,18 +1640,44 @@ def pay_fee():
         # Build reference note
         ref_note = upi_id or bank_name or (f'****{card_number[-4:]}' if len(card_number) >= 4 else '') or ''
 
-        for ins_sql in [
-            "INSERT INTO FeePayments (StudentID, AmountPaid, PaymentDate, PaymentMode, TransactionID, Description, AcademicYear) VALUES (?,?,?,?,?,?,?)",
-            "INSERT INTO FeePayments (StudentID, AmountPaid, PaymentDate, PaymentMode, TransactionID) VALUES (?,?,?,?,?)",
-        ]:
+        # Resolve FeeStructureID for the FK constraint in the DB schema
+        fee_structure_id = None
+        student_id_resolved, dept_id, semester, _ = _resolve(user_id)
+        if dept_id and semester:
             try:
-                if 'AcademicYear' in ins_sql:
-                    db.execute_non_query(ins_sql, (student_id, float(amount), today, payment_mode, txn_id, description, '2024-25'))
-                else:
-                    db.execute_non_query(ins_sql, (student_id, float(amount), today, payment_mode, txn_id))
+                fs = db.execute_query(
+                    "SELECT FeeStructureID FROM FeeStructure WHERE DepartmentID=? AND Semester=? ORDER BY AcademicYear DESC LIMIT 1",
+                    (dept_id, semester), fetch_one=True)
+                if fs:
+                    fee_structure_id = fs.get('FeeStructureID')
+            except Exception:
+                pass
+
+        # Try inserts from most-specific schema to fallback
+        insert_variants = []
+        if fee_structure_id:
+            insert_variants += [
+                ("INSERT INTO FeePayments (StudentID, FeeStructureID, AmountPaid, PaymentDate, PaymentMode, TransactionID, Description, AcademicYear) VALUES (?,?,?,?,?,?,?,?)",
+                 (user_id, fee_structure_id, float(amount), today, payment_mode, txn_id, description, '2024-25')),
+            ]
+        insert_variants += [
+            ("INSERT INTO FeePayments (StudentID, AmountPaid, PaymentDate, PaymentMode, TransactionID, Description, AcademicYear) VALUES (?,?,?,?,?,?,?)",
+             (user_id, float(amount), today, payment_mode, txn_id, description, '2024-25')),
+            ("INSERT INTO FeePayments (StudentID, AmountPaid, PaymentDate, PaymentMode, TransactionID) VALUES (?,?,?,?,?)",
+             (user_id, float(amount), today, payment_mode, txn_id)),
+        ]
+
+        saved = False
+        for ins_sql, ins_params in insert_variants:
+            try:
+                db.execute_non_query(ins_sql, ins_params)
+                saved = True
                 break
             except Exception as e:
                 print(f'[FeePay] insert variant err: {e}')
+
+        if not saved:
+            return jsonify({'success': False, 'error': 'Payment could not be recorded. Please try again.'}), 500
 
         return jsonify({
             'success':       True,

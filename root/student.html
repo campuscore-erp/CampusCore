@@ -1384,14 +1384,40 @@ async function markAllRead(){
 }
 
 async function loadFees(){
-  const d=await api('/api/student/fees');feePendingAmt=parseFloat(d.pendingAmount||0);
-  const el=document.getElementById('feeDetails');const fs=d.feeStructure;
+  const d=await api('/api/student/fees');
+  feePendingAmt=parseFloat(d.pendingAmount||0);
+  const el=document.getElementById('feeDetails');
+  const fs=d.feeStructure;
   if(fs){
-    el.innerHTML=`<div style="margin-bottom:1.1rem;padding-bottom:.9rem;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between"><span style="font-size:.78rem;color:var(--text3)">Academic Year</span><span style="font-weight:700;font-family:var(--mono)">${fs.AcademicYear||'—'}</span></div></div>${[['Tuition Fee',fs.TuitionFee],['Exam Fee',fs.ExamFee],['Lab Fee',fs.LabFee],['Library Fee',fs.LibraryFee],['Development Fee',fs.DevelopmentFee],['Other Charges',fs.OtherCharges]].filter(([,v])=>parseFloat(v||0)>0).map(([l,v])=>`<div class="fee-row"><span>${l}</span><span style="font-family:var(--mono)">₹${parseFloat(v||0).toLocaleString('en-IN')}</span></div>`).join('')}<div class="fee-row" style="font-weight:800;border-top:1px solid var(--border2);padding:.8rem 0"><span>Total Fee</span><span style="color:var(--blue2);font-family:var(--mono)">₹${parseFloat(fs.TotalFee||0).toLocaleString('en-IN')}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-top:1.1rem"><div style="background:var(--green-bg);padding:.9rem;border-radius:var(--r);text-align:center;border:1px solid rgba(16,217,160,.12)"><div style="font-size:.68rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Paid</div><div style="font-weight:800;color:var(--green);font-family:var(--head);font-size:1.1rem">₹${parseFloat(d.totalPaid||0).toLocaleString('en-IN')}</div></div><div style="background:var(--red-bg);padding:.9rem;border-radius:var(--r);text-align:center;border:1px solid rgba(240,92,107,.12)"><div style="font-size:.68rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Balance Due</div><div style="font-weight:800;color:var(--red);font-family:var(--head);font-size:1.1rem">₹${parseFloat(d.pendingAmount||0).toLocaleString('en-IN')}</div></div></div>${feePendingAmt>0?`<button class="btn btn-primary" onclick="openPayModal()" style="width:100%;margin-top:1rem;justify-content:center">💳 Pay ₹${feePendingAmt.toLocaleString('en-IN')} Now</button>`:'<div class="alert alert-success" style="margin-top:1rem;margin-bottom:0">✅ All fees paid — you\'re all clear!</div>'}`;
-  }else el.innerHTML=`<div class="empty"><div class="empty-icon">💳</div><div class="empty-text">Fee structure not set up yet</div></div>`;
+    const feeRows=[
+      ['Tuition Fee',fs.TuitionFee],
+      ['Lab Fee',fs.LabFee],
+      ['Library Fee',fs.LibraryFee],
+      ['Sports Fee',fs.SportsFee],
+      ['Exam Fee',fs.ExamFee],
+      ['Development Fee',fs.DevelopmentFee],
+      ['Other Fees',fs.OtherFees||fs.OtherCharges],
+    ].filter(([,v])=>parseFloat(v||0)>0);
+    const totalFee=parseFloat(fs.TotalFee||0);
+    const totalPaid=parseFloat(d.totalPaid||0);
+    const balance=parseFloat(d.pendingAmount||0);
+    el.innerHTML=
+      `<div style="margin-bottom:1.1rem;padding-bottom:.9rem;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between"><span style="font-size:.78rem;color:var(--text3)">Academic Year</span><span style="font-weight:700;font-family:var(--mono)">${fs.AcademicYear||'2024-25'}</span></div></div>`
+      +feeRows.map(([l,v])=>`<div class="fee-row"><span>${l}</span><span style="font-family:var(--mono)">&#x20B9;${parseFloat(v||0).toLocaleString('en-IN')}</span></div>`).join('')
+      +`<div class="fee-row" style="font-weight:800;border-top:2px solid var(--border2);padding:.8rem 0;margin-top:.3rem"><span>Total Fee</span><span style="color:var(--blue2);font-family:var(--mono)">&#x20B9;${totalFee.toLocaleString('en-IN')}</span></div>`
+      +`<div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-top:1.1rem">`
+      +`<div style="background:var(--green-bg);padding:.9rem;border-radius:var(--r);text-align:center;border:1px solid rgba(16,217,160,.12)"><div style="font-size:.68rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Paid</div><div style="font-weight:800;color:var(--green);font-family:var(--head);font-size:1.1rem">&#x20B9;${totalPaid.toLocaleString('en-IN')}</div></div>`
+      +`<div style="background:var(--red-bg);padding:.9rem;border-radius:var(--r);text-align:center;border:1px solid rgba(240,92,107,.12)"><div style="font-size:.68rem;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Balance Due</div><div style="font-weight:800;color:var(--red);font-family:var(--head);font-size:1.1rem">&#x20B9;${balance.toLocaleString('en-IN')}</div></div>`
+      +`</div>`
+      +(feePendingAmt>0
+        ?`<button class="btn btn-primary" onclick="openPayModal()" style="width:100%;margin-top:1rem;justify-content:center">&#x1F4B3; Pay &#x20B9;${feePendingAmt.toLocaleString('en-IN')} Now</button>`
+        :'<div class="alert alert-success" style="margin-top:1rem;margin-bottom:0">&#x2705; All fees paid &mdash; you're all clear!</div>');
+  }else{
+    el.innerHTML=`<div class="empty"><div class="empty-icon">&#x1F4B3;</div><div class="empty-text">Fee structure not set up yet</div></div>`;
+  }
   const pms=d.payments||[];const el2=document.getElementById('payHistory');
   if(!pms.length)el2.innerHTML=`<div class="empty"><div class="empty-sub">No payments recorded yet</div></div>`;
-  else el2.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Mode</th><th>Txn ID</th></tr></thead><tbody>${pms.map(p=>`<tr><td style="font-family:var(--mono);font-size:.77rem">${p.PaymentDate||''}</td><td style="font-weight:800;color:var(--green);font-family:var(--mono)">₹${parseFloat(p.AmountPaid||0).toLocaleString('en-IN')}</td><td><span class="badge badge-blue">${p.PaymentMode||'—'}</span></td><td style="font-family:var(--mono);font-size:.71rem;color:var(--text3)">${p.TransactionID||'—'}</td></tr>`).join('')}</tbody></table></div>`;
+  else el2.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Amount</th><th>Mode</th><th>Txn ID</th></tr></thead><tbody>${pms.map(p=>`<tr><td style="font-family:var(--mono);font-size:.77rem">${p.PaymentDate?String(p.PaymentDate).slice(0,10):''}</td><td style="font-weight:800;color:var(--green);font-family:var(--mono)">&#x20B9;${parseFloat(p.AmountPaid||0).toLocaleString('en-IN')}</td><td><span class="badge badge-blue">${p.PaymentMode||'&mdash;'}</span></td><td style="font-family:var(--mono);font-size:.71rem;color:var(--text3)">${p.TransactionID||'&mdash;'}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function openPayModal(){
