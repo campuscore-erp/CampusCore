@@ -386,7 +386,7 @@ select.form-input option{background:var(--bg3)}
       <div class="nav-item" id="nav-exams" onclick="go('exams')"><span class="nav-ic">◻</span> Exams</div>
       <div class="nav-item" id="nav-materials" onclick="go('materials')"><span class="nav-ic">◪</span> Study Materials</div>
       <div class="nav-item" id="nav-online" onclick="go('online')"><span class="nav-ic">⊕</span> Online Classes</div>
-      <div class="nav-item" id="nav-notifications" onclick="go('notifications')"><span class="nav-ic">◎</span> Notifications</div>
+      <div class="nav-item" id="nav-notifications" onclick="go('notifications')"><span class="nav-ic">◎</span> Notifications<span id="notifBadge" class="notif-count-badge" style="display:none"></span></div>
       <div class="nav-item" id="nav-fees" onclick="go('fees')"><span class="nav-ic">⊛</span> Fee Details</div>
     </div>
   </nav>
@@ -1411,7 +1411,7 @@ async function loadFees(){
       +`</div>`
       +(feePendingAmt>0
         ?`<button class="btn btn-primary" onclick="openPayModal()" style="width:100%;margin-top:1rem;justify-content:center">&#x1F4B3; Pay &#x20B9;${feePendingAmt.toLocaleString('en-IN')} Now</button>`
-        :'<div class="alert alert-success" style="margin-top:1rem;margin-bottom:0">&#x2705; All fees paid &mdash; you're all clear!</div>');
+        :'<div class="alert alert-success" style="margin-top:1rem;margin-bottom:0">&#x2705; All fees paid &mdash; you\'re all clear!</div>');
   }else{
     el.innerHTML=`<div class="empty"><div class="empty-icon">&#x1F4B3;</div><div class="empty-text">Fee structure not set up yet</div></div>`;
   }
