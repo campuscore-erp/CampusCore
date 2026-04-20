@@ -204,13 +204,17 @@ def _notify_students(subject_id, title, message, notif_type='General', dept_id=N
 
         for sid in student_ids:
             for ins_sql, vals in [
+                # MySQL/MSSQL — UserID column with CreatedAt
                 ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
                  (sid, title, message, notif_type, datetime.now())),
-                ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
+                # SQLite fallback — StudentID column with CreatedAt
+                ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
                  (sid, title, message, notif_type, datetime.now())),
+                # Without CreatedAt — UserID
                 ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
                  (sid, title, message, notif_type)),
-                ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
+                # Without CreatedAt — StudentID
+                ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
                  (sid, title, message, notif_type)),
             ]:
                 try:
@@ -711,6 +715,39 @@ def attendance_submit():
         except Exception as e:
             print(f'[attendance_submit] row error: {e}')
 
+    # ── Notify each student who was marked Absent ──────────────────────────
+    try:
+        teacher_row = db.execute_query(
+            "SELECT FullName FROM Users WHERE UserID=?", (uid,), fetch_one=True)
+        teacher_name = teacher_row['FullName'] if teacher_row else 'Your teacher'
+        subject_row = db.execute_query(
+            "SELECT SubjectName FROM Subjects WHERE SubjectID=?", (subject_id,), fetch_one=True)
+        subject_name = subject_row['SubjectName'] if subject_row else 'your subject'
+        for rec in records:
+            if rec.get('status', 'Present') == 'Absent':
+                sid = rec.get('studentId')
+                if not sid:
+                    continue
+                abs_msg = (f'You were marked absent on {attendance_date} '
+                           f'for {subject_name} by {teacher_name}.')
+                for ins_sql, ins_vals in [
+                    ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
+                     (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance', datetime.now())),
+                    ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
+                     (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance', datetime.now())),
+                    ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
+                     (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance')),
+                    ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
+                     (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance')),
+                ]:
+                    try:
+                        db.execute_non_query(ins_sql, ins_vals)
+                        break
+                    except Exception:
+                        pass
+    except Exception as _ne:
+        print(f'[attendance_submit] notify err (non-fatal): {_ne}')
+
     return _ok({'message': f'Attendance saved for {saved} students', 'saved': saved})
 
 
@@ -1147,6 +1184,14 @@ def mark_absent_non_scanners():
     ], fetch_one=True)
     if tt: class_id = tt.get('ClassID')
 
+    # Fetch teacher name once for notification messages
+    _teacher_name_abs = 'Your teacher'
+    try:
+        _tr = db.execute_query("SELECT FullName FROM Users WHERE UserID=?", (uid,), fetch_one=True)
+        if _tr: _teacher_name_abs = _tr['FullName']
+    except Exception:
+        pass
+
     absent_count = 0
     for s in all_students:
         sid = s['StudentID']
@@ -1157,7 +1202,29 @@ def mark_absent_non_scanners():
                 ('StudentID,SubjectID,AttendanceDate,Status',
                  (sid, subject_id, att_date, 'Absent')),
             ])
-            if ok: absent_count += 1
+            if ok:
+                absent_count += 1
+                # Notify the student
+                try:
+                    abs_msg = (f'You were marked absent on {att_date} '
+                               f'by {_teacher_name_abs}.')
+                    for ins_sql, ins_vals in [
+                        ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
+                         (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance', datetime.now())),
+                        ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead,CreatedAt) VALUES (?,?,?,?,0,?)",
+                         (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance', datetime.now())),
+                        ("INSERT INTO Notifications (UserID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
+                         (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance')),
+                        ("INSERT INTO Notifications (StudentID,Title,Message,Type,IsRead) VALUES (?,?,?,?,0)",
+                         (sid, '\U0001f534 Absent Marked', abs_msg, 'Attendance')),
+                    ]:
+                        try:
+                            db.execute_non_query(ins_sql, ins_vals)
+                            break
+                        except Exception:
+                            pass
+                except Exception as _ne:
+                    print(f'[mark_absent] notify err sid={sid} (non-fatal): {_ne}')
 
     if session_token and session_token in _face_sessions:
         del _face_sessions[session_token]
@@ -2050,6 +2117,22 @@ def save_marks():
 
     if errors:
         print(f'[save_marks] completed with errors: {errors}')
+
+    # Notify students in this subject that marks have been updated
+    if saved > 0:
+        try:
+            subject_row = db.execute_query(
+                "SELECT SubjectName FROM Subjects WHERE SubjectID=?", (subject_id,), fetch_one=True)
+            subject_name = subject_row['SubjectName'] if subject_row else 'your subject'
+            _notify_students(
+                subject_id,
+                f'\U0001f4ca Marks Updated: {subject_name}',
+                f'Your marks for {subject_name} have been uploaded/updated by your teacher. Check the Marks section.',
+                'Marks'
+            )
+        except Exception as _ne:
+            print(f'[save_marks] notify err (non-fatal): {_ne}')
+
     return _ok({'message': f'Marks saved for {saved} student(s)', 'saved': saved, 'errors': errors[:5]})
 
 

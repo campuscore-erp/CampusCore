@@ -1240,19 +1240,30 @@ def broadcast_notification():
         now   = _now_str()
 
         for u in users:
-            uid = u['UserID']
+            uid_target = u['UserID']
+            inserted = False
             for ins_sql, ins_params in [
+                # UserID with Type and CreatedAt (preferred)
+                ("INSERT INTO Notifications (UserID, Title, Message, Type, IsRead, CreatedAt) VALUES (?,?,?,?,0,?)",
+                 (uid_target, title, message, 'Announcement', now)),
+                # StudentID fallback with Type and CreatedAt
+                ("INSERT INTO Notifications (StudentID, Title, Message, Type, IsRead, CreatedAt) VALUES (?,?,?,?,0,?)",
+                 (uid_target, title, message, 'Announcement', now)),
+                # UserID without Type (older schema)
                 ("INSERT INTO Notifications (UserID, Title, Message, IsRead, CreatedAt) VALUES (?,?,?,0,?)",
-                 (uid, title, message, now)),
+                 (uid_target, title, message, now)),
+                # StudentID without Type (older schema)
                 ("INSERT INTO Notifications (StudentID, Title, Message, IsRead, CreatedAt) VALUES (?,?,?,0,?)",
-                 (uid, title, message, now)),
+                 (uid_target, title, message, now)),
             ]:
                 try:
                     db.execute_non_query(ins_sql, ins_params)
-                    count += 1
+                    inserted = True
                     break
                 except Exception:
                     pass
+            if inserted:
+                count += 1
 
         return jsonify({
             'success': True,
